@@ -10,6 +10,7 @@ from app.core.database import get_session
 from app.core.security import generate_api_key
 from app.models.api_key import ApiKey
 from app.models.group import Group
+from app.models.llm_model import LlmModel
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ async def api_keys_list(
     db_groups = [g.name for g in db.exec(select(Group)).all()]
     user_groups = user.get_groups()
     groups = sorted(list(set(["public"] + user_groups + db_groups)))
+    active_models = db.exec(select(LlmModel).where(LlmModel.is_active == True).order_by(LlmModel.created_at.asc())).all()
 
     return templates.TemplateResponse(
         request=request,
@@ -36,6 +38,7 @@ async def api_keys_list(
             "user": user,
             "keys": keys,
             "available_groups": groups,
+            "available_models": active_models,
             "new_raw_key": None,
         },
     )
@@ -46,6 +49,8 @@ async def api_key_create(
     request: Request,
     name: str = Form(...),
     allowed_groups: List[str] = Form(...),
+    model_id: Optional[str] = Form(None),
+    system_prompt: Optional[str] = Form(None),
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
@@ -55,12 +60,17 @@ async def api_key_create(
     if not clean_groups:
         clean_groups = ["public"]
 
+    clean_model_id = model_id.strip() if model_id and model_id.strip() else None
+    clean_system_prompt = system_prompt.strip() if system_prompt and system_prompt.strip() else None
+
     api_key_obj = ApiKey(
         user_id=user.id,
         name=name.strip(),
         key_hash=key_hash,
         prefix=prefix,
         allowed_groups=json.dumps(clean_groups),
+        model_id=clean_model_id,
+        system_prompt=clean_system_prompt,
     )
     db.add(api_key_obj)
     db.commit()

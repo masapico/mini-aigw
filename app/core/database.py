@@ -23,28 +23,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 
 def init_db() -> None:
+    """データベースの全テーブルを作成する"""
     SQLModel.metadata.create_all(engine)
-
-    # 既存テーブルへのカラム追加マイグレーション (SQLite ALTER TABLE)
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        try:
-            cursor = conn.execute(text("PRAGMA table_info(users)"))
-            user_cols = [row[1] for row in cursor.fetchall()]
-            if user_cols and "groups" not in user_cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN groups TEXT DEFAULT '[]'"))
-                conn.commit()
-        except Exception:
-            pass
-
-        try:
-            cursor = conn.execute(text("PRAGMA table_info(knowledge_documents)"))
-            doc_cols = [row[1] for row in cursor.fetchall()]
-            if doc_cols and "tags" not in doc_cols:
-                conn.execute(text("ALTER TABLE knowledge_documents ADD COLUMN tags TEXT DEFAULT NULL"))
-                conn.commit()
-        except Exception:
-            pass
 
 
 def get_session() -> Generator[Session, None, None]:

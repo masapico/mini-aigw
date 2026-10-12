@@ -20,11 +20,11 @@
     hx-target="#api-keys-container"
     hx-swap="innerHTML"
     hx-indicator="#key-spinner"
-    onsubmit="setTimeout(() => document.getElementById('keyNameInput').value = '', 400)"
+    onsubmit="setTimeout(() => { document.getElementById('keyNameInput').value = ''; document.getElementById('keySystemPromptInput').value = ''; }, 400)"
   >
-    <div class="row g-3 align-items-end">
-      <div class="col-12 col-md-5">
-        <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途</label>
+    <div class="row g-3">
+      <div class="col-12 col-md-4">
+        <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
         <input
           type="text"
           id="keyNameInput"
@@ -35,11 +35,21 @@
         >
       </div>
 
-      <div class="col-12 col-md-5">
+      <div class="col-12 col-md-4">
+        <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
+        <select name="model_id" class="form-select form-control-modern">
+          <option value="">指定なし (クライアント指定 / 既定モデル)</option>
+          {% for m in available_models %}
+          <option value="{{ m.id }}">{{ m.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12 col-md-4">
         <label class="form-label small fw-semibold text-secondary">
-          検索を許可するナレッジグループ (複数選択可)
+          検索を許可するナレッジグループ
         </label>
-        <div class="d-flex flex-wrap align-items-center gap-3 px-3 py-1 border rounded-3 bg-white" style="min-height: 42px; border-color: var(--border-color) !important;">
+        <div id="key-groups-container" class="d-flex flex-wrap align-items-center gap-2 px-3 py-1 border rounded-3 bg-white" style="min-height: 42px; border-color: var(--border-color) !important;">
           {% for grp in available_groups %}
           <div class="form-check mb-0">
             <input
@@ -56,8 +66,19 @@
         </div>
       </div>
 
-      <div class="col-12 col-md-2">
-        <button type="submit" class="btn-modern-primary w-100 justify-content-center">
+      <div class="col-12 col-md-10">
+        <label class="form-label small fw-semibold text-secondary">事前定義システムプロンプト (基底ポリシー・ペルソナ / 任意)</label>
+        <textarea
+          id="keySystemPromptInput"
+          name="system_prompt"
+          class="form-control form-control-modern"
+          rows="2"
+          placeholder="例: あなたは社内営業アシスタントです。社内ナレッジを参照し、簡潔かつ丁寧に回答してください。"
+        ></textarea>
+      </div>
+
+      <div class="col-12 col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
           <span class="spinner-border spinner-border-sm htmx-indicator" id="key-spinner" role="status"></span>
           キーを発行
         </button>

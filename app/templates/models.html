@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}LLMモデル管理 - mini-aigw{% endblock %}
+
+{% block content %}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+  <div>
+    <h3 class="fw-bold mb-1">LLM モデル管理</h3>
+    <p class="text-muted small mb-0">
+      mini-aigw で公開・利用可能な Bedrock 基底モデルを管理します。<code>/v1/models</code> や APIキー発行時の選択肢に反映されます。
+    </p>
+  </div>
+</div>
+
+<!-- モデル新規登録カード -->
+<div class="modern-card mb-4">
+  <h5 class="fw-bold mb-3">新規モデルの登録</h5>
+  <form
+    hx-post="/models/create"
+    hx-target="#models-container"
+    hx-swap="innerHTML"
+    hx-indicator="#model-spinner"
+    onsubmit="setTimeout(() => { document.getElementById('modelIdInput').value = ''; document.getElementById('modelNameInput').value = ''; document.getElementById('modelDescInput').value = ''; }, 400)"
+  >
+    <div class="row g-3">
+      <div class="col-12 col-md-5">
+        <label class="form-label small fw-semibold text-secondary">Bedrock モデル ID / ARN <span class="text-danger">*</span></label>
+        <input
+          type="text"
+          id="modelIdInput"
+          class="form-control form-control-modern"
+          name="id"
+          placeholder="例: anthropic.claude-3-5-sonnet-20241022-v2:0"
+          required
+        >
+      </div>
+
+      <div class="col-12 col-md-4">
+        <label class="form-label small fw-semibold text-secondary">表示名 <span class="text-danger">*</span></label>
+        <input
+          type="text"
+          id="modelNameInput"
+          class="form-control form-control-modern"
+          name="name"
+          placeholder="例: Claude 3.5 Sonnet v2"
+          required
+        >
+      </div>
+
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-secondary">プロバイダ</label>
+        <input
+          type="text"
+          class="form-control form-control-modern"
+          name="provider"
+          value="bedrock"
+          readonly
+        >
+      </div>
+
+      <div class="col-12 col-md-9">
+        <label class="form-label small fw-semibold text-secondary">説明・用途メモ (任意)</label>
+        <input
+          type="text"
+          id="modelDescInput"
+          class="form-control form-control-modern"
+          name="description"
+          placeholder="例: 高度な推論・コード生成向けフラグシップモデル"
+        >
+      </div>
+
+      <div class="col-12 col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
+          <span class="spinner-border spinner-border-sm htmx-indicator" id="model-spinner" role="status"></span>
+          モデルを登録
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- モデル一覧 -->
+<div class="modern-card p-0 overflow-hidden">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+    <h6 class="fw-bold mb-0">登録済み LLM モデル一覧</h6>
+    <span class="text-muted small">有効なモデルのみが <code>/v1/models</code> および利用候補として公開されます</span>
+  </div>
+  <div id="models-container">
+    {% include "partials/models_section.html" %}
+  </div>
+</div>
+{% endblock %}
+

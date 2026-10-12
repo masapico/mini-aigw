@@ -21,8 +21,15 @@
   - **mini-id OIDC**: Authorization Code Flow + PKCE (`S256`)、不変の `sub` (UUID) 主識別子、RP-Initiated Logout 対応。
   - **ローカル認証**: Argon2id によるセキュアなパスワード認証。
   - セッション固定攻撃対策（ログイン時セッション ID 再生成）、Cookie 属性 (`HttpOnly`, `SameSite=Lax`, HTTPS時 `Secure`)。
-- **業務チャット向け API キー管理**:
+- **業務チャット向け API キー管理 & プロンプト/モデル紐付け**:
   - 権限グループを指定した `sk-live-...` トークンの発行・失効（SHA-256 で安全に保存）。
+  - **固定モデル指定**: キーごとに特定の Bedrock モデル（Claude 3.5, Nova Lite 等）を固定化可能（用途制限・コスト統制）。
+  - **事前定義システムプロンプト**: キーごとに前提ポリシー・ペルソナプロンプトを設定し、リクエストに基底注入・合成。
+- **LLM モデル動的 DB 管理 (`/models`)**:
+  - Bedrock 基底モデルの追加、有効/無効の切り替え、既定モデル設定を Web 管理画面から動的に管理。
+  - `/v1/models` や APIキー発行画面のモデル候補に即時反映。
+- **データベースマイグレーション (Alembic)**:
+  - SQLModel に対応した Alembic によるバージョン管理されたマイグレーションファイル機構。
 - **完全閉域・オフライン対応 Web UI**:
   - 外部 CDN への依存を完全排除（Bootstrap 5.3 + htmx 2.x をローカル同梱・配信）。
   - UX に配慮した洗練されたモダンデザイン。
@@ -130,12 +137,50 @@ DEFAULT_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
    - **Retrieve 単体テスト**: クエリとグループフィルタを入力し、取得チャンク、スコア（%）、メタデータをリアルタイム確認。
    - **対話シミュレーション**: モデルとグループを指定して質問し、引用元（Citations）付きの回答をシミュレート。
 4. **API キー管理 (`/api-keys`)**:
-   - 業務チャットボット用にアクセス可能なナレッジグループを指定して API キー（`sk-live-...`）を発行・失効。
+   - 業務チャットボット用にアクセス可能なナレッジグループ、固定LLMモデル、事前定義システムプロンプトを指定して API キー（`sk-live-...`）を発行・失効。
    - シークレットキーは発行時に一度だけ画面上に表示され、コピーできます。
+5. **モデル管理 (`/models`)**:
+   - Bedrock 基底モデルの新規登録、有効/無効の切り替え、既定モデルの設定、削除をブラウザ上で実行。
 
 ---
 
-## 6. OpenAI 互換 API の利用例
+## 6. データベースマイグレーション (Alembic)
+
+本システムでは、SQLModel に対応した Alembic により、データベーススキーマのバージョン管理と安全な変更適用を行っています。
+
+### 6.1 マイグレーションの実行 (スキーマ適用)
+
+最新のリビジョンまでデータベースを更新します:
+
+```bash
+.venv/bin/alembic upgrade head
+```
+
+現在のリビジョンを確認する場合:
+
+```bash
+.venv/bin/alembic current
+```
+
+### 6.2 新規マイグレーションファイルの作成
+
+SQLModel のモデル定義（`app/models/*.py`）を変更した後、以下のコマンドで差分マイグレーションファイルを自動生成します:
+
+```bash
+.venv/bin/alembic revision --autogenerate -m "変更内容の説明 (例: add_column_foo)"
+```
+
+生成されたマイグレーションファイル（`alembic/versions/xxxx_変更内容の説明.py`）の内容を確認し、必要に応じて微調整の上、`alembic upgrade head` で適用します。
+
+### 6.3 マイグレーション履歴の確認
+
+```bash
+.venv/bin/alembic history --verbose
+```
+
+---
+
+## 7. OpenAI 互換 API の利用例
 
 ### 6.1 Python (`openai` 公式 SDK)
 
@@ -217,7 +262,7 @@ print(response.choices[0].message.content)
 
 ---
 
-## 7. テストの実行
+## 8. テストの実行
 
 全テストスイート（OpenAI SDK互換、markitdown、S3メタデータ整合性、グループPre-filtering、PKCE/セキュリティ、閉域アセット検証等）を実行します。
 
@@ -227,26 +272,30 @@ print(response.choices[0].message.content)
 
 ---
 
-## 8. ディレクトリ構成
+## 9. ディレクトリ構成
 
 ```
 mini-aigw/
+├── alembic/                      # データベースマイグレーション
+│   ├── versions/                 # 各リビジョンマイグレーションファイル
+│   └── env.py                    # Alembic 実行設定 (SQLModel 連動)
 ├── app/
 │   ├── api/
 │   │   ├── v1/
 │   │   │   ├── chat.py           # OpenAI互換 /v1/chat/completions
-│   │   │   └── models.py         # /v1/models
+│   │   │   └── models.py         # /v1/models (DB動的取得)
 │   │   └── web/
 │   │       ├── api_keys.py       # APIキー発行/失効/一覧
 │   │       ├── auth.py           # mini-id OIDC & ローカル認証
 │   │       ├── dashboard.py      # システムダッシュボード
 │   │       ├── knowledge.py      # ナレッジアップロード/削除/一覧
+│   │       ├── models.py         # LLMモデル管理画面・HTMX
 │   │       └── rag_test.py       # RAGテスト画面・HTMXエンドポイント
 │   ├── core/
 │   │   ├── config.py             # 環境変数・設定 (pydantic-settings)
 │   │   ├── database.py           # SQLite (WAL設定付きエンジン)
 │   │   └── security.py           # パスワードハッシュ(Argon2id), セッション, PKCE
-│   ├── models/                   # SQLModel 定義 (User, ApiKey, KnowledgeDocument, Session)
+│   ├── models/                   # SQLModel 定義 (User, Group, ApiKey, KnowledgeDocument, LlmModel, Session)
 │   ├── services/
 │   │   ├── bedrock_service.py    # Converse API & ConverseStream, Retrieve (S3 Vectors)
 │   │   ├── knowledge_service.py  # S3 Vectors & .metadata.json サイドカー, Ingestion
@@ -257,7 +306,8 @@ mini-aigw/
 │   │   └── vendor/               # 完全閉域ローカル静的配信 (Bootstrap 5.3, htmx 2.x)
 │   ├── templates/                # Jinja2 テンプレート (完全ローカルアセット参照)
 │   └── main.py                   # FastAPI アプリケーションエントリポイント
-├── tests/                        # 自動テストスイート (24件)
+├── tests/                        # 自動テストスイート
+├── alembic.ini                   # Alembic 設定
 ├── pyproject.toml
 ├── AGENTS.md                     # 開発ガイドライン・実装指示書
 ├── DESIGN.md                     # システム設計書
@@ -266,6 +316,6 @@ mini-aigw/
 
 ---
 
-## 9. ライセンス
+## 10. ライセンス
 
 社内利用限定 (Internal Use Only)

@@ -65,6 +65,40 @@ async def verify_api_key(
     return api_key_obj
 
 
+def prepare_chat_messages(
+    messages: List[Dict[str, Any]],
+    api_key_system_prompt: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    APIキーの事前定義システムプロンプトを基底（最優先）として messages に注入・合成する。
+    クライアント側にも system メッセージが存在する場合はその直後に連結する。
+    """
+    if not api_key_system_prompt or not api_key_system_prompt.strip():
+        return messages
+
+    client_systems: List[str] = []
+    other_messages: List[Dict[str, Any]] = []
+
+    for msg in messages:
+        if msg.get("role") == "system":
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                client_systems.append(content)
+            elif isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and "text" in part:
+                        client_systems.append(part["text"])
+        else:
+            other_messages.append(msg)
+
+    if client_systems:
+        combined_text = api_key_system_prompt.strip() + "\n\n" + "\n\n".join(client_systems)
+    else:
+        combined_text = api_key_system_prompt.strip()
+
+    return [{"role": "system", "content": combined_text}] + other_messages
+
+
 @router.post("/chat/completions")
 async def chat_completions(
     request: ChatCompletionRequest,
@@ -72,9 +106,11 @@ async def chat_completions(
 ):
     """
     OpenAI 互換のチャット補完エンドポイント。
-    Bedrock Converse API へリクエストを中継し、通常または SSE ストリーミングレスポンスを返却する。
+    APIキーに紐付いた固定モデルおよびシステムプロンプトを適用し、Bedrock Converse API へ中継する。
     """
-    model_id = request.model or settings.DEFAULT_MODEL_ID
+    # APIキーにモデルが固定されている場合は優先、未設定の場合はリクエストモデルまたはデフォルト
+    model_id = api_key.model_id or request.model or settings.DEFAULT_MODEL_ID
+    effective_messages = prepare_chat_messages(request.messages, api_key.system_prompt)
     client = get_bedrock_runtime_client()
 
     if request.stream:
@@ -82,7 +118,7 @@ async def chat_completions(
             call_converse_stream(
                 client=client,
                 model_id=model_id,
-                messages=request.messages,
+                messages=effective_messages,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
             ),
@@ -98,7 +134,7 @@ async def chat_completions(
             result = call_converse(
                 client=client,
                 model_id=model_id,
-                messages=request.messages,
+                messages=effective_messages,
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
             )

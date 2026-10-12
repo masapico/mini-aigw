@@ -8,6 +8,7 @@ from app.api.web.auth import require_current_user
 from app.core.config import settings
 from app.core.database import get_session
 from app.models.group import Group
+from app.models.llm_model import LlmModel
 from app.models.user import User
 from app.services.bedrock_service import (
     call_converse,
@@ -32,13 +33,16 @@ async def rag_test_page(
     user_groups = user.get_groups()
     groups = sorted(list(set(["public"] + user_groups + db_groups)))
 
+    db_models = db.exec(select(LlmModel).where(LlmModel.is_active == True).order_by(LlmModel.created_at.asc())).all()
+    models_list = [m.id for m in db_models] if db_models else settings.AVAILABLE_MODELS
+
     return templates.TemplateResponse(
         request=request,
         name="rag_test.html",
         context={
             "user": user,
             "groups": groups,
-            "models": settings.AVAILABLE_MODELS,
+            "models": models_list,
             "kb_id": settings.BEDROCK_KB_ID,
         },
     )

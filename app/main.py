@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 from app.api.v1 import chat, models
-from app.api.web import api_keys, auth, dashboard, knowledge, rag_test, users
+from app.api.web import api_keys, auth, dashboard, knowledge, models as web_models, rag_test, users
 from app.core.config import settings
 from app.core.database import engine, init_db
 from app.core.security import hash_password
@@ -79,5 +79,6 @@ app.include_router(dashboard.router, tags=["Web Dashboard"])
 app.include_router(knowledge.router, tags=["Web Knowledge"])
 app.include_router(rag_test.router, tags=["Web RAG Test"])
 app.include_router(api_keys.router, tags=["Web API Keys"])
+app.include_router(web_models.router, tags=["Web Models"])
 app.include_router(users.router, tags=["Web Users"])
 

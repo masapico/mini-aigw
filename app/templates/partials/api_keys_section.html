@@ -34,6 +34,8 @@
       <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
         <th>名前</th>
         <th>キープレフィックス</th>
+        <th>固定モデル</th>
+        <th>システムプロンプト</th>
         <th>許可グループ (権限)</th>
         <th>発行日時</th>
         <th class="text-end">操作</th>
@@ -44,6 +46,28 @@
       <tr class="border-bottom" id="key-row-{{ k.id }}">
         <td class="fw-semibold text-dark">{{ k.name }}</td>
         <td class="font-monospace text-muted small">{{ k.prefix }}</td>
+        <td>
+          {% if k.model_id %}
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill small font-monospace" style="font-size: 0.78rem;">
+            {{ k.model_id }}
+          </span>
+          {% else %}
+          <span class="text-muted small">指定なし (任意)</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if k.system_prompt %}
+          <span
+            class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 rounded-pill small"
+            title="{{ k.system_prompt }}"
+            style="cursor: help;"
+          >
+            設定あり (基底注入)
+          </span>
+          {% else %}
+          <span class="text-muted small">なし</span>
+          {% endif %}
+        </td>
         <td>
           {% for grp in k.get_allowed_groups() %}
           <span class="badge-pill-modern badge-group">{{ grp }}</span>
@@ -66,7 +90,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="5" class="text-center py-5 text-muted">
+        <td colspan="7" class="text-center py-5 text-muted">
           発行された API キーはありません。上部から新しく発行してください。
         </td>
       </tr>

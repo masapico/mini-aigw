@@ -224,4 +224,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Test screenshots
 tests/screenshots/

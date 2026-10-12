@@ -14,6 +14,8 @@ class ApiKey(SQLModel, table=True):
     key_hash: str = Field(unique=True, index=True)  # SHA-256
     prefix: str  # 表示用 (例: 'sk-live-ab12...')
     allowed_groups: str = Field(default='["public"]')  # JSON 配列 (例: '["public", "sales"]')
+    model_id: Optional[str] = Field(default=None)  # 紐付けモデル (未設定時は自由)
+    system_prompt: Optional[str] = Field(default=None)  # 事前定義システムプロンプト
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def get_allowed_groups(self) -> List[str]:

@@ -187,19 +187,27 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
         page.wait_for_selector("#keyNameInput")
 
         key_input = page.locator('#keyNameInput').bounding_box()
+        model_select = page.locator('select[name="model_id"]').bounding_box()
+        grp_box = page.locator('#key-groups-container').bounding_box()
         key_btn = page.locator('button[type="submit"]').bounding_box()
-        grp_box = page.locator('.row.g-3.align-items-end .col-md-5:nth-child(2) > div').bounding_box()
+        prompt_input = page.locator('#keySystemPromptInput').bounding_box()
 
-        assert key_input is not None and key_btn is not None and grp_box is not None
+        assert key_input is not None and model_select is not None and grp_box is not None and key_btn is not None and prompt_input is not None
 
-        # 下端Y座標が一直線に揃っていること (align-items-end)
-        bottom_input = key_input["y"] + key_input["height"]
+        # 1行目: key_input と model_select のY座標と高さが揃っていること
+        assert abs(key_input["y"] - model_select["y"]) < 2
+        assert abs(key_input["height"] - model_select["height"]) < 2
+
+        # 2行目: prompt_input と key_btn の下端が揃っていること (align-items-end)
+        bottom_prompt = prompt_input["y"] + prompt_input["height"]
         bottom_btn = key_btn["y"] + key_btn["height"]
-        bottom_grp = grp_box["y"] + grp_box["height"]
-
-        assert abs(bottom_input - bottom_btn) < 2, f"API Key input and button bottom mismatch: {bottom_input} vs {bottom_btn}"
-        assert abs(bottom_input - bottom_grp) < 2, f"API Key input and group container bottom mismatch: {bottom_input} vs {bottom_grp}"
+        assert abs(bottom_prompt - bottom_btn) < 2, f"API Key prompt and button bottom mismatch: {bottom_prompt} vs {bottom_btn}"
 
         page.screenshot(path="tests/screenshots/api_keys_page.png")
+
+        # 6. モデル管理画面の検証
+        page.goto(f"{live_server}/models")
+        page.wait_for_selector("#models-container")
+        page.screenshot(path="tests/screenshots/models_page.png")
 
         browser.close()
