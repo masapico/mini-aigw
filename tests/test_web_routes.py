@@ -167,6 +167,27 @@ def test_rag_test_web_endpoints(mock_runtime, mock_agent):
     assert chat_resp.status_code == 200
     assert "Based on [1], here is the answer." in chat_resp.text
 
+    # 4. Incompatible configuration エラー発生時の表示検証
+    mock_agent.return_value.retrieve.side_effect = Exception(
+        "Incompatible configuration: vectorSearchConfiguration is not supported for managed knowledge bases."
+    )
+    err_ret_resp = client.post(
+        "/rag-test/retrieve",
+        data={"query": "error query", "group": "public"},
+    )
+    assert err_ret_resp.status_code == 200
+    assert "ナレッジベース検索エラーが発生しました" in err_ret_resp.text
+    assert "managedSearchConfiguration" in err_ret_resp.text
+
+    err_chat_resp = client.post(
+        "/rag-test/chat",
+        data={"query": "error chat query", "group": "public"},
+    )
+    assert err_chat_resp.status_code == 200
+    assert "ナレッジ検索中にエラーが発生しました" in err_chat_resp.text
+    assert "managedSearchConfiguration" in err_chat_resp.text
+
+
 
 def test_api_keys_web_workflow():
     """API キー発行、一覧表示、失効の検証"""

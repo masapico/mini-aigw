@@ -58,13 +58,19 @@ async def rag_retrieve_test(
     agent_client = get_bedrock_agent_runtime_client()
     allowed_groups = [group.strip()] if group.strip() else ["public"]
 
-    results = retrieve_knowledge(
-        agent_client=agent_client,
-        kb_id=settings.BEDROCK_KB_ID,
-        query=query,
-        allowed_groups=allowed_groups,
-        number_of_results=5,
-    )
+    results = []
+    error_message = None
+    try:
+        results = retrieve_knowledge(
+            agent_client=agent_client,
+            kb_id=settings.BEDROCK_KB_ID,
+            query=query,
+            allowed_groups=allowed_groups,
+            number_of_results=5,
+        )
+    except Exception as e:
+        error_message = str(e)
+        logger.error("RAG retrieve test error: %s", e)
 
     return templates.TemplateResponse(
         request=request,
@@ -73,6 +79,7 @@ async def rag_retrieve_test(
             "query": query,
             "group": group,
             "results": results,
+            "error": error_message,
         },
     )
 
@@ -91,13 +98,30 @@ async def rag_chat_test(
     allowed_groups = [group.strip()] if group.strip() else ["public"]
 
     # 1. ナレッジ検索 (Pre-filtering)
-    results = retrieve_knowledge(
-        agent_client=agent_client,
-        kb_id=settings.BEDROCK_KB_ID,
-        query=query,
-        allowed_groups=allowed_groups,
-        number_of_results=4,
-    )
+    try:
+        results = retrieve_knowledge(
+            agent_client=agent_client,
+            kb_id=settings.BEDROCK_KB_ID,
+            query=query,
+            allowed_groups=allowed_groups,
+            number_of_results=4,
+        )
+    except Exception as e:
+        error_message = str(e)
+        logger.error("RAG retrieval error during chat test: %s", error_message)
+        kb_hint = ""
+        if "Incompatible configuration" in error_message:
+            kb_hint = "\n\n※ 本システムは Amazon Bedrock のマネージド Knowledge Base（managedSearchConfiguration）専用です。"
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/rag_chat_response.html",
+            context={
+                "query": query,
+                "answer": f"ナレッジ検索中にエラーが発生しました:\n{error_message}{kb_hint}",
+                "citations": [],
+                "model_id": model_id,
+            },
+        )
 
     # 2. コンテキスト注入プロンプト作成
     citations = []

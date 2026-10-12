@@ -1,4 +1,18 @@
 <div class="mt-4">
+  {% if error %}
+  <div class="alert alert-danger d-flex flex-column gap-2 p-3 mb-3 rounded-3" role="alert">
+    <div class="d-flex align-items-center gap-2 fw-bold">
+      <span>⚠️</span>
+      <span>ナレッジベース検索エラーが発生しました</span>
+    </div>
+    <div class="font-monospace small text-break p-2 bg-white rounded border border-danger-subtle text-danger">{{ error }}</div>
+    {% if "Incompatible configuration" in error %}
+    <div class="text-secondary small bg-light p-2 rounded border">
+      <strong>【設定に関する注意】</strong> 本システムは Amazon Bedrock の<strong>マネージド Knowledge Base（managedSearchConfiguration）</strong>専用です。カスタムベクターストア構成（vectorSearchConfiguration）の KB には対応していません。
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h6 class="fw-bold mb-0">検索結果 ({{ results | length }} 件取得)</h6>
     <span class="badge-pill-modern badge-group">Filter Group: {{ group }}</span>
@@ -47,5 +61,7 @@
     該当するナレッジチャンクは見つかりませんでした（Pre-filtering 条件により除外された可能性があります）。
   </div>
   {% endif %}
+  {% endif %}
 </div>
+
 

@@ -15,8 +15,13 @@
 - **S3 Vectors サイドカーメタデータ管理**:
   - ナレッジアップロード時に同一ディレクトリへ `.metadata.json` サイドカーを同時作成。
   - 削除時は「ステータス更新 (`DELETING`) ➔ S3実体およびメタデータ削除 ➔ Bedrock KB同期実行 ➔ DB物理削除」の整合性保証フロー。
+- **Bedrock マネージド Knowledge Base 連携 (`managedSearchConfiguration`)**:
+  - 本システムは Bedrock プロキシとしてシンプルな構成を維持するため、Amazon Bedrock の**マネージド Knowledge Base（Managed Vector Store）専用**として設計されています。
+  - 検索クエリには `managedSearchConfiguration` を標準使用し、Pre-filtering による所属グループ分離（`public` およびユーザー所属グループ）を実行します。
+  - ※ カスタムベクターストア構成（`vectorSearchConfiguration`）は非対応です。接続時に `Incompatible configuration` エラーが発生した場合は、画面およびログに設定エラーが明示されます。
 - **S3 Vectors プリフィルタリング**:
   - `retrievalFilter` により、所属グループ（`sales`, `dev` 等）および `public` のドキュメントのみを厳格に分離して検索。
+
 - **ハイブリッド認証**:
   - **mini-id OIDC**: Authorization Code Flow + PKCE (`S256`)、不変の `sub` (UUID) 主識別子、RP-Initiated Logout 対応。
   - **ローカル認証**: Argon2id によるセキュアなパスワード認証。

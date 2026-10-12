@@ -309,20 +309,21 @@ def retrieve_knowledge(
     number_of_results: int = 5,
 ) -> List[Dict[str, Any]]:
     """
-    Bedrock Knowledge Base (S3 Vectors) から pre-filtering を適用してナレッジを検索する。
+    Bedrock Knowledge Base (Managed) から pre-filtering を適用してナレッジを検索する。
+    本システムはマネージド Knowledge Base (managedSearchConfiguration) を標準として使用する。
     """
     retrieval_filter = build_retrieval_filter(allowed_groups)
-    vector_search_config: Dict[str, Any] = {
+    managed_search_config: Dict[str, Any] = {
         "numberOfResults": number_of_results,
     }
     if retrieval_filter:
-        vector_search_config["filter"] = retrieval_filter
+        managed_search_config["filter"] = retrieval_filter
 
     kwargs: Dict[str, Any] = {
         "knowledgeBaseId": kb_id,
         "retrievalQuery": {"text": query},
         "retrievalConfiguration": {
-            "vectorSearchConfiguration": vector_search_config
+            "managedSearchConfiguration": managed_search_config
         },
     }
 
@@ -343,6 +344,15 @@ def retrieve_knowledge(
             })
         return formatted
     except Exception as e:
-        logger.error("Error retrieving knowledge from Bedrock KB: %s", e)
-        return []
+        err_msg = str(e)
+        if "Incompatible configuration" in err_msg:
+            logger.error(
+                "Bedrock Knowledge Base configuration incompatibility detected: %s. "
+                "This application is configured for managed knowledge bases (managedSearchConfiguration).",
+                e,
+            )
+        else:
+            logger.error("Error retrieving knowledge from Bedrock KB: %s", e)
+        raise
+
 

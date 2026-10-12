@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+import pytest
 from app.services.bedrock_service import (
     build_retrieval_filter,
     retrieve_knowledge,
@@ -19,7 +20,7 @@ def test_build_retrieval_filter_group_isolation():
 
 
 def test_retrieve_knowledge_applies_pre_filter():
-    """Bedrock Agent Runtime retrieve API に pre-filtering が正しく渡されることの検証"""
+    """Bedrock Agent Runtime retrieve API に managedSearchConfiguration と pre-filtering が正しく渡されることの検証"""
     mock_agent = MagicMock()
     mock_agent.retrieve.return_value = {
         "retrievalResults": [
@@ -49,15 +50,34 @@ def test_retrieve_knowledge_applies_pre_filter():
     assert call_args["knowledgeBaseId"] == "kb-12345"
     assert call_args["retrievalQuery"] == {"text": "営業インセンティブについて"}
 
-    vector_config = call_args["retrievalConfiguration"]["vectorSearchConfiguration"]
-    assert vector_config["numberOfResults"] == 3
-    assert "filter" in vector_config
-    assert "orAll" in vector_config["filter"]
+    managed_config = call_args["retrievalConfiguration"]["managedSearchConfiguration"]
+    assert managed_config["numberOfResults"] == 3
+    assert "filter" in managed_config
+    assert "orAll" in managed_config["filter"]
 
     allowed_filter_groups = [
-        item["equals"]["value"] for item in vector_config["filter"]["orAll"]
+        item["equals"]["value"] for item in managed_config["filter"]["orAll"]
     ]
     assert "sales" in allowed_filter_groups
     assert "public" in allowed_filter_groups
     assert "dev" not in allowed_filter_groups
+
+
+def test_retrieve_knowledge_raises_on_error():
+    """Bedrock retrieve API 呼び出しエラー時に例外が再送出されることの検証"""
+    mock_agent = MagicMock()
+    mock_agent.retrieve.side_effect = Exception(
+        "Incompatible configuration: vectorSearchConfiguration is not supported for managed knowledge bases."
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        retrieve_knowledge(
+            agent_client=mock_agent,
+            kb_id="kb-12345",
+            query="テスト",
+            allowed_groups=["public"],
+        )
+
+    assert "Incompatible configuration" in str(exc_info.value)
+
 
