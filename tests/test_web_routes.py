@@ -182,7 +182,7 @@ def test_api_keys_web_workflow():
     # 1. 一覧画面
     page = client.get("/api-keys")
     assert page.status_code == 200
-    assert "業務チャット連携用 API キー管理" in page.text
+    assert "AIプロキシ APIキー管理" in page.text
 
     # 2. 新規キー発行
     create_resp = client.post(
