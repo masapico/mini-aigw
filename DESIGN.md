@@ -233,6 +233,6 @@ CREATE TABLE sessions (
 
 1. **閉域環境ネットワーク**:
    - VPC エンドポイント（S3, Bedrock Runtime, Bedrock Agent Runtime）の設定。
-   - mini-id サーバーへの社内DNS名前解決および通信経路（443ポート）の確保。
+   - mini-id サーバーへのDNS名前解決および通信経路（443ポート）の確保。
 2. **IAM ロール**: EC2 インスタンスプロファイルで Bedrock および S3 操作権限を付与。
 3. **SQLite 並行性**: `PRAGMA journal_mode=WAL;` / `PRAGMA busy_timeout=5000;` を接続時に設定。

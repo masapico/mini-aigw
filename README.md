@@ -201,7 +201,7 @@ client = OpenAI(
 response = client.chat.completions.create(
     model="anthropic.claude-3-5-sonnet-20241022-v2:0",
     messages=[
-        {"role": "system", "content": "あなたは優秀な社内アシスタントです。"},
+        {"role": "system", "content": "あなたは優秀な業務アシスタントです。"},
         {"role": "user", "content": "こんにちは！"},
     ],
     temperature=0.7,
@@ -320,7 +320,3 @@ mini-aigw/
 ```
 
 ---
-
-## 10. ライセンス
-
-社内利用限定 (Internal Use Only)
