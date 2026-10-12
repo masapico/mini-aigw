@@ -1,0 +1,50 @@
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>グループ識別名</th>
+        <th>表示名</th>
+        <th>説明</th>
+        <th>登録日時</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in groups %}
+      <tr class="border-bottom" id="group-row-{{ g.id }}">
+        <td class="fw-semibold">
+          <span class="badge-pill-modern badge-group font-monospace">{{ g.name }}</span>
+        </td>
+        <td class="fw-semibold text-dark">
+          {{ g.display_name }}
+        </td>
+        <td class="text-muted small">
+          {{ g.description or '-' }}
+        </td>
+        <td class="text-muted small">
+          {{ g.created_at.strftime('%Y-%m-%d %H:%M') if g.created_at else '-' }}
+        </td>
+        <td class="text-end">
+          <button
+            class="btn-modern-danger py-1 px-2"
+            style="font-size: 0.82rem;"
+            hx-delete="/groups/{{ g.id }}"
+            hx-confirm="グループ「{{ g.display_name }} ({{ g.name }})」を削除しますか？"
+            hx-target="#group-row-{{ g.id }}"
+            hx-swap="outerHTML"
+          >
+            削除
+          </button>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="text-center py-4 text-muted">
+          登録されたグループはありません。
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+

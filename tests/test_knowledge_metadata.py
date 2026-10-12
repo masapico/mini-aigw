@@ -50,6 +50,45 @@ def test_upload_document_with_sidecar_metadata():
     assert meta_json["metadataAttributes"]["document_id"] == "doc-12345"
 
 
+def test_upload_document_with_tags_metadata():
+    """ドキュメントにタグが付与された際、.metadata.json に tags と tag_string が記録されることの検証"""
+    mock_s3 = MagicMock()
+    result = upload_document_with_metadata(
+        s3_client=mock_s3,
+        bucket="test-bucket",
+        prefix="groups/dev",
+        filename="api_spec.md",
+        content=b"# API Spec",
+        group="dev",
+        document_id="doc-99999",
+        tags=["2024", "設計書", "重要"],
+    )
+
+    assert mock_s3.put_object.call_count == 2
+    call_args_meta = mock_s3.put_object.call_args_list[1][1]
+    meta_json = json.loads(call_args_meta["Body"].decode("utf-8"))
+    attrs = meta_json["metadataAttributes"]
+    assert attrs["group"] == "dev"
+    assert attrs["tags"] == ["2024", "設計書", "重要"]
+    assert "2024, 設計書, 重要" == attrs["tag_string"]
+
+
+def test_get_document_stream():
+    """S3 から原本ストリームとメタ情報が取得できることの検証"""
+    from app.services.knowledge_service import get_document_stream
+    mock_s3 = MagicMock()
+    mock_s3.get_object.return_value = {
+        "Body": b"binary content",
+        "ContentType": "application/pdf",
+        "ContentLength": 14,
+    }
+
+    res = get_document_stream(mock_s3, "test-bucket", "public/test.pdf")
+    assert res["body"] == b"binary content"
+    assert res["content_type"] == "application/pdf"
+    assert res["content_length"] == 14
+
+
 def test_delete_knowledge_document_consistency_flow():
     """
     削除処理の整合性保証フロー:

@@ -1,0 +1,158 @@
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>ユーザー名</th>
+        <th>表示名 / メール</th>
+        <th>認証方式</th>
+        <th>ロール</th>
+        <th>所属グループ</th>
+        <th>登録日時</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr class="border-bottom" id="user-row-{{ u.id }}">
+        <td class="fw-semibold text-dark">
+          <div class="d-flex align-items-center gap-2">
+            <span>👤</span>
+            <span>{{ u.username }}</span>
+          </div>
+        </td>
+        <td>
+          <div>{{ u.display_name or '-' }}</div>
+          {% if u.email %}
+          <div class="text-muted small">{{ u.email }}</div>
+          {% endif %}
+        </td>
+        <td>
+          <span class="badge-pill-modern {% if u.auth_type == 'oidc' %}badge-group{% else %}bg-secondary text-white{% endif %}">
+            {{ u.auth_type | upper }}
+          </span>
+        </td>
+        <td>
+          {% for r in u.get_roles() %}
+          <span class="badge-pill-modern {% if r == 'admin' %}bg-primary text-white{% else %}bg-light text-dark border{% endif %}">
+            {{ r }}
+          </span>
+          {% endfor %}
+        </td>
+        <td>
+          <div class="d-flex flex-wrap gap-1">
+            {% for g in u.get_groups() %}
+            <span class="badge-pill-modern badge-group">{{ g }}</span>
+            {% else %}
+            <span class="text-muted small">-</span>
+            {% endfor %}
+          </div>
+        </td>
+        <td class="text-muted small">
+          {{ u.created_at.strftime('%Y-%m-%d %H:%M') if u.created_at else '-' }}
+        </td>
+        <td class="text-end">
+          <div class="d-inline-flex gap-1">
+            <button
+              class="btn-modern-secondary py-1 px-2"
+              style="font-size: 0.82rem;"
+              data-bs-toggle="modal"
+              data-bs-target="#editUserModal-{{ u.id }}"
+            >
+              編集
+            </button>
+            {% if u.id != user.id %}
+            <button
+              class="btn-modern-danger py-1 px-2"
+              style="font-size: 0.82rem;"
+              hx-delete="/users/{{ u.id }}"
+              hx-confirm="ユーザー「{{ u.username }}」を削除しますか？"
+              hx-target="#user-row-{{ u.id }}"
+              hx-swap="outerHTML"
+            >
+              削除
+            </button>
+            {% else %}
+            <span class="badge bg-light text-muted border py-1 px-2" style="font-size: 0.78rem;">自身</span>
+            {% endif %}
+          </div>
+
+          <!-- 編集モーダル -->
+          <div class="modal fade text-start" id="editUserModal-{{ u.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-md);">
+                <div class="modal-header border-bottom">
+                  <h6 class="modal-title fw-bold">ユーザー編集: {{ u.username }}</h6>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form
+                  hx-post="/users/{{ u.id }}/edit"
+                  hx-target="#users-table-container"
+                  hx-swap="innerHTML"
+                  onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editUserModal-{{ u.id }}')); if (m) m.hide();"
+                >
+                  <div class="modal-body p-4">
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">表示名</label>
+                      <input type="text" name="display_name" class="form-control form-control-modern" value="{{ u.display_name or '' }}">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">メールアドレス</label>
+                      <input type="email" name="email" class="form-control form-control-modern" value="{{ u.email or '' }}">
+                    </div>
+                    {% if u.auth_type == 'local' %}
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">新しいパスワード (変更する場合のみ入力)</label>
+                      <input type="password" name="password" class="form-control form-control-modern" placeholder="変更しない場合は空欄">
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">ロール</label>
+                      <select name="role" class="form-select form-select-modern">
+                        <option value="user" {% if 'admin' not in u.get_roles() %}selected{% endif %}>user (一般ユーザー)</option>
+                        <option value="admin" {% if 'admin' in u.get_roles() %}selected{% endif %}>admin (システム管理者)</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">所属グループ (ナレッジ閲覧・検索権限)</label>
+                      <div class="d-flex flex-wrap gap-2 p-2 border rounded-3 bg-light">
+                        {% for g in groups %}
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            name="selected_groups"
+                            value="{{ g.name }}"
+                            id="edit-grp-{{ u.id }}-{{ g.name }}"
+                            {% if g.name in u.get_groups() %}checked{% endif %}
+                          >
+                          <label class="form-check-label small" for="edit-grp-{{ u.id }}-{{ g.name }}">
+                            {{ g.display_name }}
+                          </label>
+                        </div>
+                        {% else %}
+                        <span class="text-muted small">登録されたグループはありません</span>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="modal-footer border-top bg-light">
+                    <button type="button" class="btn-modern-secondary py-1 px-3" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" class="btn-modern-primary py-1 px-3">保存</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="text-center py-4 text-muted">
+          登録されたユーザーはいません。
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+

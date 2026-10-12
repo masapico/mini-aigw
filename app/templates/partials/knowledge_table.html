@@ -2,8 +2,9 @@
   <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
     <thead class="table-light border-bottom">
       <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
-        <th>ファイル名</th>
+        <th>ファイル名 (原本DL)</th>
         <th>グループ</th>
+        <th>タグ</th>
         <th>サイズ</th>
         <th>S3 キー</th>
         <th>同期状態</th>
@@ -14,19 +15,33 @@
     <tbody>
       {% for doc in documents %}
       <tr class="border-bottom" id="doc-row-{{ doc.id }}">
-        <td class="fw-semibold text-dark">
-          <div class="d-flex align-items-center gap-2">
+        <td>
+          <a
+            href="/knowledge/{{ doc.id }}/download"
+            class="text-decoration-none fw-semibold text-primary d-inline-flex align-items-center gap-2"
+            title="クリックして S3 から原本をダウンロード"
+          >
             <span>📄</span>
-            <span>{{ doc.filename }}</span>
-          </div>
+            <span class="text-break">{{ doc.filename }}</span>
+            <span class="badge bg-light text-secondary border px-1" style="font-size: 0.72rem;">📥 原本</span>
+          </a>
         </td>
         <td>
           <span class="badge-pill-modern badge-group">{{ doc.group_name }}</span>
         </td>
-        <td class="text-muted small">
+        <td>
+          <div class="d-flex flex-wrap gap-1" style="max-width: 200px;">
+            {% for tag in doc.get_tags() %}
+            <span class="badge bg-light text-dark border" style="font-size: 0.75rem;">#{{ tag }}</span>
+            {% else %}
+            <span class="text-muted small">-</span>
+            {% endfor %}
+          </div>
+        </td>
+        <td class="text-muted small text-nowrap">
           {{ (doc.file_size / 1024) | round(1) }} KB
         </td>
-        <td class="text-muted small font-monospace">
+        <td class="text-muted small font-monospace text-break" style="max-width: 220px;">
           {{ doc.s3_key }}
         </td>
         <td>
@@ -34,12 +49,14 @@
             {{ doc.sync_status }}
           </span>
         </td>
-        <td class="text-muted small">
+        <td class="text-muted small text-nowrap">
           {{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '-' }}
         </td>
-        <td class="text-end">
+        <td class="text-end text-nowrap">
+          {% if user and ('admin' in user.get_roles() or doc.uploader_id == user.id) %}
           <button
-            class="btn-modern-danger"
+            class="btn-modern-danger py-1 px-2"
+            style="font-size: 0.82rem;"
             hx-delete="/knowledge/{{ doc.id }}"
             hx-confirm="「{{ doc.filename }}」を S3 および Bedrock KB から完全に削除しますか？"
             hx-target="#doc-row-{{ doc.id }}"
@@ -47,11 +64,14 @@
           >
             削除
           </button>
+          {% else %}
+          <span class="text-muted small">-</span>
+          {% endif %}
         </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="7" class="text-center py-5 text-muted">
+        <td colspan="8" class="text-center py-5 text-muted">
           登録されたナレッジドキュメントはありません。上部のエリアからアップロードしてください。
         </td>
       </tr>
@@ -59,4 +79,3 @@
     </tbody>
   </table>
 </div>
-

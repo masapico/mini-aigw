@@ -3,8 +3,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, select
 from app.api.web.auth import require_current_user
 from app.core.config import settings
+from app.core.database import get_session
+from app.models.group import Group
 from app.models.user import User
 from app.services.bedrock_service import (
     call_converse,
@@ -23,9 +26,11 @@ templates = Jinja2Templates(directory="app/templates")
 async def rag_test_page(
     request: Request,
     user: User = Depends(require_current_user),
+    db: Session = Depends(get_session),
 ):
-    user_roles = user.get_roles()
-    groups = list(set(["public"] + user_roles + ["sales", "dev"]))
+    db_groups = [g.name for g in db.exec(select(Group)).all()]
+    user_groups = user.get_groups()
+    groups = sorted(list(set(["public"] + user_groups + db_groups)))
 
     return templates.TemplateResponse(
         request=request,
@@ -100,12 +105,14 @@ async def rag_chat_test(
         s3_uri = location.get("s3Location", {}).get("uri", "")
         filename = metadata.get("filename") or (s3_uri.split("/")[-1] if s3_uri else f"Doc {i}")
         doc_group = metadata.get("group", "unknown")
+        doc_tags = metadata.get("tags") or (metadata.get("tag_string").split(",") if metadata.get("tag_string") else [])
 
         context_parts.append(f"[{i}] File: {filename} (Group: {doc_group})\n{content}")
         citations.append({
             "index": i,
             "filename": filename,
             "group": doc_group,
+            "tags": doc_tags,
             "s3_uri": s3_uri,
             "score": res.get("score", 0.0),
         })

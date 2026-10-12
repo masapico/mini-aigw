@@ -9,6 +9,7 @@ from app.api.web.auth import require_current_user
 from app.core.database import get_session
 from app.core.security import generate_api_key
 from app.models.api_key import ApiKey
+from app.models.group import Group
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -24,8 +25,9 @@ async def api_keys_list(
     db: Session = Depends(get_session),
 ):
     keys = db.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
-    user_roles = user.get_roles()
-    groups = list(set(["public"] + user_roles + ["sales", "dev"]))
+    db_groups = [g.name for g in db.exec(select(Group)).all()]
+    user_groups = user.get_groups()
+    groups = sorted(list(set(["public"] + user_groups + db_groups)))
 
     return templates.TemplateResponse(
         request=request,

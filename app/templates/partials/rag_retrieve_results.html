@@ -16,6 +16,15 @@
           <span class="fw-bold" style="font-size: 0.92rem;">
             {{ res.metadata.get('filename') or res.location.get('s3Location', {}).get('uri', 'Document') }}
           </span>
+          {% if res.metadata.get('tags') %}
+            {% for t in res.metadata.get('tags') %}
+            <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">#{{ t }}</span>
+            {% endfor %}
+          {% elif res.metadata.get('tag_string') %}
+            {% for t in res.metadata.get('tag_string').split(',') %}
+            <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">#{{ t.strip() }}</span>
+            {% endfor %}
+          {% endif %}
         </div>
         <div class="d-flex align-items-center gap-2">
           <span class="text-muted small">Score:</span>

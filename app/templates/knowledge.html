@@ -25,34 +25,62 @@
     hx-swap="innerHTML"
     hx-encoding="multipart/form-data"
     hx-indicator="#upload-spinner"
-    onsubmit="setTimeout(() => document.getElementById('file-input').value = '', 500)"
+    onsubmit="clearUploadForm()"
   >
-    <div class="row g-3 align-items-center">
+    <!-- 1行目: グループ選択 & タグ入力 (Enter追加 / クリック削除) -->
+    <div class="row g-3 align-items-start mb-3">
       <div class="col-12 col-md-4">
         <label class="form-label small fw-semibold text-secondary">所属グループ (S3 Vectors フィルタ)</label>
         <select class="form-select form-select-modern" name="group_name" required>
           <option value="public" selected>public (全体共有)</option>
-          <option value="sales">sales (営業部限定)</option>
-          <option value="dev">dev (開発部限定)</option>
+          {% for g in groups %}
+          <option value="{{ g.name }}">{{ g.display_name }} ({{ g.name }})</option>
+          {% endfor %}
         </select>
         <div class="form-text" style="font-size: 0.78rem;">検索時の Pre-filtering 属性として付与されます。</div>
       </div>
 
       <div class="col-12 col-md-8">
-        <label class="form-label small fw-semibold text-secondary">ファイル選択 (PDF, DOCX, XLSX, CSV, TXT等)</label>
-        <div class="d-flex gap-2">
+        <label class="form-label small fw-semibold text-secondary">
+          タグ設定 (任意: 入力+Enter で追加、バッジクリックで削除)
+        </label>
+        <div class="d-flex gap-2 mb-2">
           <input
-            type="file"
+            type="text"
+            id="tag-input-box"
             class="form-control form-control-modern"
-            name="file"
-            id="file-input"
-            required
+            placeholder="タグを入力して Enter (例: 2024, 議事録, 規程)"
+            autocomplete="off"
           >
-          <button type="submit" class="btn-modern-primary text-nowrap px-4">
-            <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
-            アップロード
+          <button type="button" id="tag-add-btn" class="btn-modern-secondary text-nowrap px-3">
+            追加
           </button>
         </div>
+        <input type="hidden" name="tags" id="tags-hidden-input" value="[]">
+        <div id="tag-badges-container" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
+          <span class="text-muted small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2行目: ファイル選択 & アップロードボタン -->
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-md-9">
+        <label class="form-label small fw-semibold text-secondary">ファイル選択 (PDF, DOCX, XLSX, CSV, TXT等)</label>
+        <input
+          type="file"
+          class="form-control form-control-modern"
+          name="file"
+          id="file-input"
+          required
+        >
+      </div>
+
+      <div class="col-12 col-md-3">
+        <button type="submit" class="btn-modern-primary w-100 justify-content-center">
+          <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
+          アップロード
+        </button>
       </div>
     </div>
   </form>
@@ -62,7 +90,7 @@
 <div class="modern-card p-0 overflow-hidden">
   <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
     <h6 class="fw-bold mb-0">登録ドキュメント一覧</h6>
-    <span class="text-muted small">削除時は本体・メタデータの削除および KB Ingestion が連動します</span>
+    <span class="text-muted small">ファイル名をクリックすると S3 から原本を取得（ダウンロード）できます</span>
   </div>
   <div id="knowledge-table-container">
     {% include "partials/knowledge_table.html" %}
@@ -70,3 +98,90 @@
 </div>
 {% endblock %}
 
+{% block scripts %}
+<script>
+  let currentTags = [];
+
+  const tagInputBox = document.getElementById('tag-input-box');
+  const tagAddBtn = document.getElementById('tag-add-btn');
+  const tagBadgesContainer = document.getElementById('tag-badges-container');
+  const tagsHiddenInput = document.getElementById('tags-hidden-input');
+
+  function renderTags() {
+    tagBadgesContainer.innerHTML = '';
+    if (currentTags.length === 0) {
+      tagBadgesContainer.innerHTML = '<span class="text-muted small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>';
+      tagsHiddenInput.value = '[]';
+      return;
+    }
+
+    currentTags.forEach((tag, index) => {
+      const badge = document.createElement('span');
+      badge.className = 'badge bg-light text-dark border d-inline-flex align-items-center gap-1 px-2 py-1 tag-pill';
+      badge.style.cursor = 'pointer';
+      badge.title = 'クリックで削除';
+      badge.innerHTML = `<span>#${escapeHtml(tag)}</span> <span class="text-danger fw-bold ms-1" style="font-size: 1.1em; line-height: 0.8;">&times;</span>`;
+      badge.addEventListener('click', () => {
+        removeTag(index);
+      });
+      tagBadgesContainer.appendChild(badge);
+    });
+
+    tagsHiddenInput.value = JSON.stringify(currentTags);
+  }
+
+  function addTag(rawText) {
+    if (!rawText) return;
+    const parts = rawText.split(/[,、]/).map(s => s.trim()).filter(Boolean);
+    parts.forEach(part => {
+      if (part && !currentTags.includes(part)) {
+        currentTags.push(part);
+      }
+    });
+    renderTags();
+  }
+
+  function removeTag(index) {
+    currentTags.splice(index, 1);
+    renderTags();
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  if (tagInputBox) {
+    tagInputBox.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault(); // フォーム送信を防止
+        const val = tagInputBox.value.trim();
+        if (val) {
+          addTag(val);
+          tagInputBox.value = '';
+        }
+      }
+    });
+  }
+
+  if (tagAddBtn) {
+    tagAddBtn.addEventListener('click', () => {
+      const val = tagInputBox.value.trim();
+      if (val) {
+        addTag(val);
+        tagInputBox.value = '';
+      }
+    });
+  }
+
+  function clearUploadForm() {
+    setTimeout(() => {
+      const fileInput = document.getElementById('file-input');
+      if (fileInput) fileInput.value = '';
+      currentTags = [];
+      renderTags();
+    }, 400);
+  }
+</script>
+{% endblock %}

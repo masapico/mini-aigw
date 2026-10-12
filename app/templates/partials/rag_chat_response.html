@@ -27,6 +27,9 @@
           <span class="text-primary fw-bold">[{{ cite.index }}]</span>
           <span>{{ cite.filename }}</span>
           <span class="text-muted font-monospace">({{ cite.group }})</span>
+          {% for t in cite.tags %}
+          <span class="badge bg-light text-dark border px-1" style="font-size: 0.7rem;">#{{ t.strip() }}</span>
+          {% endfor %}
         </div>
         {% endfor %}
       </div>

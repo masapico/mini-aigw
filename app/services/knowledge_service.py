@@ -34,6 +34,7 @@ def upload_document_with_metadata(
     group: str,
     document_id: Optional[str] = None,
     content_type: str = "application/octet-stream",
+    tags: Optional[list[str]] = None,
 ) -> Dict[str, str]:
     """
     S3 にファイル本体と同一ディレクトリに .metadata.json サイドカーをアップロードする。
@@ -44,7 +45,7 @@ def upload_document_with_metadata(
     obj_key = f"{prefix_clean}/{filename}" if prefix_clean else filename
     meta_key = f"{obj_key}.metadata.json"
 
-    metadata_content = {
+    metadata_content: Dict[str, Any] = {
         "metadataAttributes": {
             "group": group,
             "filename": filename,
@@ -53,6 +54,12 @@ def upload_document_with_metadata(
     }
     if document_id:
         metadata_content["metadataAttributes"]["document_id"] = document_id
+
+    if tags:
+        clean_tags = [t.strip() for t in tags if t.strip()]
+        if clean_tags:
+            metadata_content["metadataAttributes"]["tags"] = clean_tags
+            metadata_content["metadataAttributes"]["tag_string"] = ", ".join(clean_tags)
 
     # 1. ファイル本体アップロード
     s3_client.put_object(
@@ -72,6 +79,24 @@ def upload_document_with_metadata(
 
     logger.info("Uploaded document %s and metadata %s to bucket %s", obj_key, meta_key, bucket)
     return {"s3_key": obj_key, "meta_key": meta_key}
+
+
+def get_document_stream(
+    s3_client: Any,
+    bucket: str,
+    key: str,
+) -> Dict[str, Any]:
+    """
+    S3 から原本オブジェクトを取得する。
+    Returns:
+        {"body": StreamingBody, "content_type": str, "content_length": int}
+    """
+    response = s3_client.get_object(Bucket=bucket, Key=key)
+    return {
+        "body": response["Body"],
+        "content_type": response.get("ContentType", "application/octet-stream"),
+        "content_length": response.get("ContentLength", 0),
+    }
 
 
 def trigger_ingestion_job(

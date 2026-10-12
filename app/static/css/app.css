@@ -199,13 +199,16 @@ body {
   color: #3730a3;
 }
 
-/* Forms */
+/* Forms & Inputs Alignment (水平ズレ防止) */
 .form-control-modern, .form-select-modern {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  padding: 0.65rem 0.9rem;
-  font-size: 0.95rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.92rem;
   background-color: #ffffff;
+  height: 42px;
+  line-height: 1.5;
+  box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -213,6 +216,40 @@ body {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   outline: none;
+}
+
+/* ファイルインプットの垂直中央補正 */
+input[type="file"].form-control-modern {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  height: 42px;
+  line-height: 1.5;
+}
+
+/* ボタンと入力コントロールの高さ統一 */
+.btn-modern-primary, .btn-modern-secondary {
+  height: 42px;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+textarea.form-control-modern {
+  height: auto;
+}
+
+/* タグピル (入力+Enterバッジ追加・クリック削除) */
+.tag-pill {
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.tag-pill:hover {
+  background-color: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
 }
 
 /* Drag & Drop Upload Zone */

@@ -1,4 +1,5 @@
 import io
+import json
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -76,24 +77,38 @@ def test_knowledge_web_workflow(mock_agent_client, mock_s3_client):
     assert kb_page.status_code == 200
     assert "ナレッジベース ドキュメント管理" in kb_page.text
 
-    # 2. HTMX アップロード
+    # 2. HTMX アップロード (タグ付き)
     file_bytes = b"Sample knowledge content for test"
     upload_resp = client.post(
         "/knowledge/upload",
         files={"file": ("guide.txt", io.BytesIO(file_bytes), "text/plain")},
-        data={"group_name": "sales"},
+        data={"group_name": "sales", "tags": json.dumps(["テスト", "ガイド"])},
         headers={"HX-Request": "true"},
     )
     assert upload_resp.status_code == 200
     assert "guide.txt" in upload_resp.text
     assert "sales" in upload_resp.text
+    assert "#テスト" in upload_resp.text
+    assert "#ガイド" in upload_resp.text
 
-    # 3. アップロードされたドキュメントの ID を DB から取得して削除
+    # 3. アップロードされたドキュメントの ID を DB から取得して原本ダウンロードを検証
     with Session(engine) as session:
         doc = session.exec(select(KnowledgeDocument).where(KnowledgeDocument.filename == "guide.txt")).first()
         assert doc is not None
+        assert doc.get_tags() == ["テスト", "ガイド"]
         doc_id = doc.id
 
+    mock_s3_client.return_value.get_object.return_value = {
+        "Body": io.BytesIO(file_bytes),
+        "ContentType": "text/plain",
+        "ContentLength": len(file_bytes),
+    }
+    dl_resp = client.get(f"/knowledge/{doc_id}/download")
+    assert dl_resp.status_code == 200
+    assert dl_resp.content == file_bytes
+    assert "attachment" in dl_resp.headers.get("content-disposition", "")
+
+    # 4. ドキュメント削除
     del_resp = client.delete(f"/knowledge/{doc_id}")
     assert del_resp.status_code == 200
 

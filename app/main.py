@@ -5,10 +5,11 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 from app.api.v1 import chat, models
-from app.api.web import api_keys, auth, dashboard, knowledge, rag_test
+from app.api.web import api_keys, auth, dashboard, knowledge, rag_test, users
 from app.core.config import settings
 from app.core.database import engine, init_db
 from app.core.security import hash_password
+from app.models.group import Group
 from app.models.user import User
 
 logging.basicConfig(
@@ -23,8 +24,20 @@ async def lifespan(app: FastAPI):
     # データベース初期化
     init_db()
 
-    # 初期ローカルユーザーが存在しない場合にシード
     with Session(engine) as session:
+        # 初期グループが存在しない場合にシード
+        existing_groups = session.exec(select(Group)).all()
+        if not existing_groups:
+            seed_groups = [
+                Group(name="sales", display_name="営業部 (sales)", description="営業部門のナレッジ"),
+                Group(name="dev", display_name="開発部 (dev)", description="開発部門のナレッジ"),
+            ]
+            for g in seed_groups:
+                session.add(g)
+            session.commit()
+            logger.info("Initialized default groups: 'sales', 'dev'")
+
+        # 初期ローカルユーザーが存在しない場合にシード
         existing_user = session.exec(select(User)).first()
         if not existing_user:
             default_admin = User(
@@ -33,7 +46,8 @@ async def lifespan(app: FastAPI):
                 password_hash=hash_password("admin123"),
                 email="admin@internal.local",
                 display_name="System Admin",
-                roles='["admin", "sales", "dev"]',
+                roles='["admin"]',
+                groups='["sales", "dev"]',
             )
             session.add(default_admin)
             session.commit()
@@ -65,4 +79,5 @@ app.include_router(dashboard.router, tags=["Web Dashboard"])
 app.include_router(knowledge.router, tags=["Web Knowledge"])
 app.include_router(rag_test.router, tags=["Web RAG Test"])
 app.include_router(api_keys.router, tags=["Web API Keys"])
+app.include_router(users.router, tags=["Web Users"])
 
