@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}API キー管理 - mini-aigw{% endblock %}
+
+{% block content %}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+  <div>
+    <h3 class="fw-bold mb-1">業務チャット連携用 API キー管理</h3>
+    <p class="text-muted small mb-0">
+      OpenAI 互換 <code>/v1/chat/completions</code> 呼び出し用の Bearer トークンを発行・管理します
+    </p>
+  </div>
+</div>
+
+<!-- API キー発行カード -->
+<div class="modern-card mb-4">
+  <h5 class="fw-bold mb-3">新規 API キーの発行</h5>
+  <form
+    hx-post="/api-keys/create"
+    hx-target="#api-keys-container"
+    hx-swap="innerHTML"
+    hx-indicator="#key-spinner"
+    onsubmit="setTimeout(() => document.getElementById('keyNameInput').value = '', 400)"
+  >
+    <div class="row g-3 align-items-end">
+      <div class="col-12 col-md-5">
+        <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途</label>
+        <input
+          type="text"
+          id="keyNameInput"
+          class="form-control form-control-modern"
+          name="name"
+          placeholder="例: 社内Slackボット (営業用)"
+          required
+        >
+      </div>
+
+      <div class="col-12 col-md-5">
+        <label class="form-label small fw-semibold text-secondary">検索を許可するナレッジグループ (複数選択可)</label>
+        <select class="form-select form-select-modern" name="allowed_groups" multiple size="3" required>
+          {% for grp in available_groups %}
+          <option value="{{ grp }}" {% if grp == 'public' %}selected{% endif %}>{{ grp }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text" style="font-size: 0.78rem;">Cmd (Ctrl) を押しながら複数選択できます。</div>
+      </div>
+
+      <div class="col-12 col-md-2">
+        <button type="submit" class="btn-modern-primary w-100 justify-content-center py-2">
+          <span class="spinner-border spinner-border-sm htmx-indicator" id="key-spinner" role="status"></span>
+          キーを発行
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- キー一覧 -->
+<div class="modern-card p-0 overflow-hidden">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+    <h6 class="fw-bold mb-0">有効な API キー一覧</h6>
+    <span class="text-muted small">キーは SHA-256 でハッシュ化されて保存されます</span>
+  </div>
+  <div id="api-keys-container">
+    {% include "partials/api_keys_section.html" %}
+  </div>
+</div>
+{% endblock %}
+

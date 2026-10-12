@@ -1,0 +1,42 @@
+<div class="mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0">検索結果 ({{ results | length }} 件取得)</h6>
+    <span class="badge-pill-modern badge-group">Filter Group: {{ group }}</span>
+  </div>
+
+  {% if results %}
+  <div class="d-flex flex-column gap-3">
+    {% for res in results %}
+    <div class="p-3 rounded-3 border" style="background-color: #ffffff; border-color: #e2e8f0 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-pill-modern badge-group font-monospace">
+            {{ res.metadata.get('group', 'unknown') }}
+          </span>
+          <span class="fw-bold" style="font-size: 0.92rem;">
+            {{ res.metadata.get('filename') or res.location.get('s3Location', {}).get('uri', 'Document') }}
+          </span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted small">Score:</span>
+          <span class="badge rounded-pill bg-light text-dark border font-monospace">
+            {{ (res.score * 100) | round(1) if res.score else 0.0 }}%
+          </span>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-2 text-secondary mb-2" style="background-color: #f8fafc; font-size: 0.88rem; white-space: pre-wrap; line-height: 1.5;">{{ res.content }}</div>
+
+      <div class="text-muted font-monospace" style="font-size: 0.75rem;">
+        URI: {{ res.location.get('s3Location', {}).get('uri', '-') }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="p-4 text-center text-muted border rounded-3 bg-white">
+    該当するナレッジチャンクは見つかりませんでした（Pre-filtering 条件により除外された可能性があります）。
+  </div>
+  {% endif %}
+</div>
+

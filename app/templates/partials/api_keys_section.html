@@ -1,0 +1,77 @@
+{% if new_raw_key %}
+<div class="alert alert-success border-0 rounded-3 p-3 mb-4 d-flex align-items-center justify-content-between shadow-sm">
+  <div>
+    <div class="fw-bold text-success mb-1">
+      🎉 API キー「{{ new_key_name }}」が正常に発行されました
+    </div>
+    <div class="small text-secondary mb-2">
+      このシークレットキーは二度と表示されません。必ず今すぐ安全な場所に保管してください。
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <input
+        type="text"
+        id="rawKeyInput"
+        class="form-control form-control-sm font-monospace text-dark fw-bold bg-white"
+        value="{{ new_raw_key }}"
+        readonly
+        style="max-width: 450px;"
+      >
+      <button
+        class="btn-modern-primary py-1 px-3"
+        style="font-size: 0.8rem;"
+        onclick="navigator.clipboard.writeText(document.getElementById('rawKeyInput').value); alert('API キーをクリップボードにコピーしました！');"
+      >
+        コピー
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>名前</th>
+        <th>キープレフィックス</th>
+        <th>許可グループ (権限)</th>
+        <th>発行日時</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for k in keys %}
+      <tr class="border-bottom" id="key-row-{{ k.id }}">
+        <td class="fw-semibold text-dark">{{ k.name }}</td>
+        <td class="font-monospace text-muted small">{{ k.prefix }}</td>
+        <td>
+          {% for grp in k.get_allowed_groups() %}
+          <span class="badge-pill-modern badge-group">{{ grp }}</span>
+          {% endfor %}
+        </td>
+        <td class="text-muted small">
+          {{ k.created_at.strftime('%Y-%m-%d %H:%M') if k.created_at else '-' }}
+        </td>
+        <td class="text-end">
+          <button
+            class="btn-modern-danger"
+            hx-delete="/api-keys/{{ k.id }}"
+            hx-confirm="APIキー「{{ k.name }}」を失効しますか？失効すると元に戻せません。"
+            hx-target="#key-row-{{ k.id }}"
+            hx-swap="outerHTML"
+          >
+            失効
+          </button>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" class="text-center py-5 text-muted">
+          発行された API キーはありません。上部から新しく発行してください。
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+

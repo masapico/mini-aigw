@@ -8,7 +8,7 @@
 
 ### 1.1 ディレクトリ構成
 ```
-ai-gateway/
+mini-aigw/
 ├── app/
 │   ├── api/
 │   │   ├── v1/

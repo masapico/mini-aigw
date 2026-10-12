@@ -1,0 +1,62 @@
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>ファイル名</th>
+        <th>グループ</th>
+        <th>サイズ</th>
+        <th>S3 キー</th>
+        <th>同期状態</th>
+        <th>登録日時</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documents %}
+      <tr class="border-bottom" id="doc-row-{{ doc.id }}">
+        <td class="fw-semibold text-dark">
+          <div class="d-flex align-items-center gap-2">
+            <span>📄</span>
+            <span>{{ doc.filename }}</span>
+          </div>
+        </td>
+        <td>
+          <span class="badge-pill-modern badge-group">{{ doc.group_name }}</span>
+        </td>
+        <td class="text-muted small">
+          {{ (doc.file_size / 1024) | round(1) }} KB
+        </td>
+        <td class="text-muted small font-monospace">
+          {{ doc.s3_key }}
+        </td>
+        <td>
+          <span class="badge-pill-modern badge-status-{{ doc.sync_status.lower() }}">
+            {{ doc.sync_status }}
+          </span>
+        </td>
+        <td class="text-muted small">
+          {{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '-' }}
+        </td>
+        <td class="text-end">
+          <button
+            class="btn-modern-danger"
+            hx-delete="/knowledge/{{ doc.id }}"
+            hx-confirm="「{{ doc.filename }}」を S3 および Bedrock KB から完全に削除しますか？"
+            hx-target="#doc-row-{{ doc.id }}"
+            hx-swap="outerHTML"
+          >
+            削除
+          </button>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="text-center py-5 text-muted">
+          登録されたナレッジドキュメントはありません。上部のエリアからアップロードしてください。
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+

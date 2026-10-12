@@ -1,0 +1,53 @@
+import os
+from typing import List, Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+
+    PROJECT_NAME: str = "mini-aigw"
+    DEBUG: bool = False
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    SECRET_KEY: str = "mini-aigw-secret-key-development-mode-change-in-production"
+
+    # SQLite
+    DATABASE_URL: str = "sqlite:///data/gateway.db"
+    DATA_DIR: str = "data"
+
+    # Session
+    SESSION_COOKIE_NAME: str = "aigw_session"
+    SESSION_MAX_AGE_SECONDS: int = 60 * 60 * 24 * 7  # 7 days
+    SESSION_COOKIE_SECURE: bool = False  # Set to True in HTTPS production
+    SESSION_COOKIE_SAMESITE: str = "lax"
+
+    # AWS
+    AWS_REGION: str = "us-east-1"
+    AWS_ENDPOINT_URL: Optional[str] = None
+    BEDROCK_KB_ID: str = "SAMPLE_KB_ID"
+    BEDROCK_DATA_SOURCE_ID: str = "SAMPLE_DS_ID"
+    KNOWLEDGE_S3_BUCKET: str = "sample-knowledge-bucket"
+    DEFAULT_MODEL_ID: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    AVAILABLE_MODELS: List[str] = [
+        "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "anthropic.claude-3-haiku-20240307-v1:0",
+        "amazon.nova-pro-v1:0",
+        "amazon.nova-lite-v1:0",
+    ]
+
+    # mini-id OIDC
+    OIDC_ISSUER: Optional[str] = None  # e.g. "https://auth.internal"
+    OIDC_CLIENT_ID: Optional[str] = None
+    OIDC_CLIENT_SECRET: Optional[str] = None
+    OIDC_REDIRECT_URI: str = "http://localhost:8000/auth/oidc/callback"
+    OIDC_SCOPES: str = "openid profile email groups"
+    OIDC_END_SESSION_ENDPOINT: Optional[str] = None
+
+
+settings = Settings()
+

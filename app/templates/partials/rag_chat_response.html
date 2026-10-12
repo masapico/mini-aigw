@@ -1,0 +1,37 @@
+<div class="chat-container mt-3">
+  <!-- ユーザー発話 -->
+  <div class="chat-bubble-user">
+    {{ query }}
+  </div>
+
+  <!-- アシスタント応答 -->
+  <div class="chat-bubble-assistant">
+    <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="brand-icon" style="width: 24px; height: 24px; font-size: 0.75rem;">🤖</span>
+        <span class="fw-bold small">{{ model_id }}</span>
+      </div>
+      <span class="badge-pill-modern badge-status-synced">Bedrock Converse + RAG</span>
+    </div>
+
+    <!-- 本文 -->
+    <div class="mb-3" style="line-height: 1.6; white-space: pre-wrap;">{{ answer }}</div>
+
+    <!-- 引用元 (Citations) -->
+    {% if citations %}
+    <div class="pt-2 border-top">
+      <div class="text-muted small fw-semibold mb-2">引用元ナレッジ (Citations):</div>
+      <div class="d-flex flex-wrap gap-2">
+        {% for cite in citations %}
+        <div class="citation-chip">
+          <span class="text-primary fw-bold">[{{ cite.index }}]</span>
+          <span>{{ cite.filename }}</span>
+          <span class="text-muted font-monospace">({{ cite.group }})</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
