@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 from app.api.v1 import chat, models
@@ -68,6 +69,10 @@ app = FastAPI(
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        return FileResponse(os.path.join(static_dir, "favicon.svg"), media_type="image/svg+xml")
 
 # API ルーター (OpenAI 互換)
 app.include_router(chat.router, prefix="/v1", tags=["OpenAI Compatible v1"])

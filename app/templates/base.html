@@ -6,6 +6,7 @@
   <title>{% block title %}mini-aigw{% endblock %}</title>
   
   <!-- 完全閉域ローカル静的配信 (外部CDN禁止) -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/vendor/bootstrap/css/bootstrap.min.css">
   <link rel="stylesheet" href="/static/css/app.css">
   
@@ -19,7 +20,15 @@
     <div class="container-fluid d-flex align-items-center justify-content-between">
       <div class="d-flex align-items-center gap-4">
         <a href="/" class="brand-badge">
-          <div class="brand-icon">⚡</div>
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
+              <circle cx="19" cy="6" r="2" fill="currentColor" stroke="none" />
+              <circle cx="19" cy="18" r="2" fill="currentColor" stroke="none" />
+              <path d="M7.5 12h3c2 0 3.5-5 5.5-6h2" />
+              <path d="M7.5 12h3c2 0 3.5 5 5.5 6h2" />
+            </svg>
+          </div>
           <span>mini-aigw</span>
         </a>
         {% if user %}
