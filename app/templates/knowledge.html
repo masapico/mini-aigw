@@ -6,9 +6,6 @@
 <div class="mb-4 d-flex justify-content-between align-items-center">
   <div>
     <h3 class="fw-bold mb-1">ナレッジベース ドキュメント管理</h3>
-    <p class="text-muted small mb-0">
-      S3 Vectors 用 <code>.metadata.json</code> サイドカーの自動付与と Bedrock KB 同期
-    </p>
   </div>
   <div class="text-end">
     <span class="badge-pill-modern badge-group font-monospace">Bucket: {{ bucket }}</span>
@@ -30,7 +27,7 @@
     <!-- 1行目: グループ選択 & タグ入力 (Enter追加 / クリック削除) -->
     <div class="row g-3 align-items-start mb-3">
       <div class="col-12 col-md-4">
-        <label class="form-label small fw-semibold text-secondary">所属グループ (S3 Vectors フィルタ)</label>
+        <label class="form-label small fw-semibold text-secondary">ドキュメント分類</label>
         <select class="form-select form-select-modern" name="group_name" required>
           <option value="public" selected>public (全体共有)</option>
           {% for g in groups %}
