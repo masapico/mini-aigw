@@ -34,6 +34,12 @@
         {% endfor %}
       </div>
     </div>
+    {% else %}
+    <div class="pt-2 border-top">
+      <div class="badge bg-light text-muted border py-2 px-3 fw-normal" style="font-size: 0.8rem;">
+        ℹ️ ナレッジベースから該当チャンクは取得されませんでした（LLM自身の事前学習知識による回答）
+      </div>
+    </div>
     {% endif %}
   </div>
 </div>
