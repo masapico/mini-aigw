@@ -212,6 +212,11 @@ body {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+select[multiple].form-select-modern {
+  height: auto;
+  min-height: 42px;
+}
+
 .form-control-modern:focus, .form-select-modern:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);

@@ -36,17 +36,28 @@
       </div>
 
       <div class="col-12 col-md-5">
-        <label class="form-label small fw-semibold text-secondary">検索を許可するナレッジグループ (複数選択可)</label>
-        <select class="form-select form-select-modern" name="allowed_groups" multiple size="3" required>
+        <label class="form-label small fw-semibold text-secondary">
+          検索を許可するナレッジグループ (複数選択可)
+        </label>
+        <div class="d-flex flex-wrap align-items-center gap-3 px-3 py-1 border rounded-3 bg-white" style="min-height: 42px; border-color: var(--border-color) !important;">
           {% for grp in available_groups %}
-          <option value="{{ grp }}" {% if grp == 'public' %}selected{% endif %}>{{ grp }}</option>
+          <div class="form-check mb-0">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="allowed_groups"
+              value="{{ grp }}"
+              id="grp-check-{{ grp }}"
+              {% if grp == 'public' %}checked{% endif %}
+            >
+            <label class="form-check-label small" for="grp-check-{{ grp }}">{{ grp }}</label>
+          </div>
           {% endfor %}
-        </select>
-        <div class="form-text" style="font-size: 0.78rem;">Cmd (Ctrl) を押しながら複数選択できます。</div>
+        </div>
       </div>
 
       <div class="col-12 col-md-2">
-        <button type="submit" class="btn-modern-primary w-100 justify-content-center py-2">
+        <button type="submit" class="btn-modern-primary w-100 justify-content-center">
           <span class="spinner-border spinner-border-sm htmx-indicator" id="key-spinner" role="status"></span>
           キーを発行
         </button>

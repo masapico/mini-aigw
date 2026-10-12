@@ -182,4 +182,24 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
 
         page.screenshot(path="tests/screenshots/groups_tab.png")
 
+        # 5. API キー発行画面の水平アラインメント検証
+        page.goto(f"{live_server}/api-keys")
+        page.wait_for_selector("#keyNameInput")
+
+        key_input = page.locator('#keyNameInput').bounding_box()
+        key_btn = page.locator('button[type="submit"]').bounding_box()
+        grp_box = page.locator('.row.g-3.align-items-end .col-md-5:nth-child(2) > div').bounding_box()
+
+        assert key_input is not None and key_btn is not None and grp_box is not None
+
+        # 下端Y座標が一直線に揃っていること (align-items-end)
+        bottom_input = key_input["y"] + key_input["height"]
+        bottom_btn = key_btn["y"] + key_btn["height"]
+        bottom_grp = grp_box["y"] + grp_box["height"]
+
+        assert abs(bottom_input - bottom_btn) < 2, f"API Key input and button bottom mismatch: {bottom_input} vs {bottom_btn}"
+        assert abs(bottom_input - bottom_grp) < 2, f"API Key input and group container bottom mismatch: {bottom_input} vs {bottom_grp}"
+
+        page.screenshot(path="tests/screenshots/api_keys_page.png")
+
         browser.close()
