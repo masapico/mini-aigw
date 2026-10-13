@@ -23,7 +23,7 @@
     onsubmit="setTimeout(() => { document.getElementById('keyNameInput').value = ''; document.getElementById('keySystemPromptInput').value = ''; }, 400)"
   >
     <div class="row g-3">
-      <div class="col-12 col-md-4">
+      <div class="col-12 col-md-6">
         <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
         <input
           type="text"
@@ -35,7 +35,7 @@
         >
       </div>
 
-      <div class="col-12 col-md-4">
+      <div class="col-12 col-md-6">
         <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
         <select name="model_id" class="form-select form-control-modern">
           <option value="">指定なし (クライアント指定 / 既定モデル)</option>
@@ -45,24 +45,62 @@
         </select>
       </div>
 
-      <div class="col-12 col-md-4">
-        <label class="form-label small fw-semibold text-secondary mb-1">
-          検索を許可するナレッジグループ
-        </label>
-        <div class="text-muted small mb-1" style="font-size: 0.75rem;">未選択時はナレッジ検索を行わないLLM専用キーになります</div>
-        <div id="key-groups-container" class="d-flex flex-wrap align-items-center gap-2 px-3 py-1 border rounded-3 bg-white" style="min-height: 42px; border-color: var(--border-color) !important;">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label small fw-semibold text-secondary mb-0">
+              検索を許可するナレッジグループ
+            </label>
+            <span class="badge bg-light text-secondary border px-2 py-0 small" style="font-size: 0.75rem;">
+              {{ available_groups | length }} グループ
+            </span>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <span class="text-muted small" style="font-size: 0.78rem;">
+              ※ 未選択時はナレッジ検索を行わない LLM 専用キーになります
+            </span>
+            <div class="btn-group btn-group-sm" role="group">
+              <button
+                type="button"
+                class="btn btn-outline-secondary py-0 px-2"
+                style="font-size: 0.75rem;"
+                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = true)"
+              >
+                全選択
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary py-0 px-2"
+                style="font-size: 0.75rem;"
+                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = false)"
+              >
+                全解除
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          id="key-groups-container"
+          class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-white"
+          style="min-height: 48px; max-height: 140px; overflow-y: auto; border-color: var(--border-color) !important;"
+        >
           {% for grp in available_groups %}
-          <div class="form-check mb-0">
+          <label
+            class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none"
+            style="cursor: pointer; font-size: 0.85rem;"
+            for="grp-check-{{ grp }}"
+          >
             <input
-              class="form-check-input"
+              class="form-check-input m-0"
               type="checkbox"
               name="allowed_groups"
               value="{{ grp }}"
               id="grp-check-{{ grp }}"
               {% if grp == 'public' %}checked{% endif %}
+              style="cursor: pointer;"
             >
-            <label class="form-check-label small" for="grp-check-{{ grp }}">{{ grp }}</label>
-          </div>
+            <span class="small fw-medium">{{ grp }}</span>
+          </label>
           {% endfor %}
         </div>
       </div>
