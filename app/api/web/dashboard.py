@@ -7,6 +7,7 @@ from app.core.database import get_session
 from app.core.templates import templates
 from app.models.api_key import ApiKey
 from app.models.knowledge import KnowledgeDocument
+from app.models.llm_model import LlmModel
 from app.models.user import User
 
 router = APIRouter()
@@ -41,6 +42,22 @@ async def dashboard_index(
             .limit(5)
         ).all()
 
+    # 有効な LLM モデルの集計およびデフォルトモデル名の特定
+    active_models = db.exec(
+        select(LlmModel).where(LlmModel.is_active == True)
+    ).all()
+    active_models_count = len(active_models) if active_models else len(settings.AVAILABLE_MODELS)
+
+    default_model_obj = next((m for m in active_models if m.is_default), None)
+    if default_model_obj:
+        default_model_name = default_model_obj.name
+    elif active_models:
+        default_model_name = active_models[0].name
+    else:
+        # DB未登録時のフォールバック (settings.DEFAULT_MODEL_ID)
+        parts = settings.DEFAULT_MODEL_ID.split(".")
+        default_model_name = parts[1] if len(parts) > 1 else settings.DEFAULT_MODEL_ID
+
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -51,5 +68,7 @@ async def dashboard_index(
             "key_count": key_count,
             "recent_docs": recent_docs,
             "settings": settings,
+            "active_models_count": active_models_count,
+            "default_model_name": default_model_name,
         },
     )

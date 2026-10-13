@@ -51,13 +51,13 @@
   {% else %}
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">所属グループ数</div>
+      <div class="text-muted small fw-semibold mb-1">利用可能な AI モデル</div>
       <div class="d-flex align-items-baseline gap-2">
-        <h2 class="fw-bold mb-0 text-indigo">{{ user.get_groups() | length }}</h2>
-        <span class="text-muted small">グループ</span>
+        <h2 class="fw-bold mb-0 text-indigo">{{ active_models_count }}</h2>
+        <span class="text-muted small">種類</span>
       </div>
-      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
-        所属グループ限定ナレッジへアクセス可能
+      <div class="mt-2 text-muted text-truncate" style="font-size: 0.8rem;" title="{{ default_model_name }}">
+        標準: <code>{{ default_model_name }}</code>
       </div>
     </div>
   </div>
@@ -77,16 +77,24 @@
 
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">所属グループ・権限</div>
-      <div class="d-flex flex-wrap gap-1 mt-1">
+      <div class="text-muted small fw-semibold mb-1">アカウント & 権限</div>
+      <div class="d-flex align-items-center gap-2 mt-1 mb-2">
+        {% if 'admin' in user.get_roles() %}
+        <span class="badge-pill-modern bg-primary text-white">管理者</span>
+        {% else %}
+        <span class="badge-pill-modern bg-light text-dark border">一般ユーザー</span>
+        {% endif %}
+        <span class="text-muted" style="font-size: 0.8rem;">
+          {% if user.auth_type == 'oidc' %}SSO (mini-id){% else %}ローカル認証{% endif %}
+        </span>
+      </div>
+      <div class="d-flex align-items-center flex-wrap gap-1">
+        <span class="text-muted" style="font-size: 0.8rem;">所属:</span>
         {% for grp in user.get_groups() %}
         <span class="badge-pill-modern badge-group">{{ grp }}</span>
         {% else %}
-        <span class="text-muted small">所属グループなし</span>
+        <span class="text-muted small">未所属 (全体共有のみ)</span>
         {% endfor %}
-      </div>
-      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
-        ロール: <code>{{ user.roles }}</code> ({{ user.auth_type | upper }})
       </div>
     </div>
   </div>

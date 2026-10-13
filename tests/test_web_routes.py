@@ -240,3 +240,46 @@ def test_logout_clears_cookie():
     assert logout_resp.status_code == 302
     assert logout_resp.headers["location"] == "/login"
 
+
+def test_regular_user_dashboard_ux():
+    """一般ユーザーログイン時のダッシュボードUX改善（重複解消、ロール生表示の排除）の検証"""
+    init_db()
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.username == "test_dev_user")).first()
+        if not user:
+            user = User(
+                auth_type="local",
+                username="test_dev_user",
+                password_hash=hash_password("user123"),
+                roles='["user"]',
+                groups='["dev"]',
+            )
+            session.add(user)
+            session.commit()
+
+    client = TestClient(app)
+    # 一般ユーザーでログイン
+    login_resp = client.post(
+        "/login",
+        data={"username": "test_dev_user", "password": "user123"},
+        follow_redirects=False,
+    )
+    assert login_resp.status_code == 302
+
+    dash_resp = client.get("/")
+    assert dash_resp.status_code == 200
+    html = dash_resp.text
+
+    # 1. 所属グループ表示の重複が解消されていること
+    assert "利用可能な AI モデル" in html
+    assert "所属グループ数" not in html
+
+    # 2. ロール生データ表記の排除とUXバッジ化
+    assert '["user"]' not in html
+    assert "(LOCAL)" not in html
+    assert "一般ユーザー" in html
+    assert "ローカル認証" in html
+    assert "所属:" in html
+    assert "dev" in html
+
+
