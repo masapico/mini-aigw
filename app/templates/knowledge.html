@@ -211,5 +211,19 @@
       renderTags();
     }, 400);
   }
+
+  function initTooltips() {
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+      tooltipTriggerList.forEach((el) => {
+        if (!bootstrap.Tooltip.getInstance(el)) {
+          new bootstrap.Tooltip(el);
+        }
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', initTooltips);
+  document.body.addEventListener('htmx:afterSwap', initTooltips);
 </script>
 {% endblock %}
