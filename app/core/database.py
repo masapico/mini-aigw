@@ -25,6 +25,16 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 def init_db() -> None:
     """データベースの全テーブルを作成する"""
     SQLModel.metadata.create_all(engine)
+    # 既存の api_keys テーブルに raw_key カラムが存在しない場合は追加
+    try:
+        with engine.connect() as conn:
+            result = conn.exec_driver_sql("PRAGMA table_info(api_keys)").fetchall()
+            columns = [row[1] for row in result]
+            if columns and "raw_key" not in columns:
+                conn.exec_driver_sql("ALTER TABLE api_keys ADD COLUMN raw_key VARCHAR")
+                conn.commit()
+    except Exception:
+        pass
 
 
 def get_session() -> Generator[Session, None, None]:

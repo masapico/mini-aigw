@@ -340,3 +340,122 @@ def test_api_key_web_create_without_allowed_groups():
         assert created_key.allowed_groups == "[]"
         assert created_key.get_allowed_groups() == []
 
+
+def test_api_key_web_edit_system_prompt():
+    """Web画面 (/api-keys/{key_id}/edit) からシステムプロンプトやモデル、グループを後から修正できることの検証"""
+    init_db()
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.username == "admin_key_user")).first()
+        if not user:
+            user = User(
+                auth_type="local",
+                username="admin_key_user",
+                password_hash=hash_password("pass123"),
+                roles='["admin"]',
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+    client = TestClient(app)
+    login_resp = client.post(
+        "/login",
+        data={"username": "admin_key_user", "password": "pass123"},
+        follow_redirects=False,
+    )
+    cookie = login_resp.cookies.get("aigw_session")
+
+    # 1. キーを発行
+    create_resp = client.post(
+        "/api-keys/create",
+        cookies={"aigw_session": cookie},
+        data={
+            "name": "初期キー",
+            "allowed_groups": ["public"],
+            "model_id": "",
+            "system_prompt": "初期プロンプト",
+        },
+    )
+    assert create_resp.status_code == 200
+
+    with Session(engine) as session:
+        key_obj = session.exec(select(ApiKey).where(ApiKey.name == "初期キー")).first()
+        assert key_obj is not None
+        assert key_obj.raw_key is not None
+        assert key_obj.raw_key.startswith("sk-live-")
+        key_id = key_obj.id
+        raw_key = key_obj.raw_key
+
+    # 2. キーのシステムプロンプト等を編集 (POST /api-keys/{key_id}/edit)
+    new_prompt = "参照可能なナレッジ（検索された参考資料・コンテキスト）がある場合は、必ずその内容に基づいて正確・誠実に回答してください。ナレッジに記載がない情報については憶測で回答せず、「参照可能なナレッジに記載がありません」と明記してください。"
+    edit_resp = client.post(
+        f"/api-keys/{key_id}/edit",
+        cookies={"aigw_session": cookie},
+        data={
+            "name": "更新後キー",
+            "allowed_groups": ["public", "sales"],
+            "model_id": "amazon.nova-lite-v1:0",
+            "system_prompt": new_prompt,
+        },
+    )
+    assert edit_resp.status_code == 200
+    assert "更新後キー" in edit_resp.text
+    assert "amazon.nova-lite-v1:0" in edit_resp.text
+    assert raw_key in edit_resp.text  # シークレットキーが編集モーダルやコピーボタン内に保持されていること
+
+    # 3. DBの更新を確認
+    with Session(engine) as session:
+        updated_key = session.get(ApiKey, key_id)
+        assert updated_key is not None
+        assert updated_key.name == "更新後キー"
+        assert updated_key.model_id == "amazon.nova-lite-v1:0"
+        assert updated_key.system_prompt == new_prompt
+        assert updated_key.get_allowed_groups() == ["public", "sales"]
+        assert updated_key.raw_key == raw_key  # raw_key は変化せず保持されていること
+
+
+def test_api_key_web_edit_unauthorized():
+    """一般ユーザーによる API キー編集 (/api-keys/{key_id}/edit) が 403 Forbidden となることの検証"""
+    init_db()
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.username == "normal_key_user")).first()
+        if not user:
+            user = User(
+                auth_type="local",
+                username="normal_key_user",
+                password_hash=hash_password("pass123"),
+                roles='["viewer"]',
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+        key_obj = session.exec(select(ApiKey)).first()
+        if not key_obj:
+            _, key_hash, prefix = generate_api_key()
+            key_obj = ApiKey(
+                name="既存キー",
+                key_hash=key_hash,
+                prefix=prefix,
+            )
+            session.add(key_obj)
+            session.commit()
+            session.refresh(key_obj)
+        test_key_id = key_obj.id
+
+    client = TestClient(app)
+    login_resp = client.post(
+        "/login",
+        data={"username": "normal_key_user", "password": "pass123"},
+        follow_redirects=False,
+    )
+    cookie = login_resp.cookies.get("aigw_session")
+
+    edit_resp = client.post(
+        f"/api-keys/{test_key_id}/edit",
+        cookies={"aigw_session": cookie},
+        data={"name": "不正更新", "system_prompt": "不正プロンプト"},
+    )
+    assert edit_resp.status_code == 403
+
+

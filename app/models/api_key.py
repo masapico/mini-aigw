@@ -13,6 +13,7 @@ class ApiKey(SQLModel, table=True):
     name: str
     key_hash: str = Field(unique=True, index=True)  # SHA-256
     prefix: str  # 表示用 (例: 'sk-live-ab12...')
+    raw_key: Optional[str] = Field(default=None)  # 再コピー用シークレットキー
     allowed_groups: str = Field(default='["public"]')  # JSON 配列 (例: '["public", "sales"]')
     model_id: Optional[str] = Field(default=None)  # 紐付けモデル (未設定時は自由)
     system_prompt: Optional[str] = Field(default=None)  # 事前定義システムプロンプト

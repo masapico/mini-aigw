@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def get_available_groups_and_models(user: User, db: Session):
+    db_groups = [g.name for g in db.exec(select(Group)).all()]
+    user_groups = user.get_groups()
+    groups = sorted(list(set(["public"] + user_groups + db_groups)))
+    active_models = db.exec(
+        select(LlmModel).where(LlmModel.is_active == True).order_by(LlmModel.created_at.asc())
+    ).all()
+    return groups, active_models
+
+
 @router.get("/api-keys", response_class=HTMLResponse)
 async def api_keys_list(
     request: Request,
@@ -25,10 +35,7 @@ async def api_keys_list(
     db: Session = Depends(get_session),
 ):
     keys = db.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
-    db_groups = [g.name for g in db.exec(select(Group)).all()]
-    user_groups = user.get_groups()
-    groups = sorted(list(set(["public"] + user_groups + db_groups)))
-    active_models = db.exec(select(LlmModel).where(LlmModel.is_active == True).order_by(LlmModel.created_at.asc())).all()
+    groups, active_models = get_available_groups_and_models(user, db)
 
     return templates.TemplateResponse(
         request=request,
@@ -65,6 +72,7 @@ async def api_key_create(
         name=name.strip(),
         key_hash=key_hash,
         prefix=prefix,
+        raw_key=raw_key,
         allowed_groups=json.dumps(clean_groups),
         model_id=clean_model_id,
         system_prompt=clean_system_prompt,
@@ -74,6 +82,7 @@ async def api_key_create(
     db.refresh(api_key_obj)
 
     keys = db.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
+    groups, active_models = get_available_groups_and_models(user, db)
 
     return templates.TemplateResponse(
         request=request,
@@ -81,8 +90,54 @@ async def api_key_create(
         context={
             "user": user,
             "keys": keys,
+            "available_groups": groups,
+            "available_models": active_models,
             "new_raw_key": raw_key,
             "new_key_name": name,
+        },
+    )
+
+
+@router.post("/api-keys/{key_id}/edit", response_class=HTMLResponse)
+async def api_key_edit(
+    request: Request,
+    key_id: str,
+    name: str = Form(...),
+    allowed_groups: List[str] = Form(default=[]),
+    model_id: Optional[str] = Form(None),
+    system_prompt: Optional[str] = Form(None),
+    user: User = Depends(require_admin_user),
+    db: Session = Depends(get_session),
+):
+    api_key = db.get(ApiKey, key_id)
+    if not api_key:
+        raise HTTPException(status_code=404, detail="API Key not found")
+
+    clean_groups = [g.strip() for g in allowed_groups if g.strip()]
+    clean_model_id = model_id.strip() if model_id and model_id.strip() else None
+    clean_system_prompt = system_prompt.strip() if system_prompt and system_prompt.strip() else None
+
+    api_key.name = name.strip()
+    api_key.allowed_groups = json.dumps(clean_groups)
+    api_key.model_id = clean_model_id
+    api_key.system_prompt = clean_system_prompt
+
+    db.add(api_key)
+    db.commit()
+    db.refresh(api_key)
+
+    keys = db.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
+    groups, active_models = get_available_groups_and_models(user, db)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/api_keys_section.html",
+        context={
+            "user": user,
+            "keys": keys,
+            "available_groups": groups,
+            "available_models": active_models,
+            "new_raw_key": None,
         },
     )
 

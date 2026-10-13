@@ -187,9 +187,9 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
         page.wait_for_selector("#keyNameInput")
 
         key_input = page.locator('#keyNameInput').bounding_box()
-        model_select = page.locator('select[name="model_id"]').bounding_box()
+        model_select = page.locator('#keyModelSelect').bounding_box()
         grp_box = page.locator('#key-groups-container').bounding_box()
-        key_btn = page.locator('button[type="submit"]').bounding_box()
+        key_btn = page.locator('form[hx-post="/api-keys/create"] button[type="submit"]').bounding_box()
         prompt_input = page.locator('#keySystemPromptInput').bounding_box()
 
         assert key_input is not None and model_select is not None and grp_box is not None and key_btn is not None and prompt_input is not None
@@ -204,6 +204,31 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
         assert abs(bottom_prompt - bottom_btn) < 2, f"API Key prompt and button bottom mismatch: {bottom_prompt} vs {bottom_btn}"
 
         page.screenshot(path="tests/screenshots/api_keys_page.png")
+
+        # 5-1. 新規フォームで「この指示例を挿入」ボタンをクリック
+        page.click("button:has-text('この指示例を挿入')")
+        inserted_prompt = page.locator('#keySystemPromptInput').input_value()
+        assert "参照可能なナレッジ" in inserted_prompt
+        assert "参照可能なナレッジに記載がありません" in inserted_prompt
+
+        # 5-2. 一覧の編集ボタンをクリックしてモーダルを開く
+        edit_buttons = page.locator('button:has-text("編集")')
+        if edit_buttons.count() > 0:
+            edit_buttons.first.click()
+            page.wait_for_selector(".modal.show", state="visible")
+            page.wait_for_timeout(300)
+            page.screenshot(path="tests/screenshots/api_keys_edit_modal.png")
+
+            # モーダル内の「💡 ナレッジ優先回答の指示例を挿入」ボタンをクリック
+            modal_prompt_btn = page.locator('.modal.show button:has-text("💡 ナレッジ優先回答の指示例を挿入")')
+            modal_prompt_btn.click()
+            modal_textarea = page.locator('.modal.show textarea[name="system_prompt"]')
+            assert "参照可能なナレッジ" in modal_textarea.input_value()
+
+            # モーダルの「保存」ボタンをクリック
+            page.locator('.modal.show button[type="submit"]:has-text("保存")').click()
+            page.wait_for_selector(".modal.show", state="hidden")
+            page.wait_for_timeout(300)
 
         # 6. モデル管理画面の検証
         page.goto(f"{live_server}/models")
