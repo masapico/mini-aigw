@@ -31,7 +31,7 @@
 
     {% if latest_sync_job and latest_sync_job.updatedAt %}
     <div class="text-muted small">
-      最終更新: <span class="fw-semibold">{{ latest_sync_job.updatedAt.strftime('%Y-%m-%d %H:%M:%S') if latest_sync_job.updatedAt.strftime is defined else latest_sync_job.updatedAt }}</span>
+      最終更新: <span class="fw-semibold">{{ latest_sync_job.updatedAt | to_jst('%Y-%m-%d %H:%M:%S') }}</span> <span class="badge bg-light text-secondary border px-1" style="font-size: 0.7rem;">JST</span>
     </div>
     {% endif %}
 
@@ -67,4 +67,3 @@
     {% endif %}
   </div>
 </div>
-

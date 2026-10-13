@@ -2,11 +2,11 @@ import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from app.api.web.auth import require_admin_user, require_current_user
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.templates import templates
 from app.models.group import Group
 from app.models.llm_model import LlmModel
 from app.models.user import User
@@ -20,7 +20,6 @@ from app.services.bedrock_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/rag-test", response_class=HTMLResponse)

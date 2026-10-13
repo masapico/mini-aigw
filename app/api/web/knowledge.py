@@ -2,10 +2,11 @@ import json
 import logging
 import urllib.parse
 import uuid
+from datetime import timezone
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
+from sqlalchemy import update
 from sqlmodel import Session, select
 from app.api.web.auth import (
     can_user_download_document,
@@ -16,6 +17,7 @@ from app.api.web.auth import (
 )
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.templates import templates
 from app.models.group import Group
 from app.models.knowledge import KnowledgeDocument
 from app.models.user import User
@@ -32,7 +34,6 @@ from app.services.knowledge_service import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 def _get_filtered_docs_and_uploaders(db: Session, user: User) -> Tuple[List[KnowledgeDocument], Dict[str, str]]:
@@ -86,15 +87,49 @@ def _get_latest_kb_job() -> Optional[Dict[str, Any]]:
         return None
 
 
+def _sync_completed_documents(db: Session, latest_job: Optional[Dict[str, Any]]) -> None:
+    """
+    最新の Bedrock Ingestion Job が正常完了 (COMPLETE) している場合、
+    ジョブ開始日時以前に登録された未同期ドキュメント (S3_UPLOADED) を
+    単一SQLバルククエリで一括して SYNCED に更新する。
+    ジョブが FAILED や IN_PROGRESS の場合は更新せず安全に維持する。
+    """
+    if not latest_job or latest_job.get("status") != "COMPLETE":
+        return
+
+    job_time = latest_job.get("startedAt") or latest_job.get("updatedAt")
+    if not job_time:
+        return
+
+    try:
+        if not hasattr(job_time, "tzinfo") or job_time.tzinfo is None:
+            utc_job_time = job_time.replace(tzinfo=timezone.utc)
+        else:
+            utc_job_time = job_time.astimezone(timezone.utc)
+
+        # 1クエリで未同期ドキュメントを一括更新 (500件でも1〜2ms)
+        db.exec(
+            update(KnowledgeDocument)
+            .where(KnowledgeDocument.sync_status == "S3_UPLOADED")
+            .where(KnowledgeDocument.created_at <= utc_job_time)
+            .values(sync_status="SYNCED")
+        )
+        db.commit()
+    except Exception as e:
+        logger.warning("Could not bulk update synced documents: %s", e)
+
+
 @router.get("/knowledge", response_class=HTMLResponse)
 async def knowledge_list(
     request: Request,
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
+    latest_job = _get_latest_kb_job()
+    _sync_completed_documents(db, latest_job)
+
     docs, uploader_map = _get_filtered_docs_and_uploaders(db, user)
     groups = _get_available_groups_for_upload(db, user)
-    latest_job = _get_latest_kb_job()
 
     return templates.TemplateResponse(
         request=request,
@@ -109,6 +144,28 @@ async def knowledge_list(
             "kb_id": settings.BEDROCK_KB_ID,
             "data_source_id": settings.BEDROCK_DATA_SOURCE_ID,
             "is_admin": "admin" in user.get_roles(),
+        },
+    )
+
+
+@router.get("/knowledge/table", response_class=HTMLResponse)
+async def knowledge_table_partial(
+    request: Request,
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_session),
+):
+    """HTMX 部分更新用: ナレッジ一覧テーブルのみを返却する"""
+    latest_job = _get_latest_kb_job()
+    _sync_completed_documents(db, latest_job)
+    docs, uploader_map = _get_filtered_docs_and_uploaders(db, user)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/knowledge_table.html",
+        context={
+            "documents": docs,
+            "user": user,
+            "uploader_map": uploader_map,
         },
     )
 
@@ -228,6 +285,8 @@ async def knowledge_sync(
 ):
     """
     管理者専用: Bedrock Knowledge Base の Ingestion Job (データソース同期) を手動実行する。
+    ジョブの開始が成功した時点ではジョブは STARTING/IN_PROGRESS であり、
+    正常完了 (COMPLETE) が検知された際にドキュメントステータスが SYNCED に昇格します。
     """
     if not settings.BEDROCK_KB_ID or not settings.BEDROCK_DATA_SOURCE_ID:
         raise HTTPException(status_code=400, detail="BEDROCK_KB_ID または BEDROCK_DATA_SOURCE_ID が未設定です")

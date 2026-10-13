@@ -74,7 +74,7 @@
           {% endfor %}
         </td>
         <td class="text-muted small">
-          {{ k.created_at.strftime('%Y-%m-%d %H:%M') if k.created_at else '-' }}
+          {{ k.created_at | to_jst }}
         </td>
         <td class="text-end">
           <button

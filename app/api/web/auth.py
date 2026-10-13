@@ -4,7 +4,6 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from app.core.config import settings
 from app.core.database import get_session
@@ -13,6 +12,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.templates import templates
 from app.models.session import SessionRecord
 from app.models.user import User
 from app.services.oidc_service import oidc_service
@@ -20,7 +20,6 @@ from app.services.oidc_service import oidc_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 def get_current_user_optional(

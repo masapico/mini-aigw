@@ -1,16 +1,15 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, func, select
 from app.api.web.auth import get_user_viewable_groups, require_current_user
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.templates import templates
 from app.models.api_key import ApiKey
 from app.models.knowledge import KnowledgeDocument
 from app.models.user import User
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/", response_class=HTMLResponse)

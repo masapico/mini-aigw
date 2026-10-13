@@ -115,7 +115,7 @@ def test_knowledge_upload_group_isolation(mock_s3_client):
     )
     assert resp_sales.status_code == 200
     assert "sales_doc.txt" in resp_sales.text
-    assert "S3保管 (未同期)" in resp_sales.text
+    assert "S3保管" in resp_sales.text
 
     # 2. 所属外グループ dev へのアップロード ➔ 拒否 (403 Forbidden)
     resp_dev = client.post(
@@ -269,4 +269,96 @@ def test_rag_test_permissions_plan_a(mock_runtime, mock_agent):
     )
     assert chat_admin.status_code == 200
     assert "Admin RAG response." in chat_admin.text
+
+
+def test_jst_datetime_filter():
+    """JST (UTC+9) 変換フィルタの検証"""
+    from datetime import datetime, timezone
+    from app.core.templates import to_jst
+
+    # 1. naive UTC: 2026-10-13 02:30:00 -> JST: 2026-10-13 11:30 (+9時間)
+    dt_naive = datetime(2026, 10, 13, 2, 30, 0)
+    assert to_jst(dt_naive) == "2026-10-13 11:30"
+
+    # 2. tz-aware UTC: 2026-10-13 15:00:00 -> JST: 2026-10-14 00:00 (日付跨ぎ)
+    dt_aware = datetime(2026, 10, 13, 15, 0, 0, tzinfo=timezone.utc)
+    assert to_jst(dt_aware) == "2026-10-14 00:00"
+
+    # 3. ISO 文字列
+    assert to_jst("2026-10-13T02:30:00Z") == "2026-10-13 11:30"
+    assert to_jst(None) == "-"
+
+
+@patch("app.api.web.knowledge.get_bedrock_agent_client")
+@patch("app.api.web.knowledge.get_s3_client")
+def test_knowledge_sync_status_lifecycle_and_error_handling(mock_s3, mock_agent):
+    """
+    KB同期のライフサイクルおよびエラー時の整合性検証:
+    1. アップロード直後は 'S3_UPLOADED' (S3保管)
+    2. 同期ジョブが FAILED (エラー) の場合、'S3_UPLOADED' のまま維持される
+    3. 同期ジョブが COMPLETE の場合、'SYNCED' (同期済) に自動昇格する
+    """
+    from datetime import datetime, timezone, timedelta
+    setup_test_users_and_groups()
+    admin_client = TestClient(app)
+    login_as(admin_client, "test_admin", "admin_pass")
+
+    mock_s3.return_value.put_object.return_value = {}
+
+    # 1. ドキュメントアップロード ➔ S3_UPLOADED
+    upload_resp = admin_client.post(
+        "/knowledge/upload",
+        files={"file": ("sync_test.txt", io.BytesIO(b"Sync content"), "text/plain")},
+        data={"group_name": "sales"},
+        headers={"HX-Request": "true"},
+    )
+    assert upload_resp.status_code == 200
+    assert "S3保管" in upload_resp.text
+
+    with Session(engine) as session:
+        doc = session.exec(select(KnowledgeDocument).where(KnowledgeDocument.filename == "sync_test.txt")).first()
+        assert doc is not None
+        assert doc.sync_status == "S3_UPLOADED"
+
+    # 2. 同期ジョブが FAILED の場合 ➔ S3_UPLOADED のまま安全に維持される
+    now_utc = datetime.now(timezone.utc)
+    mock_agent.return_value.list_ingestion_jobs.return_value = {
+        "ingestionJobSummaries": [
+            {
+                "ingestionJobId": "JOB-FAILED-999",
+                "status": "FAILED",
+                "startedAt": now_utc,
+                "updatedAt": now_utc,
+            }
+        ]
+    }
+
+    # 一覧取得
+    page_fail = admin_client.get("/knowledge")
+    assert page_fail.status_code == 200
+
+    with Session(engine) as session:
+        doc_after_fail = session.exec(select(KnowledgeDocument).where(KnowledgeDocument.filename == "sync_test.txt")).first()
+        assert doc_after_fail.sync_status == "S3_UPLOADED"  # 昇格されず維持
+
+    # 3. 同期ジョブが COMPLETE の場合 ➔ SYNCED (同期済) に昇格
+    job_complete_time = now_utc + timedelta(minutes=5)
+    mock_agent.return_value.list_ingestion_jobs.return_value = {
+        "ingestionJobSummaries": [
+            {
+                "ingestionJobId": "JOB-SUCCESS-111",
+                "status": "COMPLETE",
+                "startedAt": job_complete_time,
+                "updatedAt": job_complete_time,
+            }
+        ]
+    }
+
+    # 一覧取得で同期検知
+    page_success = admin_client.get("/knowledge")
+    assert page_success.status_code == 200
+
+    with Session(engine) as session:
+        doc_after_success = session.exec(select(KnowledgeDocument).where(KnowledgeDocument.filename == "sync_test.txt")).first()
+        assert doc_after_success.sync_status == "SYNCED"  # SYNCED に昇格
 

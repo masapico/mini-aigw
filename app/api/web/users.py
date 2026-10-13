@@ -3,11 +3,11 @@ import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from app.api.web.auth import require_admin_user, require_current_user
 from app.core.database import get_session
 from app.core.security import hash_password
+from app.core.templates import templates
 from app.models.group import Group
 from app.models.session import SessionRecord
 from app.models.user import User
@@ -15,7 +15,6 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
 
 
 @router.get("/users", response_class=HTMLResponse)
