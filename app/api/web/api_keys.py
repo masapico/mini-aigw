@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
-from app.api.web.auth import require_current_user
+from app.api.web.auth import require_admin_user
 from app.core.database import get_session
 from app.core.security import generate_api_key
 from app.models.api_key import ApiKey
@@ -22,7 +22,7 @@ templates = Jinja2Templates(directory="app/templates")
 @router.get("/api-keys", response_class=HTMLResponse)
 async def api_keys_list(
     request: Request,
-    user: User = Depends(require_current_user),
+    user: User = Depends(require_admin_user),
     db: Session = Depends(get_session),
 ):
     keys = db.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
@@ -51,7 +51,7 @@ async def api_key_create(
     allowed_groups: List[str] = Form(...),
     model_id: Optional[str] = Form(None),
     system_prompt: Optional[str] = Form(None),
-    user: User = Depends(require_current_user),
+    user: User = Depends(require_admin_user),
     db: Session = Depends(get_session),
 ):
     raw_key, key_hash, prefix = generate_api_key()
@@ -93,7 +93,7 @@ async def api_key_create(
 @router.delete("/api-keys/{key_id}")
 async def api_key_delete(
     key_id: str,
-    user: User = Depends(require_current_user),
+    user: User = Depends(require_admin_user),
     db: Session = Depends(get_session),
 ):
     api_key = db.get(ApiKey, key_id)

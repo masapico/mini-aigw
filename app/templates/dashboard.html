@@ -13,7 +13,7 @@
       ナレッジ管理
     </a>
     <a href="/rag-test" class="btn-modern-primary text-decoration-none py-2">
-      RAGテストを開く
+      ナレッジ検索テスト
     </a>
   </div>
 </div>
@@ -22,7 +22,9 @@
 <div class="row g-3 mb-4">
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">ナレッジドキュメント</div>
+      <div class="text-muted small fw-semibold mb-1">
+        {% if is_admin %}ナレッジドキュメント (全体){% else %}アクセス可能ドキュメント{% endif %}
+      </div>
       <div class="d-flex align-items-baseline gap-2">
         <h2 class="fw-bold mb-0 text-indigo">{{ doc_count }}</h2>
         <span class="text-muted small">件</span>
@@ -33,6 +35,7 @@
     </div>
   </div>
 
+  {% if is_admin %}
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="modern-card">
       <div class="text-muted small fw-semibold mb-1">有効な API キー</div>
@@ -45,6 +48,20 @@
       </div>
     </div>
   </div>
+  {% else %}
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="modern-card">
+      <div class="text-muted small fw-semibold mb-1">所属グループ数</div>
+      <div class="d-flex align-items-baseline gap-2">
+        <h2 class="fw-bold mb-0 text-indigo">{{ user.get_groups() | length }}</h2>
+        <span class="text-muted small">グループ</span>
+      </div>
+      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+        所属グループ限定ナレッジへアクセス可能
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="modern-card">
@@ -62,24 +79,27 @@
     <div class="modern-card">
       <div class="text-muted small fw-semibold mb-1">所属グループ・権限</div>
       <div class="d-flex flex-wrap gap-1 mt-1">
-        {% for role in user.get_roles() %}
-        <span class="badge-pill-modern badge-group">{{ role }}</span>
+        {% for grp in user.get_groups() %}
+        <span class="badge-pill-modern badge-group">{{ grp }}</span>
+        {% else %}
+        <span class="text-muted small">所属グループなし</span>
         {% endfor %}
       </div>
       <div class="mt-2 text-muted" style="font-size: 0.8rem;">
-        認証: {{ user.auth_type | upper }}
+        ロール: <code>{{ user.roles }}</code> ({{ user.auth_type | upper }})
       </div>
     </div>
   </div>
 </div>
 
-<!-- API 接続ガイド & 最近のナレッジ -->
+<!-- API 接続ガイド または 利用案内 & 最近のナレッジ -->
 <div class="row g-4">
   <div class="col-12 col-lg-6">
+    {% if is_admin %}
     <div class="modern-card h-100">
-      <h5 class="fw-bold mb-3">OpenAI 互換 API 接続方法</h5>
+      <h5 class="fw-bold mb-3">OpenAI 互換 API 接続方法 (管理者ガイド)</h5>
       <p class="text-muted small">
-        公式 <code>openai</code> SDK や Dify、業務チャットから <code>http://&lt;host&gt;:8000/v1</code> 経由で即座に利用可能です。
+        公式 <code>openai</code> SDK や Dify、社内Slack/Teams Botから <code>http://&lt;host&gt;:8000/v1</code> 経由で即座に利用可能です。
       </p>
 
       <div class="p-3 rounded-3" style="background-color: #0f172a; color: #f8fafc; font-size: 0.82rem;">
@@ -87,7 +107,7 @@
 
 client = OpenAI(
     base_url="http://localhost:8000/v1",
-    api_key="sk-live-...",  # 発行したAPIキー
+    api_key="sk-live-...",  # 管理者が発行したAPIキー
 )
 
 response = client.chat.completions.create(
@@ -99,6 +119,36 @@ for chunk in response:
     print(chunk.choices[0].delta.content or "", end="")</code></pre>
       </div>
     </div>
+    {% else %}
+    <div class="modern-card h-100">
+      <h5 class="fw-bold mb-3">ナレッジ連携のご案内</h5>
+      <p class="text-muted small">
+        mini-aigw では、所属部署・グループごとに隔離されたセキュアなナレッジベースを管理・検索できます。
+      </p>
+      <ul class="list-unstyled d-flex flex-column gap-2 text-secondary small">
+        <li class="d-flex align-items-start gap-2">
+          <span class="text-primary fw-bold">✓</span>
+          <span><strong>安全なアップロード:</strong> ご自身が所属するグループ配下にのみドキュメントをアップロードできます。他部署のプレフィックスへの誤登録は防止されています。</span>
+        </li>
+        <li class="d-flex align-items-start gap-2">
+          <span class="text-primary fw-bold">✓</span>
+          <span><strong>権限分離された原本閲覧:</strong> 自身が所属するグループおよび全体共有（public）のドキュメントのみを一覧表示・ダウンロードできます。</span>
+        </li>
+        <li class="d-flex align-items-start gap-2">
+          <span class="text-primary fw-bold">✓</span>
+          <span><strong>検索単体テスト (Retrieve):</strong> 登録したナレッジが Bedrock Knowledge Base で正しく検索ヒットするか、スコアと内容を確認できます。</span>
+        </li>
+      </ul>
+      <div class="mt-4 pt-2 border-top d-flex gap-2">
+        <a href="/knowledge" class="btn-modern-primary text-decoration-none py-2 px-3 small">
+          ナレッジを登録する
+        </a>
+        <a href="/rag-test" class="btn-modern-secondary text-decoration-none py-2 px-3 small">
+          ナレッジを検索確認する
+        </a>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="col-12 col-lg-6">
@@ -126,9 +176,15 @@ for chunk in response:
                 <span class="badge-pill-modern badge-group">{{ doc.group_name }}</span>
               </td>
               <td>
+                {% if doc.sync_status == 'S3_UPLOADED' %}
+                <span class="badge-pill-modern badge-status-s3_uploaded">S3保管 (未同期)</span>
+                {% elif doc.sync_status == 'SYNCED' %}
+                <span class="badge-pill-modern badge-status-synced">同期済</span>
+                {% else %}
                 <span class="badge-pill-modern badge-status-{{ doc.sync_status.lower() }}">
                   {{ doc.sync_status }}
                 </span>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
@@ -137,11 +193,10 @@ for chunk in response:
       </div>
       {% else %}
       <div class="text-center py-5 text-muted small">
-        登録済みのナレッジドキュメントはありません。
+        利用可能な登録済ナレッジドキュメントはありません。
       </div>
       {% endif %}
     </div>
   </div>
 </div>
 {% endblock %}
-

@@ -61,6 +61,55 @@ def require_current_user(
     return user
 
 
+def require_admin_user(
+    user: User = Depends(require_current_user),
+) -> User:
+    """システム管理者 (admin ロール) 専用の依存関係"""
+    if "admin" not in user.get_roles():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="この操作を行うには管理者権限が必要です",
+        )
+    return user
+
+
+def get_user_viewable_groups(user: User) -> Optional[list[str]]:
+    """
+    ユーザーが閲覧可能なグループ名リストを取得する。
+    admin の場合は全グループ閲覧可能なため None を返却する。
+    一般ユーザーの場合は ['public'] + 自身所属グループ を返却する。
+    """
+    if "admin" in user.get_roles():
+        return None
+    return list(set(["public"] + user.get_groups()))
+
+
+def can_user_upload_to_group(user: User, group_name: str) -> bool:
+    """
+    ユーザーが指定グループへアップロード可能かを判定する。
+    admin: 全グループおよび public へアップロード可能。
+    一般ユーザー: 自身が所属するグループのみアップロード可能（public への登録は管理者のみ）。
+    """
+    if "admin" in user.get_roles():
+        return True
+    clean = group_name.strip().lower()
+    if clean == "public":
+        return False
+    return clean in user.get_groups()
+
+
+def can_user_download_document(user: User, doc_group: str) -> bool:
+    """
+    ユーザーが指定ドキュメント（のグループ）をダウンロード可能かを判定する。
+    admin: 全ドキュメント可能。
+    一般ユーザー: public または自身の所属グループのみ可能。
+    """
+    if "admin" in user.get_roles():
+        return True
+    clean = doc_group.strip().lower()
+    return clean == "public" or clean in user.get_groups()
+
+
 def create_user_session(
     db: Session,
     user: User,

@@ -201,6 +201,12 @@ body {
   color: #92400e;
 }
 
+.badge-status-s3_uploaded {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
 .badge-status-deleting {
   background-color: var(--danger-light);
   color: #991b1b;

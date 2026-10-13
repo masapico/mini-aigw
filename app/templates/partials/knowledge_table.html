@@ -4,6 +4,7 @@
       <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
         <th>ファイル名 (原本DL)</th>
         <th>グループ</th>
+        <th>登録者</th>
         <th>タグ</th>
         <th>サイズ</th>
         <th>S3 キー</th>
@@ -30,7 +31,12 @@
           <span class="badge-pill-modern badge-group">{{ doc.group_name }}</span>
         </td>
         <td>
-          <div class="d-flex flex-wrap gap-1" style="max-width: 200px;">
+          <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.8rem;">
+            👤 {{ uploader_map.get(doc.uploader_id, doc.uploader_id or '-') if uploader_map is defined else (doc.uploader_id or '-') }}
+          </span>
+        </td>
+        <td>
+          <div class="d-flex flex-wrap gap-1" style="max-width: 180px;">
             {% for tag in doc.get_tags() %}
             <span class="badge bg-light text-dark border" style="font-size: 0.75rem;">#{{ tag }}</span>
             {% else %}
@@ -41,13 +47,23 @@
         <td class="text-muted small text-nowrap">
           {{ (doc.file_size / 1024) | round(1) }} KB
         </td>
-        <td class="text-muted small font-monospace text-break" style="max-width: 220px;">
+        <td class="text-muted small font-monospace text-break" style="max-width: 200px;">
           {{ doc.s3_key }}
         </td>
         <td>
+          {% if doc.sync_status == 'S3_UPLOADED' %}
+          <span class="badge-pill-modern badge-status-s3_uploaded" title="S3に保管完了。次回のKB同期でインデックス化されます">
+            S3保管 (未同期)
+          </span>
+          {% elif doc.sync_status == 'SYNCED' %}
+          <span class="badge-pill-modern badge-status-synced">
+            同期済
+          </span>
+          {% else %}
           <span class="badge-pill-modern badge-status-{{ doc.sync_status.lower() }}">
             {{ doc.sync_status }}
           </span>
+          {% endif %}
         </td>
         <td class="text-muted small text-nowrap">
           {{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '-' }}
@@ -58,20 +74,20 @@
             class="btn-modern-danger py-1 px-2"
             style="font-size: 0.82rem;"
             hx-delete="/knowledge/{{ doc.id }}"
-            hx-confirm="「{{ doc.filename }}」を S3 および Bedrock KB から完全に削除しますか？"
+            hx-confirm="「{{ doc.filename }}」を S3 から完全に削除しますか？"
             hx-target="#doc-row-{{ doc.id }}"
             hx-swap="outerHTML"
           >
             削除
           </button>
           {% else %}
-          <span class="text-muted small">-</span>
+          <span class="text-muted small" title="自身が登録したファイルのみ削除可能です">-</span>
           {% endif %}
         </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="8" class="text-center py-5 text-muted">
+        <td colspan="9" class="text-center py-5 text-muted">
           登録されたナレッジドキュメントはありません。上部のエリアからアップロードしてください。
         </td>
       </tr>

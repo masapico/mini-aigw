@@ -1,10 +1,10 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
-from app.api.web.auth import require_current_user
+from app.api.web.auth import require_admin_user, require_current_user
 from app.core.config import settings
 from app.core.database import get_session
 from app.models.group import Group
@@ -29,9 +29,15 @@ async def rag_test_page(
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
-    db_groups = [g.name for g in db.exec(select(Group)).all()]
+    is_admin = "admin" in user.get_roles()
     user_groups = user.get_groups()
-    groups = sorted(list(set(["public"] + user_groups + db_groups)))
+
+    if is_admin:
+        db_groups = [g.name for g in db.exec(select(Group)).all()]
+        groups = sorted(list(set(["public"] + user_groups + db_groups)))
+    else:
+        # 一般ユーザーは public と自身が所属するグループのみ選択可能
+        groups = sorted(list(set(["public"] + user_groups)))
 
     db_models = db.exec(select(LlmModel).where(LlmModel.is_active == True).order_by(LlmModel.created_at.asc())).all()
     models_list = [m.id for m in db_models] if db_models else settings.AVAILABLE_MODELS
@@ -44,6 +50,7 @@ async def rag_test_page(
             "groups": groups,
             "models": models_list,
             "kb_id": settings.BEDROCK_KB_ID,
+            "is_admin": is_admin,
         },
     )
 
@@ -55,8 +62,18 @@ async def rag_retrieve_test(
     group: str = Form("public"),
     user: User = Depends(require_current_user),
 ):
+    is_admin = "admin" in user.get_roles()
+    clean_group = group.strip() if group.strip() else "public"
+
+    # 権限チェック: 一般ユーザーは public または自身の所属グループのみ指定可能
+    if not is_admin and clean_group != "public" and clean_group not in user.get_groups():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"グループ '{clean_group}' のナレッジを検索する権限がありません。",
+        )
+
     agent_client = get_bedrock_agent_runtime_client()
-    allowed_groups = [group.strip()] if group.strip() else ["public"]
+    allowed_groups = [clean_group]
 
     results = []
     error_message = None
@@ -90,7 +107,7 @@ async def rag_chat_test(
     query: str = Form(...),
     model_id: str = Form(settings.DEFAULT_MODEL_ID),
     group: str = Form("public"),
-    user: User = Depends(require_current_user),
+    user: User = Depends(require_admin_user),
 ):
     agent_client = get_bedrock_agent_runtime_client()
     runtime_client = get_bedrock_runtime_client()

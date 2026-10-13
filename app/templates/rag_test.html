@@ -5,15 +5,26 @@
 {% block content %}
 <div class="mb-4 d-flex justify-content-between align-items-center">
   <div>
-    <h3 class="fw-bold mb-1">RAG 動作検証・テスト</h3>
+    <h3 class="fw-bold mb-1">
+      {% if is_admin %}
+      RAG 動作検証・テスト
+      {% else %}
+      ナレッジ検索・単体検証 (Retrieve)
+      {% endif %}
+    </h3>
     <p class="text-muted small mb-0">
+      {% if is_admin %}
       S3 Vectors プリフィルタリング（権限分離）と Bedrock Converse API 引用元連携のリアルタイム確認
+      {% else %}
+      登録したナレッジが正しく検索ヒットするか、スコアとチャンク内容を単体確認できます
+      {% endif %}
     </p>
   </div>
   <span class="badge-pill-modern badge-group font-monospace">KB ID: {{ kb_id }}</span>
 </div>
 
-<!-- タブ切り替え -->
+{% if is_admin %}
+<!-- 管理者専用: タブ切り替え -->
 <ul class="nav nav-pills mb-4 gap-2" id="ragTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button
@@ -40,12 +51,16 @@
     </button>
   </li>
 </ul>
+{% endif %}
 
 <div class="tab-content" id="ragTabsContent">
   <!-- 1. Retrieve 単体タブ -->
   <div class="tab-pane fade show active" id="retrieve-panel" role="tabpanel">
     <div class="modern-card">
-      <h5 class="fw-bold mb-3">Retrieve 単体テスト</h5>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">ナレッジ検索単体テスト (Retrieve API)</h5>
+        <span class="text-muted small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
+      </div>
       <form
         hx-post="/rag-test/retrieve"
         hx-target="#retrieve-results-box"
@@ -53,7 +68,12 @@
       >
         <div class="row g-3">
           <div class="col-12 col-md-4">
-            <label class="form-label small fw-semibold text-secondary">対象グループ (Pre-filtering)</label>
+            <label class="form-label small fw-semibold text-secondary">
+              対象グループ (Pre-filtering)
+              {% if not is_admin %}
+              <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.72rem;">アクセス可能範囲</span>
+              {% endif %}
+            </label>
             <select class="form-select form-select-modern" name="group">
               {% for grp in groups %}
               <option value="{{ grp }}" {% if grp == 'public' %}selected{% endif %}>{{ grp }}</option>
@@ -85,7 +105,8 @@
     </div>
   </div>
 
-  <!-- 2. Converse + RAG 対話タブ -->
+  {% if is_admin %}
+  <!-- 2. Converse + RAG 対話タブ (管理者専用) -->
   <div class="tab-pane fade" id="chat-panel" role="tabpanel">
     <div class="modern-card">
       <h5 class="fw-bold mb-3">対話テスト (Citations 引用付き)</h5>
@@ -136,6 +157,6 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}
-

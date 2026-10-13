@@ -36,8 +36,8 @@
           <a href="/" class="nav-pill-link {% if request.url.path == '/' %}active{% endif %}">ダッシュボード</a>
           <a href="/knowledge" class="nav-pill-link {% if '/knowledge' in request.url.path %}active{% endif %}">ナレッジ管理</a>
           <a href="/rag-test" class="nav-pill-link {% if '/rag-test' in request.url.path %}active{% endif %}">RAGテスト</a>
-          <a href="/api-keys" class="nav-pill-link {% if '/api-keys' in request.url.path %}active{% endif %}">APIキー</a>
           {% if 'admin' in user.get_roles() %}
+          <a href="/api-keys" class="nav-pill-link {% if '/api-keys' in request.url.path %}active{% endif %}">APIキー</a>
           <a href="/models" class="nav-pill-link {% if '/models' in request.url.path %}active{% endif %}">モデル管理</a>
           <a href="/users" class="nav-pill-link {% if '/users' in request.url.path %}active{% endif %}">ユーザー・グループ管理</a>
           {% endif %}

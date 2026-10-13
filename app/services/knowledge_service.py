@@ -118,18 +118,43 @@ def trigger_ingestion_job(
         return None
 
 
+def get_latest_ingestion_job(
+    bedrock_agent: Any,
+    kb_id: str,
+    data_source_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Bedrock Knowledge Base の最新 Ingestion Job 情報を取得する"""
+    if not kb_id or not data_source_id:
+        return None
+    try:
+        response = bedrock_agent.list_ingestion_jobs(
+            knowledgeBaseId=kb_id,
+            dataSourceId=data_source_id,
+            maxResults=1,
+            sortBy={"attribute": "STARTED_AT", "order": "DESCENDING"},
+        )
+        jobs = response.get("ingestionJobSummaries", [])
+        if jobs:
+            return jobs[0]
+        return None
+    except Exception as e:
+        logger.warning("Failed to fetch latest ingestion job for KB %s: %s", kb_id, e)
+        return None
+
+
 def delete_knowledge_document(
     db: Session,
     s3_client: Any,
-    bedrock_agent: Any,
+    bedrock_agent: Optional[Any],
     kb_id: str,
     doc_id: str,
+    trigger_sync: bool = True,
 ) -> bool:
     """
     ドキュメント削除フロー（整合性保証）:
     1. DB上のステータスを 'DELETING' に更新・コミット
     2. S3 からファイル本体 & メタデータを削除
-    3. Bedrock KB Ingestion ジョブのトリガー
+    3. オプションで Bedrock KB Ingestion ジョブのトリガー（同期は管理者/バッチに委任可能）
     4. DB レコード物理削除
     """
     doc = db.get(KnowledgeDocument, doc_id)
@@ -148,8 +173,8 @@ def delete_knowledge_document(
     except Exception as e:
         logger.error("Error deleting S3 objects for %s: %s", doc.s3_key, e)
 
-    # 3. KB Ingestion ジョブのトリガー
-    if doc.data_source_id and kb_id:
+    # 3. オプションで KB Ingestion ジョブのトリガー
+    if trigger_sync and bedrock_agent and doc.data_source_id and kb_id:
         trigger_ingestion_job(bedrock_agent, kb_id, doc.data_source_id)
 
     # 4. 完了後レコード削除

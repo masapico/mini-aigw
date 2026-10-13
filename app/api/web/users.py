@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
-from app.api.web.auth import require_current_user
+from app.api.web.auth import require_admin_user, require_current_user
 from app.core.database import get_session
 from app.core.security import hash_password
 from app.models.group import Group
@@ -16,16 +16,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
-
-
-def require_admin_user(user: User = Depends(require_current_user)) -> User:
-    """システム管理者 (admin ロール) 専用の依存関係"""
-    if "admin" not in user.get_roles():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="この操作を行うには管理者権限が必要です",
-        )
-    return user
 
 
 @router.get("/users", response_class=HTMLResponse)
