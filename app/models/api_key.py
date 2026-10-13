@@ -22,7 +22,7 @@ class ApiKey(SQLModel, table=True):
         try:
             return json.loads(self.allowed_groups)
         except Exception:
-            return ["public"]
+            return []
 
     def set_allowed_groups(self, groups: List[str]) -> None:
         self.allowed_groups = json.dumps(groups)

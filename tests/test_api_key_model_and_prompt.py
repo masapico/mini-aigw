@@ -293,3 +293,50 @@ def test_api_key_web_create_with_model_and_prompt():
         assert created_key is not None
         assert created_key.model_id == "anthropic.claude-3-5-sonnet-20241022-v2:0"
         assert created_key.system_prompt == "営業資料を元に提案書を作成してください。"
+
+
+def test_api_key_web_create_without_allowed_groups():
+    """Web画面 (/api-keys/create) でナレッジグループ未選択でも登録でき、LLM専用キーとして保存・表示されるテスト"""
+    init_db()
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.username == "admin_key_user")).first()
+        if not user:
+            user = User(
+                auth_type="local",
+                username="admin_key_user",
+                password_hash=hash_password("pass123"),
+                roles='["admin"]',
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+    client = TestClient(app)
+    login_resp = client.post(
+        "/login",
+        data={"username": "admin_key_user", "password": "pass123"},
+        follow_redirects=False,
+    )
+    cookie = login_resp.cookies.get("aigw_session")
+
+    # allowed_groups を一切送信しない（チェックボックス未選択時ブラウザの挙動）
+    create_resp = client.post(
+        "/api-keys/create",
+        cookies={"aigw_session": cookie},
+        data={
+            "name": "純粋LLM専用キー",
+        },
+    )
+    assert create_resp.status_code == 200
+    assert "純粋LLM専用キー" in create_resp.text
+    assert "なし (LLM専用)" in create_resp.text
+
+    # DB に正しく空リストとして保存されているか確認
+    with Session(engine) as session:
+        created_key = session.exec(
+            select(ApiKey).where(ApiKey.name == "純粋LLM専用キー")
+        ).first()
+        assert created_key is not None
+        assert created_key.allowed_groups == "[]"
+        assert created_key.get_allowed_groups() == []
+

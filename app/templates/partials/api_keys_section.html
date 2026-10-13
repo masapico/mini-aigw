@@ -71,6 +71,8 @@
         <td>
           {% for grp in k.get_allowed_groups() %}
           <span class="badge-pill-modern badge-group">{{ grp }}</span>
+          {% else %}
+          <span class="text-muted small">なし (LLM専用)</span>
           {% endfor %}
         </td>
         <td class="text-muted small">

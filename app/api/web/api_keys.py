@@ -47,7 +47,7 @@ async def api_keys_list(
 async def api_key_create(
     request: Request,
     name: str = Form(...),
-    allowed_groups: List[str] = Form(...),
+    allowed_groups: List[str] = Form(default=[]),
     model_id: Optional[str] = Form(None),
     system_prompt: Optional[str] = Form(None),
     user: User = Depends(require_admin_user),
@@ -56,8 +56,6 @@ async def api_key_create(
     raw_key, key_hash, prefix = generate_api_key()
 
     clean_groups = [g.strip() for g in allowed_groups if g.strip()]
-    if not clean_groups:
-        clean_groups = ["public"]
 
     clean_model_id = model_id.strip() if model_id and model_id.strip() else None
     clean_system_prompt = system_prompt.strip() if system_prompt and system_prompt.strip() else None

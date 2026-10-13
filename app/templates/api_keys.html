@@ -46,9 +46,10 @@
       </div>
 
       <div class="col-12 col-md-4">
-        <label class="form-label small fw-semibold text-secondary">
+        <label class="form-label small fw-semibold text-secondary mb-1">
           検索を許可するナレッジグループ
         </label>
+        <div class="text-muted small mb-1" style="font-size: 0.75rem;">未選択時はナレッジ検索を行わないLLM専用キーになります</div>
         <div id="key-groups-container" class="d-flex flex-wrap align-items-center gap-2 px-3 py-1 border rounded-3 bg-white" style="min-height: 42px; border-color: var(--border-color) !important;">
           {% for grp in available_groups %}
           <div class="form-check mb-0">
