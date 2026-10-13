@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
-from app.api.v1 import chat, models
+from app.api.v1 import chat, knowledge as v1_knowledge, models
 from app.api.web import api_keys, auth, dashboard, knowledge, models as web_models, rag_test, users
 from app.core.config import settings
 from app.core.database import engine, init_db
@@ -77,6 +77,7 @@ if os.path.exists(static_dir):
 # API ルーター (OpenAI 互換)
 app.include_router(chat.router, prefix="/v1", tags=["OpenAI Compatible v1"])
 app.include_router(models.router, prefix="/v1", tags=["OpenAI Compatible v1"])
+app.include_router(v1_knowledge.router, prefix="/v1", tags=["OpenAI Compatible v1"])
 
 # Web UI ルーター
 app.include_router(auth.router, tags=["Web Auth"])

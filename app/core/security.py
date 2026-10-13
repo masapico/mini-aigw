@@ -60,3 +60,37 @@ def generate_random_token(length: int = 32) -> str:
     """state や nonce に用いる暗号学的乱数文字列を生成する"""
     return secrets.token_urlsafe(length)
 
+
+def generate_download_token(doc_id: str, expires_in_seconds: int = 86400) -> str:
+    """ドキュメントIDに対する有効期限付きHMAC署名トークンを生成する（デフォルト24時間有効）"""
+    import hmac
+    import time
+    from app.core.config import settings
+
+    expires_at = int(time.time()) + expires_in_seconds
+    payload = f"{doc_id}:{expires_at}"
+    sig = hmac.new(settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{expires_at}.{sig}"
+
+
+def verify_download_token(doc_id: str, token: str) -> bool:
+    """署名付きダウンロードトークンを検証する"""
+    try:
+        import hmac
+        import time
+        from app.core.config import settings
+
+        parts = token.split(".", 1)
+        if len(parts) != 2:
+            return False
+        expires_at = int(parts[0])
+        sig = parts[1]
+        if time.time() > expires_at:
+            return False
+        payload = f"{doc_id}:{expires_at}"
+        expected = hmac.new(settings.SECRET_KEY.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, expected)
+    except Exception:
+        return False
+
+

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import boto3
 from sqlmodel import Session
 from app.core.config import settings
@@ -182,4 +182,39 @@ def delete_knowledge_document(
     db.commit()
     logger.info("Deleted knowledge document %s (%s)", doc_id, doc.filename)
     return True
+
+
+def resolve_document_and_download_url(
+    db: Session,
+    base_url: str,
+    s3_uri: str,
+    metadata: Dict[str, Any],
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Bedrock KB 検索結果 (s3_uri, metadata) からドキュメントIDを特定し、
+    mini-aigw 署名付きダウンロードURLを生成して返却する。
+    Returns:
+        (doc_id, download_url)
+    """
+    from sqlmodel import select
+    from app.core.security import generate_download_token
+
+    doc_id = metadata.get("document_id")
+    if not doc_id and s3_uri and s3_uri.startswith("s3://"):
+        # s3://bucket/key から key を抽出して DB 検索
+        parts = s3_uri.split("/")
+        if len(parts) >= 4:
+            key = "/".join(parts[3:])
+            doc = db.exec(select(KnowledgeDocument).where(KnowledgeDocument.s3_key == key)).first()
+            if doc:
+                doc_id = doc.id
+
+    if doc_id:
+        token = generate_download_token(doc_id)
+        clean_base = base_url.rstrip("/")
+        download_url = f"{clean_base}/v1/knowledge/download/{doc_id}?token={token}"
+        return doc_id, download_url
+
+    return None, None
+
 

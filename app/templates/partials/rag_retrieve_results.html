@@ -50,8 +50,19 @@
 
       <div class="p-3 rounded-2 text-secondary mb-2" style="background-color: #f8fafc; font-size: 0.88rem; white-space: pre-wrap; line-height: 1.5;">{{ res.content }}</div>
 
-      <div class="text-muted font-monospace" style="font-size: 0.75rem;">
-        URI: {{ res.location.get('s3Location', {}).get('uri', '-') }}
+      <div class="d-flex justify-content-between align-items-center text-muted font-monospace" style="font-size: 0.75rem;">
+        <div>URI: {{ res.location.get('s3Location', {}).get('uri', '-') }}</div>
+        {% if res.download_url %}
+        <a
+          href="{{ res.download_url }}"
+          class="btn btn-outline-primary btn-sm py-0 px-2"
+          style="font-size: 0.75rem;"
+          target="_blank"
+          download
+        >
+          📥 原本ダウンロード
+        </a>
+        {% endif %}
       </div>
     </div>
     {% endfor %}

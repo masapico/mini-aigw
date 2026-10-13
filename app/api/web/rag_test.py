@@ -16,6 +16,7 @@ from app.services.bedrock_service import (
     get_bedrock_runtime_client,
     retrieve_knowledge,
 )
+from app.services.knowledge_service import resolve_document_and_download_url
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ async def rag_retrieve_test(
     query: str = Form(...),
     group: str = Form("public"),
     user: User = Depends(require_current_user),
+    db: Session = Depends(get_session),
 ):
     is_admin = "admin" in user.get_roles()
     clean_group = group.strip() if group.strip() else "public"
@@ -84,6 +86,18 @@ async def rag_retrieve_test(
             allowed_groups=allowed_groups,
             number_of_results=5,
         )
+        base_url = str(request.base_url)
+        for res in results:
+            s3_uri = res.get("location", {}).get("s3Location", {}).get("uri", "")
+            metadata = res.get("metadata", {})
+            doc_id, download_url = resolve_document_and_download_url(
+                db=db,
+                base_url=base_url,
+                s3_uri=s3_uri,
+                metadata=metadata,
+            )
+            res["document_id"] = doc_id
+            res["download_url"] = download_url
     except Exception as e:
         error_message = str(e)
         logger.error("RAG retrieve test error: %s", e)
@@ -107,6 +121,7 @@ async def rag_chat_test(
     model_id: str = Form(settings.DEFAULT_MODEL_ID),
     group: str = Form("public"),
     user: User = Depends(require_admin_user),
+    db: Session = Depends(get_session),
 ):
     agent_client = get_bedrock_agent_runtime_client()
     runtime_client = get_bedrock_runtime_client()
@@ -142,6 +157,7 @@ async def rag_chat_test(
     # 2. コンテキスト注入プロンプト作成
     citations = []
     context_parts = []
+    base_url = str(request.base_url)
     for i, res in enumerate(results, start=1):
         content = res.get("content", "")
         metadata = res.get("metadata", {})
@@ -151,12 +167,22 @@ async def rag_chat_test(
         doc_group = metadata.get("group", "unknown")
         doc_tags = metadata.get("tags") or (metadata.get("tag_string").split(",") if metadata.get("tag_string") else [])
 
-        context_parts.append(f"[{i}] File: {filename} (Group: {doc_group})\n{content}")
+        doc_id, download_url = resolve_document_and_download_url(
+            db=db,
+            base_url=base_url,
+            s3_uri=s3_uri,
+            metadata=metadata,
+        )
+
+        url_info = f"（ダウンロードURL: {download_url}）" if download_url else ""
+        context_parts.append(f"[{i}] File: {filename} (Group: {doc_group}) {url_info}\n{content}")
         citations.append({
             "index": i,
             "filename": filename,
             "group": doc_group,
             "tags": doc_tags,
+            "document_id": doc_id,
+            "download_url": download_url,
             "s3_uri": s3_uri,
             "score": res.get("score", 0.0),
         })
@@ -164,7 +190,9 @@ async def rag_chat_test(
     context_str = "\n\n".join(context_parts)
     system_instruction = (
         "You are an intelligent knowledge assistant. Answer the user question based on the provided retrieved context. "
-        "Cite sources using [1], [2], etc. where appropriate. If the context does not contain enough information, state so clearly."
+        "Cite sources using [1], [2], etc. where appropriate. "
+        "At the end of your response, provide a '### 根拠資料 (参照ドキュメント)' section listing each cited document with its download URL as a markdown link '[filename](download_url)' if available. "
+        "If the context does not contain enough information, state so clearly."
     )
 
     messages = [

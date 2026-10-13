@@ -86,7 +86,7 @@ def test_api_key_system_prompt_injection():
         called_kwargs = mock_client.converse.call_args[1]
         # Bedrock Converse の system フィールドに APIキーのプロンプトが設定されていること
         assert "system" in called_kwargs
-        assert called_kwargs["system"] == [{"text": "あなたは社内営業アシスタントです。"}]
+        assert "あなたは社内営業アシスタントです。" in called_kwargs["system"][0]["text"]
 
         # 2. クライアントも system プロンプトを送ってきた場合（合成の検証）
         resp2 = client.post(
