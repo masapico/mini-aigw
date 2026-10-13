@@ -107,7 +107,11 @@ DEFAULT_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 ### 4.1 開発サーバーの起動
 
 ```bash
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+.venv/bin/uvicorn app.main:app --reload
+```
+
+```Windows console
+.\.venv\Scripts\uvicorn.exe app.main:app --reload
 ```
 
 起動後、コンソールに以下の初期化ログが表示されます:
