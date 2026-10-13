@@ -129,30 +129,30 @@ for chunk in response:
     </div>
     {% else %}
     <div class="modern-card h-100">
-      <h5 class="fw-bold mb-3">ナレッジ連携のご案内</h5>
+      <h5 class="fw-bold mb-3">ナレッジベースの活用</h5>
       <p class="text-muted small">
-        mini-aigw では、所属部署・グループごとに隔離されたセキュアなナレッジベースを管理・検索できます。
+        所属部署・グループごとに隔離されたセキュアなナレッジベースを管理・検索できます。
       </p>
       <ul class="list-unstyled d-flex flex-column gap-2 text-secondary small">
         <li class="d-flex align-items-start gap-2">
           <span class="text-primary fw-bold">✓</span>
-          <span><strong>安全なアップロード:</strong> ご自身が所属するグループ配下にのみドキュメントをアップロードできます。他部署のプレフィックスへの誤登録は防止されています。</span>
+          <span><strong>安全なアップロード:</strong> 自分が属するグループ配下にのみドキュメントをアップロードできます。許可されていないグループへのナレッジ登録はできません。</span>
         </li>
         <li class="d-flex align-items-start gap-2">
           <span class="text-primary fw-bold">✓</span>
-          <span><strong>権限分離された原本閲覧:</strong> 自身が所属するグループおよび全体共有（public）のドキュメントのみを一覧表示・ダウンロードできます。</span>
+          <span><strong>権限分離された原本閲覧:</strong> 自分が属するグループおよび全体共有（public）のドキュメント原本のみを一覧表示・ダウンロードできます。</span>
         </li>
         <li class="d-flex align-items-start gap-2">
           <span class="text-primary fw-bold">✓</span>
-          <span><strong>検索単体テスト (Retrieve):</strong> 登録したナレッジが Bedrock Knowledge Base で正しく検索ヒットするか、スコアと内容を確認できます。</span>
+          <span><strong>検索単体テスト (Retrieve):</strong> 登録したナレッジが問合せに正しく検索ヒットするか、スコアと内容を確認できます。</span>
         </li>
       </ul>
       <div class="mt-4 pt-2 border-top d-flex gap-2">
         <a href="/knowledge" class="btn-modern-primary text-decoration-none py-2 px-3 small">
-          ナレッジを登録する
+          ナレッジを登録
         </a>
         <a href="/rag-test" class="btn-modern-secondary text-decoration-none py-2 px-3 small">
-          ナレッジを検索確認する
+          RAGテスト(検索確認)
         </a>
       </div>
     </div>
@@ -162,7 +162,7 @@ for chunk in response:
   <div class="col-12 col-lg-6">
     <div class="modern-card h-100">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold mb-0">最近登録されたドキュメント</h5>
+        <h5 class="fw-bold mb-0">最近登録されたナレッジ資料</h5>
         <a href="/knowledge" class="text-decoration-none small text-primary fw-semibold">すべて表示 &rarr;</a>
       </div>
 

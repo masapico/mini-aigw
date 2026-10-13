@@ -22,7 +22,7 @@
 <div class="modern-card mb-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="fw-bold mb-0">新規ドキュメント アップロード</h5>
-    <span class="text-muted small">アップロードされたドキュメントは即座にS3に保管され、次回のKB同期でベクトル化されます</span>
+    <span class="text-muted small">ドキュメントは管理領域に保存され、次回のKB同期でRAG検索に反映されます</span>
   </div>
 
   {% if not is_admin and not groups %}
