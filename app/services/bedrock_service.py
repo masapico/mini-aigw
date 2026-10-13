@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
@@ -9,6 +10,90 @@ from app.core.config import settings
 from app.services.markitdown_service import extract_content_from_base64
 
 logger = logging.getLogger(__name__)
+
+
+def _format_content_block_for_debug(block: Dict[str, Any]) -> str:
+    """デバッグ出力用にコンテンツブロックを整形する。添付ファイルはファイル名のみ、画像は要約表示する。"""
+    if "image" in block:
+        img_info = block["image"]
+        img_fmt = img_info.get("format", "unknown")
+        raw_bytes = img_info.get("source", {}).get("bytes", b"")
+        byte_len = len(raw_bytes) if isinstance(raw_bytes, (bytes, bytearray)) else 0
+        return f"[Attached Image: format={img_fmt}, size={byte_len} bytes]"
+
+    if "text" in block:
+        text = block.get("text", "")
+        # markitdown 展開された添付ドキュメントブロックを [Attached Document: <filename>] に置換
+        formatted_text = re.sub(
+            r"--- Attached Document: (.+?) ---\n.*?\n--- End of Document ---",
+            r"[Attached Document: \1]",
+            text,
+            flags=re.DOTALL,
+        )
+        return formatted_text
+
+    return str(block)
+
+
+def _log_ai_request(
+    model_id: str,
+    system_prompts: List[Dict[str, Any]],
+    messages: List[Dict[str, Any]],
+    inference_config: Dict[str, Any],
+) -> None:
+    """Bedrock AI へのリクエスト内容をコンソール出力する"""
+    lines = [
+        "",
+        "=" * 40 + " [DEBUG] AI Request " + "=" * 40,
+        f"Model: {model_id}",
+    ]
+    if inference_config:
+        lines.append(f"Inference Config: {json.dumps(inference_config, ensure_ascii=False)}")
+
+    if system_prompts:
+        lines.append("--- System Prompt ---")
+        for s in system_prompts:
+            lines.append(s.get("text", ""))
+
+    lines.append("--- Messages ---")
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content_blocks = msg.get("content", [])
+        if isinstance(content_blocks, list):
+            content_strs = [_format_content_block_for_debug(b) for b in content_blocks]
+            content_display = "\n".join(content_strs)
+        else:
+            content_display = str(content_blocks)
+        lines.append(f"[{role}]:\n{content_display}")
+
+    lines.append("=" * 96)
+    logger.info("\n".join(lines))
+
+
+def _log_ai_response(
+    model_id: str,
+    response_text: str,
+    usage: Optional[Dict[str, Any]] = None,
+    stop_reason: Optional[str] = None,
+    is_stream: bool = False,
+) -> None:
+    """Bedrock AI からの回答内容をコンソール出力する"""
+    stream_suffix = " (Stream Completed)" if is_stream else ""
+    lines = [
+        "",
+        "=" * 40 + f" [DEBUG] AI Response{stream_suffix} " + "=" * (40 - len(stream_suffix)),
+        f"Model: {model_id}",
+    ]
+    if stop_reason:
+        lines.append(f"Stop Reason: {stop_reason}")
+    if usage:
+        lines.append(
+            f"Usage Tokens: Input={usage.get('inputTokens', 0)}, Output={usage.get('outputTokens', 0)}, Total={usage.get('totalTokens', 0)}"
+        )
+    lines.append("--- Content ---")
+    lines.append(response_text)
+    lines.append("=" * 96)
+    logger.info("\n".join(lines))
 
 
 def get_bedrock_runtime_client() -> Any:
@@ -163,6 +248,9 @@ def call_converse(
     if inference_config:
         kwargs["inferenceConfig"] = inference_config
 
+    if settings.DEBUG:
+        _log_ai_request(model_id, system_prompts, converse_messages, inference_config)
+
     response = client.converse(**kwargs)
 
     # Bedrock レスポンスの抽出
@@ -173,6 +261,9 @@ def call_converse(
     usage = response.get("usage", {})
     stop_reason = response.get("stopReason", "end_turn")
     finish_reason = "stop" if stop_reason == "end_turn" else stop_reason
+
+    if settings.DEBUG:
+        _log_ai_response(model_id, response_text, usage, stop_reason, is_stream=False)
 
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created_at = int(time.time())
@@ -227,11 +318,16 @@ async def call_converse_stream(
     if inference_config:
         kwargs["inferenceConfig"] = inference_config
 
+    if settings.DEBUG:
+        _log_ai_request(model_id, system_prompts, converse_messages, inference_config)
+
     response = client.converse_stream(**kwargs)
     stream = response.get("stream")
 
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created_at = int(time.time())
+    accumulated_text: List[str] = []
+    final_stop_reason: Optional[str] = None
 
     # 初回ロール通知チャンク
     first_chunk = {
@@ -253,6 +349,8 @@ async def call_converse_stream(
         if "contentBlockDelta" in event:
             delta_text = event["contentBlockDelta"].get("delta", {}).get("text", "")
             if delta_text:
+                if settings.DEBUG:
+                    accumulated_text.append(delta_text)
                 chunk = {
                     "id": completion_id,
                     "object": "chat.completion.chunk",
@@ -269,6 +367,7 @@ async def call_converse_stream(
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
         elif "messageStop" in event:
             stop_reason = event["messageStop"].get("stopReason", "end_turn")
+            final_stop_reason = stop_reason
             finish_reason = "stop" if stop_reason == "end_turn" else stop_reason
             end_chunk = {
                 "id": completion_id,
@@ -284,6 +383,15 @@ async def call_converse_stream(
                 ],
             }
             yield f"data: {json.dumps(end_chunk, ensure_ascii=False)}\n\n"
+
+    if settings.DEBUG:
+        _log_ai_response(
+            model_id=model_id,
+            response_text="".join(accumulated_text),
+            usage=None,
+            stop_reason=final_stop_reason,
+            is_stream=True,
+        )
 
     yield "data: [DONE]\n\n"
 
