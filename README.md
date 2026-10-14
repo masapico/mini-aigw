@@ -68,6 +68,10 @@ uv venv --python 3.14 .venv
 # uv pip install -e ".[dev]" --python .venv/bin/python
 ```
 
+> [!TIP]
+> **本番・閉域（オフライン・エアギャップ）環境へのデプロイ手順**
+> インターネット接続のない本番環境（Linux / Windows）へ依存パッケージを事前に取得・持ち込んで仮想環境を構築する手順については、[閉域・オフライン環境向けパッケージ取得・インストール運用手順書 (docs/OFFLINE_PACKAGE_INSTALL_GUIDE.md)](docs/OFFLINE_PACKAGE_INSTALL_GUIDE.md) を参照してください。
+
 ### 3.2 環境変数の設定 (`.env`)
 
 必要に応じてリポジトリルートに `.env` ファイルを作成して設定します。
