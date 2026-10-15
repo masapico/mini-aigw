@@ -25,16 +25,65 @@
           {{ g.created_at | to_jst }}
         </td>
         <td class="text-end">
-          <button
-            class="btn-modern-danger py-1 px-2"
-            style="font-size: 0.82rem;"
-            hx-delete="/groups/{{ g.id }}"
-            hx-confirm="グループ「{{ g.display_name }} ({{ g.name }})」を削除しますか？"
-            hx-target="#group-row-{{ g.id }}"
-            hx-swap="outerHTML"
-          >
-            削除
-          </button>
+          <div class="d-inline-flex gap-1">
+            <button
+              class="btn-modern-secondary py-1 px-2"
+              style="font-size: 0.82rem;"
+              data-bs-toggle="modal"
+              data-bs-target="#editGroupModal-{{ g.id }}"
+            >
+              編集
+            </button>
+            <button
+              class="btn-modern-danger py-1 px-2"
+              style="font-size: 0.82rem;"
+              hx-delete="/groups/{{ g.id }}"
+              hx-confirm="グループ「{{ g.display_name }} ({{ g.name }})」を削除しますか？"
+              hx-target="#group-row-{{ g.id }}"
+              hx-swap="outerHTML"
+            >
+              削除
+            </button>
+          </div>
+
+          <!-- グループ編集モーダル -->
+          <div class="modal fade text-start" id="editGroupModal-{{ g.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-md);">
+                <div class="modal-header border-bottom">
+                  <h6 class="modal-title fw-bold">グループ編集: {{ g.display_name }}</h6>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form
+                  hx-post="/groups/{{ g.id }}/edit"
+                  hx-target="#groups-table-container"
+                  hx-swap="innerHTML"
+                  onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editGroupModal-{{ g.id }}')); if (m) m.hide();"
+                >
+                  <div class="modal-body p-4">
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">グループ識別名 (プレフィックス)</label>
+                      <input type="text" class="form-control form-control-modern font-monospace bg-light" value="{{ g.name }}" disabled readonly>
+                      <div class="form-text text-muted" style="font-size: 0.75rem;">※ プレフィックス（S3およびナレッジ検索キー）は変更できません</div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">グループ表示名 <span class="text-danger">*</span></label>
+                      <input type="text" name="display_name" class="form-control form-control-modern" value="{{ g.display_name }}" required>
+                      <div class="form-text" style="font-size: 0.75rem;">画面表示用の名称</div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">説明 (任意)</label>
+                      <input type="text" name="description" class="form-control form-control-modern" value="{{ g.description or '' }}" placeholder="用途・対象">
+                    </div>
+                  </div>
+                  <div class="modal-footer border-top bg-light">
+                    <button type="button" class="btn-modern-secondary py-1 px-3" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" class="btn-modern-primary py-1 px-3">保存</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         </td>
       </tr>
       {% else %}

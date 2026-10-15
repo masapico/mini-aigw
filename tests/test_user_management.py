@@ -144,8 +144,8 @@ def test_create_edit_delete_user():
         assert session.get(User, created_id) is None
 
 
-def test_create_and_delete_group():
-    """グループの追加と削除、予約語チェックの検証"""
+def test_create_edit_and_delete_group():
+    """グループの追加、編集（プレフィックス不変確認）、削除、予約語チェック、権限検証"""
     setup_users()
     client = TestClient(app)
     client.post(
@@ -180,7 +180,50 @@ def test_create_and_delete_group():
         assert grp is not None
         grp_id = grp.id
 
-    # 3. グループ削除
+    # 3. グループ編集のバリデーション (表示名が空 -> 400)
+    bad_edit = client.post(
+        f"/groups/{grp_id}/edit",
+        data={"display_name": "   ", "description": "テスト"},
+        headers={"HX-Request": "true"},
+    )
+    assert bad_edit.status_code == 400
+    assert "表示名を入力してください" in bad_edit.text
+
+    # 4. グループ編集の正常系 (表示名・説明の更新 & プレフィックス不変の検証)
+    edit_resp = client.post(
+        f"/groups/{grp_id}/edit",
+        data={
+            "display_name": "マーケティング部 (Global)",
+            "description": "全社向けマーケティングナレッジ",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert edit_resp.status_code == 200
+    assert "マーケティング部 (Global)" in edit_resp.text
+    assert "全社向けマーケティングナレッジ" in edit_resp.text
+
+    with Session(engine) as session:
+        updated_grp = session.get(Group, grp_id)
+        assert updated_grp is not None
+        assert updated_grp.display_name == "マーケティング部 (Global)"
+        assert updated_grp.description == "全社向けマーケティングナレッジ"
+        # プレフィックス(name)は marketing のまま変化していないこと
+        assert updated_grp.name == "marketing"
+
+    # 5. 一般ユーザーによる編集試行 -> 403 Forbidden
+    client_user = TestClient(app)
+    client_user.post(
+        "/login",
+        data={"username": "regular_user", "password": "userpass123"},
+        follow_redirects=False,
+    )
+    forbidden_edit = client_user.post(
+        f"/groups/{grp_id}/edit",
+        data={"display_name": "不正更新"},
+    )
+    assert forbidden_edit.status_code == 403
+
+    # 6. グループ削除
     del_resp = client.delete(f"/groups/{grp_id}")
     assert del_resp.status_code == 200
 

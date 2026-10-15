@@ -179,10 +179,37 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
 
         grp_name = page.locator('#grp-name-input').bounding_box()
         grp_disp = page.locator('#grp-disp-input').bounding_box()
-        assert grp_name is not None and grp_disp is not None
+        grp_btn = page.locator('#create-group-form button[type="submit"]').bounding_box()
+        assert grp_name is not None and grp_disp is not None and grp_btn is not None
         assert abs(grp_name["height"] - grp_disp["height"]) < 2
+        assert abs(grp_name["height"] - grp_btn["height"]) < 2
+        # グループ追加ボタンが入力枠と水平に揃っていること (Y座標一致)
+        assert abs(grp_name["y"] - grp_btn["y"]) < 2, f"Group button vertical mismatch: {grp_name['y']} vs {grp_btn['y']}"
 
         page.screenshot(path="tests/screenshots/groups_tab.png")
+
+        # グループ編集モーダルの検証
+        edit_group_btn = page.locator('#groups-table-container button:has-text("編集")').first
+        if edit_group_btn.is_visible():
+            edit_group_btn.click()
+            page.wait_for_selector(".modal.show", state="visible")
+            page.wait_for_timeout(300)
+
+            # プレフィックス入力が disabled であることの確認
+            prefix_input = page.locator('.modal.show input[disabled]')
+            assert prefix_input.is_visible()
+
+            page.screenshot(path="tests/screenshots/groups_edit_modal.png")
+
+            # 表示名を更新して保存
+            disp_input = page.locator('.modal.show input[name="display_name"]')
+            disp_input.fill("開発部 (dev-updated)")
+            page.locator('.modal.show button[type="submit"]:has-text("保存")').click()
+            page.wait_for_selector(".modal.show", state="hidden")
+            page.wait_for_timeout(300)
+
+            # テーブル上に更新後の表示名が反映されていること
+            assert page.locator('#groups-table-container').filter(has_text="開発部 (dev-updated)").is_visible()
 
         # 5. API キー発行画面の水平アラインメント検証
         page.goto(f"{live_server}/api-keys")

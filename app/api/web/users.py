@@ -208,6 +208,47 @@ async def group_create(
     return RedirectResponse(url="/users", status_code=status.HTTP_302_FOUND)
 
 
+@router.post("/groups/{group_id}/edit")
+async def group_edit(
+    group_id: str,
+    request: Request,
+    display_name: str = Form(...),
+    description: Optional[str] = Form(None),
+    admin_user: User = Depends(require_admin_user),
+    db: Session = Depends(get_session),
+):
+    target_group = db.get(Group, group_id)
+    if not target_group:
+        raise HTTPException(status_code=404, detail="グループが見つかりません")
+
+    clean_display = display_name.strip()
+    if not clean_display:
+        if request.headers.get("HX-Request"):
+            return HTMLResponse(
+                content="<div class='alert alert-danger py-2 small mb-0'>表示名を入力してください</div>",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        raise HTTPException(status_code=400, detail="表示名を入力してください")
+
+    target_group.display_name = clean_display
+    target_group.description = description.strip() if description else None
+
+    db.add(target_group)
+    db.commit()
+    db.refresh(target_group)
+    logger.info("Updated group %s (display: %s) by admin %s", target_group.name, clean_display, admin_user.username)
+
+    if request.headers.get("HX-Request"):
+        groups = db.exec(select(Group).order_by(Group.name.asc())).all()
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/groups_table.html",
+            context={"groups": groups, "user": admin_user},
+        )
+
+    return RedirectResponse(url="/users", status_code=status.HTTP_302_FOUND)
+
+
 @router.delete("/groups/{group_id}")
 async def group_delete(
     group_id: str,

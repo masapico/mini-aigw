@@ -162,9 +162,9 @@
         hx-indicator="#create-group-spinner"
         onsubmit="setTimeout(() => { document.getElementById('grp-name-input').value = ''; document.getElementById('grp-disp-input').value = ''; document.getElementById('grp-desc-input').value = ''; }, 300)"
       >
-        <div class="row g-3 align-items-end">
+        <div class="row g-3 align-items-start">
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold text-secondary">グループ識別名 <span class="text-danger">*</span></label>
+            <label class="form-label small fw-semibold text-secondary d-block">グループ識別名 <span class="text-danger">*</span></label>
             <input
               type="text"
               class="form-control form-control-modern font-monospace"
@@ -177,7 +177,7 @@
             <div class="form-text" style="font-size: 0.75rem;">英数字・アンダースコア・ハイフン</div>
           </div>
           <div class="col-12 col-md-4">
-            <label class="form-label small fw-semibold text-secondary">グループ表示名 <span class="text-danger">*</span></label>
+            <label class="form-label small fw-semibold text-secondary d-block">グループ表示名 <span class="text-danger">*</span></label>
             <input
               type="text"
               class="form-control form-control-modern"
@@ -189,7 +189,7 @@
             <div class="form-text" style="font-size: 0.75rem;">画面表示用の名称</div>
           </div>
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold text-secondary">説明 (任意)</label>
+            <label class="form-label small fw-semibold text-secondary d-block">説明 (任意)</label>
             <input
               type="text"
               class="form-control form-control-modern"
@@ -200,10 +200,12 @@
             <div class="form-text" style="font-size: 0.75rem;">用途・対象</div>
           </div>
           <div class="col-12 col-md-2">
-            <button type="submit" class="btn-modern-primary w-100">
+            <label class="form-label small fw-semibold text-secondary d-none d-md-block" style="visibility: hidden;">グループ識別名</label>
+            <button type="submit" class="btn-modern-primary w-100 justify-content-center">
               <span class="spinner-border spinner-border-sm htmx-indicator" id="create-group-spinner" role="status"></span>
               グループ追加
             </button>
+            <div class="form-text d-none d-md-block" style="font-size: 0.75rem; visibility: hidden;">&nbsp;</div>
           </div>
         </div>
       </form>
