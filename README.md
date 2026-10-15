@@ -82,6 +82,7 @@ APP_NAME=mini-aigw
 DEBUG=false
 HOST=0.0.0.0
 PORT=8000
+# PUBLIC_BASE_URL=https://aigw.internal:8000  # リバースプロキシやカスタムホスト使用時の原本DLリンク基底URL (未設定時はリクエスト元のbase_urlを自動使用)
 SECRET_KEY=your-secret-key-change-in-production
 
 # SQLite データベース

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    PUBLIC_BASE_URL: Optional[str] = None  # e.g. "https://aigw.example.com" (未指定時はリクエストの base_url を使用)
     SECRET_KEY: str = "mini-aigw-secret-key-development-mode-change-in-production"
 
     # SQLite

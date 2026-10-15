@@ -2,7 +2,7 @@ import json
 import logging
 import urllib.parse
 import uuid
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
@@ -36,18 +36,85 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _get_filtered_docs_and_uploaders(db: Session, user: User) -> Tuple[List[KnowledgeDocument], Dict[str, str]]:
-    """ユーザーの権限に基づいて閲覧可能なドキュメントと、更新者マップを取得する"""
+PAGE_SIZE = 10
+
+
+def _get_filter_groups(db: Session, user: User) -> List[str]:
+    """検索フィルターのグループ選択肢一覧を取得する"""
+    if "admin" in user.get_roles():
+        groups = db.exec(select(Group).order_by(Group.name.asc())).all()
+        names = [g.name for g in groups]
+        if "public" not in names:
+            names.insert(0, "public")
+        return names
+
+    user_groups = user.get_groups()
+    names = ["public"]
+    for g in user_groups:
+        if g not in names:
+            names.append(g)
+    return names
+
+
+def _get_filtered_docs_and_uploaders(
+    db: Session,
+    user: User,
+    q: Optional[str] = None,
+    group: Optional[str] = None,
+    sync_status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = PAGE_SIZE,
+) -> Tuple[List[KnowledgeDocument], Dict[str, str], int, int, int]:
+    """ユーザーの権限および検索フィルター・ページネーションに基づいてドキュメント一覧を取得する"""
+    import math
+    from sqlalchemy import func, or_
+
     viewable_groups = get_user_viewable_groups(user)
-    if viewable_groups is None:
-        statement = select(KnowledgeDocument).order_by(KnowledgeDocument.created_at.desc())
-    else:
-        statement = (
-            select(KnowledgeDocument)
-            .where(KnowledgeDocument.group_name.in_(viewable_groups))
-            .order_by(KnowledgeDocument.created_at.desc())
+    conditions = []
+
+    # 1. ユーザー閲覧権限
+    if viewable_groups is not None:
+        conditions.append(KnowledgeDocument.group_name.in_(viewable_groups))
+
+    # 2. グループ絞り込み
+    if group and group.strip():
+        group_clean = group.strip()
+        if viewable_groups is None or group_clean in viewable_groups:
+            conditions.append(KnowledgeDocument.group_name == group_clean)
+        else:
+            # 権限外のグループが指定された場合はヒット0件
+            conditions.append(KnowledgeDocument.group_name == "__NO_ACCESS__")
+
+    # 3. 同期状態絞り込み
+    if sync_status and sync_status.strip():
+        conditions.append(KnowledgeDocument.sync_status == sync_status.strip())
+
+    # 4. キーワード絞り込み（ファイル名 または タグ）
+    if q and q.strip():
+        q_clean = q.strip()
+        conditions.append(
+            or_(
+                KnowledgeDocument.filename.ilike(f"%{q_clean}%"),
+                KnowledgeDocument.tags.ilike(f"%{q_clean}%"),
+            )
         )
-    docs = db.exec(statement).all()
+
+    # 総件数カウント
+    count_stmt = select(func.count(KnowledgeDocument.id))
+    if conditions:
+        count_stmt = count_stmt.where(*conditions)
+    total_count = db.exec(count_stmt).one()
+
+    total_pages = max(1, math.ceil(total_count / page_size))
+    current_page = max(1, min(page, total_pages))
+    offset = (current_page - 1) * page_size
+
+    # ドキュメント取得
+    stmt = select(KnowledgeDocument)
+    if conditions:
+        stmt = stmt.where(*conditions)
+    stmt = stmt.order_by(KnowledgeDocument.created_at.desc()).offset(offset).limit(page_size)
+    docs = db.exec(stmt).all()
 
     uploader_ids = list(set([d.uploader_id for d in docs if d.uploader_id]))
     uploader_map: Dict[str, str] = {}
@@ -55,7 +122,7 @@ def _get_filtered_docs_and_uploaders(db: Session, user: User) -> Tuple[List[Know
         users = db.exec(select(User).where(User.id.in_(uploader_ids))).all()
         uploader_map = {u.id: (u.display_name or u.username) for u in users}
 
-    return docs, uploader_map
+    return docs, uploader_map, total_count, total_pages, current_page
 
 
 def _get_available_groups_for_upload(db: Session, user: User) -> List[Group]:
@@ -122,14 +189,21 @@ def _sync_completed_documents(db: Session, latest_job: Optional[Dict[str, Any]])
 @router.get("/knowledge", response_class=HTMLResponse)
 async def knowledge_list(
     request: Request,
+    q: Optional[str] = None,
+    group: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = 1,
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
     latest_job = _get_latest_kb_job()
     _sync_completed_documents(db, latest_job)
 
-    docs, uploader_map = _get_filtered_docs_and_uploaders(db, user)
-    groups = _get_available_groups_for_upload(db, user)
+    docs, uploader_map, total_count, total_pages, current_page = _get_filtered_docs_and_uploaders(
+        db=db, user=user, q=q, group=group, sync_status=status, page=page
+    )
+    upload_groups = _get_available_groups_for_upload(db, user)
+    filter_groups = _get_filter_groups(db, user)
 
     return templates.TemplateResponse(
         request=request,
@@ -137,13 +211,21 @@ async def knowledge_list(
         context={
             "user": user,
             "documents": docs,
-            "groups": groups,
+            "groups": upload_groups,
+            "filter_groups": filter_groups,
             "uploader_map": uploader_map,
             "latest_sync_job": latest_job,
             "bucket": settings.KNOWLEDGE_S3_BUCKET,
             "kb_id": settings.BEDROCK_KB_ID,
             "data_source_id": settings.BEDROCK_DATA_SOURCE_ID,
             "is_admin": "admin" in user.get_roles(),
+            "q": q or "",
+            "selected_group": group or "",
+            "selected_status": status or "",
+            "page": current_page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "page_size": PAGE_SIZE,
         },
     )
 
@@ -151,13 +233,19 @@ async def knowledge_list(
 @router.get("/knowledge/table", response_class=HTMLResponse)
 async def knowledge_table_partial(
     request: Request,
+    q: Optional[str] = None,
+    group: Optional[str] = None,
+    status: Optional[str] = None,
+    page: int = 1,
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
     """HTMX 部分更新用: ナレッジ一覧テーブルのみを返却する"""
     latest_job = _get_latest_kb_job()
     _sync_completed_documents(db, latest_job)
-    docs, uploader_map = _get_filtered_docs_and_uploaders(db, user)
+    docs, uploader_map, total_count, total_pages, current_page = _get_filtered_docs_and_uploaders(
+        db=db, user=user, q=q, group=group, sync_status=status, page=page
+    )
 
     return templates.TemplateResponse(
         request=request,
@@ -166,6 +254,13 @@ async def knowledge_table_partial(
             "documents": docs,
             "user": user,
             "uploader_map": uploader_map,
+            "q": q or "",
+            "selected_group": group or "",
+            "selected_status": status or "",
+            "page": current_page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "page_size": PAGE_SIZE,
         },
     )
 
@@ -219,6 +314,9 @@ async def knowledge_upload(
         doc.uploader_id = user.id
         doc.set_tags(tag_list)
         doc.sync_status = "PENDING"
+        now = datetime.now(timezone.utc)
+        doc.created_at = now
+        doc.updated_at = now
     else:
         doc = KnowledgeDocument(
             id=doc_id,
@@ -263,7 +361,9 @@ async def knowledge_upload(
     db.refresh(doc)
 
     if request.headers.get("HX-Request"):
-        docs, uploader_map = _get_filtered_docs_and_uploaders(db, user)
+        docs, uploader_map, total_count, total_pages, current_page = _get_filtered_docs_and_uploaders(
+            db=db, user=user, page=1
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/knowledge_table.html",
@@ -271,6 +371,13 @@ async def knowledge_upload(
                 "documents": docs,
                 "user": user,
                 "uploader_map": uploader_map,
+                "q": "",
+                "selected_group": "",
+                "selected_status": "",
+                "page": 1,
+                "total_pages": total_pages,
+                "total_count": total_count,
+                "page_size": PAGE_SIZE,
             },
         )
 

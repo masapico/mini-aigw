@@ -428,6 +428,6 @@ def test_rag_test_web_chat_download_link():
         assert resp.status_code == 200
         # 引用元チップに mini-aigw ダウンロードリンクが含まれていること
         assert "test_manual.pdf" in resp.text
-        assert "/v1/knowledge/download/doc-manual-999?token=" in resp.text
-        assert "📥 DL" in resp.text
+        assert "bi bi-download" in resp.text
+        assert "原本" in resp.text
 

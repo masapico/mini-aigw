@@ -211,8 +211,8 @@ def resolve_document_and_download_url(
 
     if doc_id:
         token = generate_download_token(doc_id)
-        clean_base = base_url.rstrip("/")
-        download_url = f"{clean_base}/v1/knowledge/download/{doc_id}?token={token}"
+        effective_base = (settings.PUBLIC_BASE_URL or base_url).rstrip("/")
+        download_url = f"{effective_base}/v1/knowledge/download/{doc_id}?token={token}"
         return doc_id, download_url
 
     return None, None

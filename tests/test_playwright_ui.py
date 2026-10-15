@@ -85,9 +85,11 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
         page.wait_for_url(f"{live_server}/")
         assert "システム概要" in page.content()
 
-        # 2. ナレッジ管理画面へ遷移
+        # 2. ナレッジ管理画面へ遷移し、折りたたまれたアップロードカードを開く
         page.goto(f"{live_server}/knowledge")
-        page.wait_for_selector("#upload-form")
+        page.wait_for_selector("#btn-toggle-upload")
+        page.click("#btn-toggle-upload")
+        page.wait_for_selector("#upload-form", state="visible")
 
         # 水平アラインメント検証: 1行目のセレクトボックスとタグ入力ボックスの上端・高さ
         group_select = page.locator('select[name="group_name"]')
@@ -106,7 +108,7 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
 
         # 2行目のファイル入力とアップロードボタンの高さ・下端整列検証
         file_input = page.locator('#file-input')
-        upload_btn = page.locator('button[type="submit"]')
+        upload_btn = page.locator('#upload-form button[type="submit"]')
         box_file = file_input.bounding_box()
         box_upload = upload_btn.bounding_box()
 

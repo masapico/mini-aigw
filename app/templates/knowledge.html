@@ -3,13 +3,26 @@
 {% block title %}ナレッジ管理 - mini-aigw{% endblock %}
 
 {% block content %}
-<div class="mb-4 d-flex justify-content-between align-items-center">
+<div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
   <div>
     <h3 class="fw-bold mb-1">ナレッジベース ドキュメント管理</h3>
     <p class="text-muted small mb-0">Amazon S3 Vectors ドキュメント管理 & Bedrock Knowledge Base 同期</p>
   </div>
-  <div class="text-end">
+  <div class="d-flex align-items-center gap-3">
     <span class="badge-pill-modern badge-group font-monospace">Bucket: {{ bucket }}</span>
+    <button
+      class="btn-modern-primary d-inline-flex align-items-center gap-2"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#uploadCollapse"
+      aria-expanded="false"
+      aria-controls="uploadCollapse"
+      id="btn-toggle-upload"
+    >
+      <i class="bi bi-cloud-arrow-up fs-5"></i>
+      <span>新規ドキュメントをアップロード</span>
+      <i class="bi bi-chevron-down ms-1" id="upload-chevron" style="transition: transform 0.25s ease;"></i>
+    </button>
   </div>
 </div>
 
@@ -18,108 +31,201 @@
   {% include "partials/knowledge_sync_status.html" %}
 </div>
 
-<!-- アップロードカード -->
-<div class="modern-card mb-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="fw-bold mb-0">新規ドキュメント アップロード</h5>
-    <span class="text-muted small">ドキュメントは管理領域に保存され、次回のKB同期でRAG検索に反映されます</span>
-  </div>
+<!-- アップロードカード (初期状態は折りたたまれて非表示) -->
+<div class="collapse mb-4" id="uploadCollapse">
+  <div class="modern-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-cloud-arrow-up text-primary"></i> 新規ドキュメント アップロード
+        </h5>
+        <span class="text-muted small">ドキュメントは管理領域に保存され、次回のKB同期でRAG検索に反映されます</span>
+      </div>
+      <button
+        type="button"
+        class="btn-close"
+        data-bs-toggle="collapse"
+        data-bs-target="#uploadCollapse"
+        aria-label="閉じる"
+        title="アップロードエリアを閉じる"
+      ></button>
+    </div>
 
-  {% if not is_admin and not groups %}
-  <div class="alert alert-warning mb-0" role="alert">
-    <strong>所属グループがありません:</strong> ナレッジを登録するには所属グループが必要です。管理者にグループ所属の付与を依頼してください。
-  </div>
-  {% else %}
-  <form
-    id="upload-form"
-    hx-post="/knowledge/upload"
-    hx-target="#knowledge-table-container"
-    hx-swap="innerHTML"
-    hx-encoding="multipart/form-data"
-    hx-indicator="#upload-spinner"
-    onsubmit="clearUploadForm()"
-  >
-    <!-- 1行目: グループ選択 & タグ入力 (Enter追加 / クリック削除) -->
-    <div class="row g-3 align-items-start mb-3">
-      <div class="col-12 col-md-4">
-        <label class="form-label small fw-semibold text-secondary">
-          ドキュメント分類
-          {% if not is_admin %}
-          <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.72rem;">所属グループ限定</span>
-          {% endif %}
-        </label>
-        <select class="form-select form-select-modern" name="group_name" required>
-          {% if is_admin %}
-          <option value="public" selected>public (全体共有)</option>
-          {% endif %}
-          {% for g in groups %}
-          <option value="{{ g.name }}" {% if not is_admin and loop.first %}selected{% endif %}>
-            {{ g.display_name }} ({{ g.name }})
-          </option>
-          {% endfor %}
-        </select>
-        <div class="form-text" style="font-size: 0.78rem;">
-          {% if is_admin %}
-          検索時の Pre-filtering 属性として付与されます。
-          {% else %}
-          所属グループの配下に安全に保管されます（他グループへの登録は制限されています）。
-          {% endif %}
+    {% if not is_admin and not groups %}
+    <div class="alert alert-warning mb-0" role="alert">
+      <strong>所属グループがありません:</strong> ナレッジを登録するには所属グループが必要です。管理者にグループ所属の付与を依頼してください。
+    </div>
+    {% else %}
+    <form
+      id="upload-form"
+      hx-post="/knowledge/upload"
+      hx-target="#knowledge-table-container"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#upload-spinner"
+      onsubmit="clearUploadForm()"
+    >
+      <!-- 1行目: グループ選択 & タグ入力 (Enter追加 / クリック削除) -->
+      <div class="row g-3 align-items-start mb-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-secondary">
+            ドキュメント分類
+            {% if not is_admin %}
+            <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.72rem;">所属グループ限定</span>
+            {% endif %}
+          </label>
+          <select class="form-select form-select-modern" name="group_name" required>
+            {% if is_admin %}
+            <option value="public" selected>public (全体共有)</option>
+            {% endif %}
+            {% for g in groups %}
+            <option value="{{ g.name }}" {% if not is_admin and loop.first %}selected{% endif %}>
+              {{ g.display_name }} ({{ g.name }})
+            </option>
+            {% endfor %}
+          </select>
+          <div class="form-text" style="font-size: 0.78rem;">
+            {% if is_admin %}
+            検索時の Pre-filtering 属性として付与されます。
+            {% else %}
+            所属グループの配下に安全に保管されます（他グループへの登録は制限されています）。
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-12 col-md-8">
+          <label class="form-label small fw-semibold text-secondary">
+            タグ設定 (任意: 入力+Enter で追加、バッジクリックで削除)
+          </label>
+          <div class="d-flex gap-2 mb-2">
+            <input
+              type="text"
+              id="tag-input-box"
+              class="form-control form-control-modern"
+              placeholder="タグを入力して Enter (例: 2024, 議事録, 規程)"
+              autocomplete="off"
+            >
+            <button type="button" id="tag-add-btn" class="btn-modern-secondary text-nowrap px-3">
+              追加
+            </button>
+          </div>
+          <input type="hidden" name="tags" id="tags-hidden-input" value="[]">
+          <div id="tag-badges-container" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
+            <span class="text-muted small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>
+          </div>
         </div>
       </div>
 
-      <div class="col-12 col-md-8">
-        <label class="form-label small fw-semibold text-secondary">
-          タグ設定 (任意: 入力+Enter で追加、バッジクリックで削除)
-        </label>
-        <div class="d-flex gap-2 mb-2">
+      <!-- 2行目: ファイル選択 & アップロードボタン -->
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-9">
+          <label class="form-label small fw-semibold text-secondary">ファイル選択 (PDF, DOCX, XLSX, CSV, TXT等)</label>
           <input
-            type="text"
-            id="tag-input-box"
+            type="file"
             class="form-control form-control-modern"
-            placeholder="タグを入力して Enter (例: 2024, 議事録, 規程)"
-            autocomplete="off"
+            name="file"
+            id="file-input"
+            required
           >
-          <button type="button" id="tag-add-btn" class="btn-modern-secondary text-nowrap px-3">
-            追加
+        </div>
+
+        <div class="col-12 col-md-3">
+          <button type="submit" class="btn-modern-primary w-100 justify-content-center">
+            <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
+            S3へアップロード
           </button>
         </div>
-        <input type="hidden" name="tags" id="tags-hidden-input" value="[]">
-        <div id="tag-badges-container" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
-          <span class="text-muted small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>
-        </div>
       </div>
-    </div>
-
-    <!-- 2行目: ファイル選択 & アップロードボタン -->
-    <div class="row g-3 align-items-end">
-      <div class="col-12 col-md-9">
-        <label class="form-label small fw-semibold text-secondary">ファイル選択 (PDF, DOCX, XLSX, CSV, TXT等)</label>
-        <input
-          type="file"
-          class="form-control form-control-modern"
-          name="file"
-          id="file-input"
-          required
-        >
-      </div>
-
-      <div class="col-12 col-md-3">
-        <button type="submit" class="btn-modern-primary w-100 justify-content-center">
-          <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
-          S3へアップロード
-        </button>
-      </div>
-    </div>
-  </form>
-  {% endif %}
+    </form>
+    {% endif %}
+  </div>
 </div>
 
-<!-- 一覧テーブル -->
+<!-- 一覧テーブルカード -->
 <div class="modern-card p-0 overflow-hidden">
-  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
-    <h6 class="fw-bold mb-0">登録ドキュメント一覧</h6>
-    <span class="text-muted small">ファイル名をクリックすると S3 から原本を取得（ダウンロード）できます</span>
+  <!-- ヘッダー & 検索・フィルターバー -->
+  <div class="p-3 border-bottom bg-white">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
+      <div>
+        <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-folder2-open text-primary"></i> 登録ドキュメント一覧
+        </h5>
+        <span class="text-muted small">ファイル名をクリックすると S3 から原本を取得（ダウンロード）できます</span>
+      </div>
+    </div>
+
+    <!-- 検索フィルターフォーム (インクリメンタルではなく、検索ボタン/Enterで確定実行) -->
+    <form
+      id="knowledge-filter-form"
+      hx-get="/knowledge/table"
+      hx-target="#knowledge-table-container"
+      hx-swap="innerHTML"
+      hx-indicator="#search-spinner"
+      class="row g-2 align-items-center"
+    >
+      <!-- キーワード入力 -->
+      <div class="col-12 col-md-4">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-light text-muted border-end-0">
+            <i class="bi bi-search"></i>
+          </span>
+          <input
+            type="text"
+            name="q"
+            id="filter-q"
+            class="form-control form-control-sm border-start-0"
+            placeholder="ファイル名 / タグで検索..."
+            value="{{ q }}"
+            autocomplete="off"
+          >
+        </div>
+      </div>
+
+      <!-- グループ選択 -->
+      <div class="col-6 col-md-3">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-light text-muted">
+            <i class="bi bi-people"></i>
+          </span>
+          <select name="group" id="filter-group" class="form-select form-select-sm">
+            <option value="">全グループ</option>
+            {% for grp_name in filter_groups %}
+            <option value="{{ grp_name }}" {% if selected_group == grp_name %}selected{% endif %}>
+              {{ grp_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- 同期状態選択 -->
+      <div class="col-6 col-md-2">
+        <select name="status" id="filter-status" class="form-select form-select-sm">
+          <option value="">全ステータス</option>
+          <option value="SYNCED" {% if selected_status == 'SYNCED' %}selected{% endif %}>同期済</option>
+          <option value="S3_UPLOADED" {% if selected_status == 'S3_UPLOADED' %}selected{% endif %}>S3保管</option>
+          <option value="PENDING" {% if selected_status == 'PENDING' %}selected{% endif %}>保留</option>
+          <option value="ERROR" {% if selected_status == 'ERROR' %}selected{% endif %}>エラー</option>
+        </select>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-1">
+          <span class="spinner-border spinner-border-sm htmx-indicator" id="search-spinner" role="status"></span>
+          <i class="bi bi-search"></i> 検索
+        </button>
+        <a
+          href="/knowledge"
+          class="btn btn-outline-secondary btn-sm px-2 d-inline-flex align-items-center gap-1 text-decoration-none"
+          title="検索条件をクリアして全件表示に戻す"
+        >
+          <i class="bi bi-arrow-counterclockwise"></i> クリア
+        </a>
+      </div>
+    </form>
   </div>
+
   <div id="knowledge-table-container">
     {% include "partials/knowledge_table.html" %}
   </div>
@@ -203,12 +309,27 @@
     });
   }
 
+  const uploadCollapseEl = document.getElementById('uploadCollapse');
+  const uploadChevron = document.getElementById('upload-chevron');
+  if (uploadCollapseEl && uploadChevron) {
+    uploadCollapseEl.addEventListener('show.bs.collapse', () => {
+      uploadChevron.style.transform = 'rotate(180deg)';
+    });
+    uploadCollapseEl.addEventListener('hide.bs.collapse', () => {
+      uploadChevron.style.transform = 'rotate(0deg)';
+    });
+  }
+
   function clearUploadForm() {
     setTimeout(() => {
       const fileInput = document.getElementById('file-input');
       if (fileInput) fileInput.value = '';
       currentTags = [];
       renderTags();
+      if (uploadCollapseEl && typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+        const bsCollapse = bootstrap.Collapse.getInstance(uploadCollapseEl) || new bootstrap.Collapse(uploadCollapseEl, {toggle: false});
+        bsCollapse.hide();
+      }
     }, 400);
   }
 

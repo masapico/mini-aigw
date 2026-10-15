@@ -33,6 +33,8 @@ def test_local_vendor_static_assets_exist_and_served():
     assets_to_test = [
         "/static/vendor/bootstrap/css/bootstrap.min.css",
         "/static/vendor/bootstrap/js/bootstrap.bundle.min.js",
+        "/static/vendor/bootstrap-icons/bootstrap-icons.min.css",
+        "/static/vendor/bootstrap-icons/fonts/bootstrap-icons.woff2",
         "/static/vendor/htmx/htmx.min.js",
         "/static/css/app.css",
     ]
