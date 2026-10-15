@@ -32,6 +32,14 @@ def _format_content_block_for_debug(block: Dict[str, Any]) -> str:
         )
         return formatted_text
 
+    if "toolUse" in block:
+        tu = block["toolUse"]
+        return f"[Tool Use: name={tu.get('name')}, id={tu.get('toolUseId')}, input={tu.get('input')}]"
+
+    if "toolResult" in block:
+        tr = block["toolResult"]
+        return f"[Tool Result: id={tr.get('toolUseId')}, status={tr.get('status')}, content={tr.get('content')}]"
+
     return str(block)
 
 
@@ -40,6 +48,7 @@ def _log_ai_request(
     system_prompts: List[Dict[str, Any]],
     messages: List[Dict[str, Any]],
     inference_config: Dict[str, Any],
+    tool_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Bedrock AI へのリクエスト内容をコンソール出力する"""
     lines = [
@@ -49,6 +58,8 @@ def _log_ai_request(
     ]
     if inference_config:
         lines.append(f"Inference Config: {json.dumps(inference_config, ensure_ascii=False)}")
+    if tool_config:
+        lines.append(f"Tool Config: {json.dumps(tool_config, ensure_ascii=False)}")
 
     if system_prompts:
         lines.append("--- System Prompt ---")
@@ -160,6 +171,11 @@ def convert_openai_messages_to_bedrock(
                 if not isinstance(part, dict):
                     continue
 
+                # Bedrock Converse 形式のツールブロック (toolUse, toolResult) はそのまま保持
+                if "toolUse" in part or "toolResult" in part:
+                    content_blocks.append(part)
+                    continue
+
                 part_type = part.get("type", "text")
                 if part_type == "text":
                     content_blocks.append({"text": part.get("text", "")})
@@ -221,15 +237,27 @@ def convert_openai_messages_to_bedrock(
     return system_prompts, bedrock_messages
 
 
+def filter_knowledge_results_by_score(
+    results: List[Dict[str, Any]],
+    threshold: float,
+) -> List[Dict[str, Any]]:
+    """
+    Bedrock Knowledge Base の検索結果から、類似度スコア (score) が threshold 以上のチャンクのみを抽出する。
+    """
+    return [r for r in results if float(r.get("score", 0.0)) >= float(threshold)]
+
+
 def call_converse(
     client: Any,
     model_id: str,
     messages: List[Dict[str, Any]],
     temperature: Optional[float] = None,
     max_tokens: Optional[int] = None,
+    tool_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Bedrock Converse API を非ストリーミングで呼び出し、OpenAI 互換の辞書形式に変換して返却する。
+    tool_config が指定された場合、Tool Use (Function Calling) を有効化する。
     """
     system_prompts, converse_messages = convert_openai_messages_to_bedrock(messages)
 
@@ -247,9 +275,11 @@ def call_converse(
         kwargs["system"] = system_prompts
     if inference_config:
         kwargs["inferenceConfig"] = inference_config
+    if tool_config:
+        kwargs["toolConfig"] = tool_config
 
     if settings.DEBUG:
-        _log_ai_request(model_id, system_prompts, converse_messages, inference_config)
+        _log_ai_request(model_id, system_prompts, converse_messages, inference_config, tool_config)
 
     response = client.converse(**kwargs)
 
@@ -288,6 +318,8 @@ def call_converse(
             "completion_tokens": usage.get("outputTokens", 0),
             "total_tokens": usage.get("totalTokens", 0),
         },
+        "stop_reason": stop_reason,
+        "output_message": output_message,
     }
 
 

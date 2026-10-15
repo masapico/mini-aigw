@@ -61,7 +61,7 @@ def test_api_key_model_override():
 def test_api_key_system_prompt_injection():
     """APIキーにシステムプロンプトが設定されている場合、messagesに基底注入・合成されることの検証"""
     api_key = setup_api_key_with_config(
-        system_prompt="あなたは社内営業アシスタントです。"
+        system_prompt="あなたは組織内のの業アシスタントです。"
     )
 
     with patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_client:
@@ -86,7 +86,7 @@ def test_api_key_system_prompt_injection():
         called_kwargs = mock_client.converse.call_args[1]
         # Bedrock Converse の system フィールドに APIキーのプロンプトが設定されていること
         assert "system" in called_kwargs
-        assert "あなたは社内営業アシスタントです。" in called_kwargs["system"][0]["text"]
+        assert "あなたは組織内の営業アシスタントです。" in called_kwargs["system"][0]["text"]
 
         # 2. クライアントも system プロンプトを送ってきた場合（合成の検証）
         resp2 = client.post(
@@ -104,9 +104,9 @@ def test_api_key_system_prompt_injection():
         assert "system" in called_kwargs2
         combined_text = called_kwargs2["system"][0]["text"]
         # APIキーのプロンプトが先頭、その後にクライアントのプロンプトが連結されていること
-        assert "あなたは社内営業アシスタントです。" in combined_text
+        assert "あなたは組織内の営業アシスタントです。" in combined_text
         assert "返答は箇条書きでお願いします。" in combined_text
-        assert combined_text.index("あなたは社内営業アシスタントです。") < combined_text.index("返答は箇条書きでお願いします。")
+        assert combined_text.index("あなたは組織内の営業アシスタントです。") < combined_text.index("返答は箇条書きでお願いします。")
 
 
 def test_models_endpoint_dynamic_db():

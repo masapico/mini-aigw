@@ -10,8 +10,10 @@ from app.core.templates import templates
 from app.models.group import Group
 from app.models.llm_model import LlmModel
 from app.models.user import User
+from app.core.prompts import RAG_TEST_SYSTEM_INSTRUCTION
 from app.services.bedrock_service import (
     call_converse,
+    filter_knowledge_results_by_score,
     get_bedrock_agent_runtime_client,
     get_bedrock_runtime_client,
     retrieve_knowledge,
@@ -135,8 +137,10 @@ async def rag_chat_test(
             kb_id=settings.BEDROCK_KB_ID,
             query=query,
             allowed_groups=allowed_groups,
-            number_of_results=4,
+            number_of_results=settings.RAG_NUMBER_OF_RESULTS,
         )
+        # スコア閾値による足切り (Score Filtering)
+        results = filter_knowledge_results_by_score(results, threshold=settings.RAG_SCORE_THRESHOLD)
     except Exception as e:
         error_message = str(e)
         logger.error("RAG retrieval error during chat test: %s", error_message)
@@ -188,12 +192,7 @@ async def rag_chat_test(
         })
 
     context_str = "\n\n".join(context_parts)
-    system_instruction = (
-        "You are an intelligent knowledge assistant. Answer the user question based on the provided retrieved context. "
-        "Cite sources using [1], [2], etc. where appropriate. "
-        "At the end of your response, provide a '### 根拠資料 (参照ドキュメント)' section listing each cited document with its download URL as a markdown link '[filename](download_url)' if available. "
-        "If the context does not contain enough information, state so clearly."
-    )
+    system_instruction = RAG_TEST_SYSTEM_INSTRUCTION
 
     messages = [
         {"role": "system", "content": system_instruction},

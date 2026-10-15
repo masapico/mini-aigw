@@ -39,7 +39,9 @@ class Settings(BaseSettings):
         "amazon.nova-pro-v1:0",
         "amazon.nova-lite-v1:0",
     ]
-
+    # RAG Configuration
+    RAG_SCORE_THRESHOLD: float = 0.40  # 類似度スコア閾値 (0.0〜1.0)
+    RAG_NUMBER_OF_RESULTS: int = 5     # Retrieve API で取得する最大件数
     # mini-id OIDC
     OIDC_ISSUER: Optional[str] = None  # e.g. "https://auth.internal"
     OIDC_CLIENT_ID: Optional[str] = None
