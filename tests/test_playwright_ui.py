@@ -237,8 +237,13 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
         # 5-1. 新規フォームで「この指示例を挿入」ボタンをクリック
         page.click("button:has-text('この指示例を挿入')")
         inserted_prompt = page.locator('#keySystemPromptInput').input_value()
-        assert "参照可能なナレッジ" in inserted_prompt
-        assert "参照可能なナレッジに記載がありません" in inserted_prompt
+        assert "丁寧な敬語" in inserted_prompt
+        assert "業務アシスタント" in inserted_prompt
+
+        # 5-1-b. 組み込みプロンプト確認アコーディオンを展開
+        page.click("button:has-text('内容を確認 ▼')")
+        page.wait_for_selector("#builtinPromptCollapse.show", state="visible")
+        assert "retrieve_knowledge" in page.locator("#builtinPromptCollapse").text_content()
 
         # 5-2. 一覧の編集ボタンをクリックしてモーダルを開く
         edit_buttons = page.locator('button:has-text("編集")')
@@ -248,11 +253,11 @@ def test_playwright_knowledge_tag_ux_and_alignment(live_server):
             page.wait_for_timeout(300)
             page.screenshot(path="tests/screenshots/api_keys_edit_modal.png")
 
-            # モーダル内の「💡 ナレッジ優先回答の指示例を挿入」ボタンをクリック
-            modal_prompt_btn = page.locator('.modal.show button:has-text("💡 ナレッジ優先回答の指示例を挿入")')
+            # モーダル内の「💡 丁寧な敬語・箇条書きの指示例を挿入」ボタンをクリック
+            modal_prompt_btn = page.locator('.modal.show button:has-text("💡 丁寧な敬語・箇条書きの指示例を挿入")')
             modal_prompt_btn.click()
             modal_textarea = page.locator('.modal.show textarea[name="system_prompt"]')
-            assert "参照可能なナレッジ" in modal_textarea.input_value()
+            assert "丁寧な敬語" in modal_textarea.input_value()
 
             # モーダルの「保存」ボタンをクリック
             page.locator('.modal.show button[type="submit"]:has-text("保存")').click()

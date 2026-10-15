@@ -54,17 +54,17 @@
             <span class="badge bg-light text-secondary border px-2 py-0 small" style="font-size: 0.75rem;">
               {{ available_groups | length }} グループ
             </span>
+            <span id="keyModeBadge" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small" style="font-size: 0.75rem;">
+              🔍 ナレッジ検索有効（組み込みプロンプト自動適用）
+            </span>
           </div>
           <div class="d-flex align-items-center gap-3">
-            <span class="text-muted small" style="font-size: 0.78rem;">
-              ※ 未選択時はナレッジ検索を行わない LLM 専用キーになります
-            </span>
             <div class="btn-group btn-group-sm" role="group">
               <button
                 type="button"
                 class="btn btn-outline-secondary py-0 px-2"
                 style="font-size: 0.75rem;"
-                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = true)"
+                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = true); onKeyGroupsChanged();"
               >
                 全選択
               </button>
@@ -72,7 +72,7 @@
                 type="button"
                 class="btn btn-outline-secondary py-0 px-2"
                 style="font-size: 0.75rem;"
-                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = false)"
+                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = false); onKeyGroupsChanged();"
               >
                 全解除
               </button>
@@ -97,6 +97,7 @@
               value="{{ grp }}"
               id="grp-check-{{ grp }}"
               {% if grp == 'public' %}checked{% endif %}
+              onchange="onKeyGroupsChanged()"
               style="cursor: pointer;"
             >
             <span class="small fw-medium">{{ grp }}</span>
@@ -105,14 +106,58 @@
         </div>
       </div>
 
+      <!-- 組み込みプロンプト可視化アコーディオン -->
+      <div class="col-12" id="keyBuiltinPromptContainer">
+        <div class="border rounded-3 p-2 px-3 bg-light" style="border-color: var(--border-color) !important;">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.75rem;">システム仕様</span>
+              <span class="small fw-semibold text-dark">ナレッジ検索時の組み込みプロンプト（自動適用）</span>
+              <span class="text-muted small" style="font-size: 0.78rem;">
+                ※ ナレッジ検索判定や引用ルールは自動注入されるため、システムプロンプトへの重複記述は不要です
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm py-0 px-2"
+              style="font-size: 0.75rem;"
+              data-bs-toggle="collapse"
+              data-bs-target="#builtinPromptCollapse"
+              aria-expanded="false"
+              aria-controls="builtinPromptCollapse"
+            >
+              内容を確認 ▼
+            </button>
+          </div>
+          <div class="collapse mt-2 pt-2 border-top" id="builtinPromptCollapse">
+            <div class="row g-2">
+              <div class="col-12 col-lg-6">
+                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                  <div class="fw-semibold text-secondary mb-1">① ツール利用判定ガイドライン (システムプロンプト自動合成)</div>
+                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{ builtin_knowledge_prompt }}</pre>
+                </div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                  <div class="fw-semibold text-secondary mb-1">② 回答・根拠提示ルール (検索ヒット時に自動適用)</div>
+                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{ builtin_grounding_rules }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="col-12 col-md-10">
-        <label class="form-label small fw-semibold text-secondary">事前定義システムプロンプト (基底ポリシー・ペルソナ / 任意)</label>
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          事前定義システムプロンプト (ペルソナ・口調等の追加指示 / 任意)
+        </label>
         <textarea
           id="keySystemPromptInput"
           name="system_prompt"
           class="form-control form-control-modern"
           rows="2"
-          placeholder="例: あなたは業務アシスタントです。参照可能なナレッジがある場合はその内容に基づいて正確に回答してください。"
+          placeholder="例: あなたは業務アシスタントです。丁寧な敬語を用い、要点を分かりやすく整理して回答してください。"
         ></textarea>
       </div>
 
@@ -123,24 +168,12 @@
         </button>
       </div>
 
-      <div class="col-12">
-        <div class="p-2 px-3 bg-light border rounded-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div class="d-flex align-items-center gap-2">
-            <span class="fw-semibold text-secondary small text-nowrap">💡 推奨指示例:</span>
-            <span class="text-secondary small" style="font-size: 0.82rem;">
-              「参照可能なナレッジ（検索された参考資料・コンテキスト）がある場合は、必ずその内容に基づいて正確・誠実に回答してください。回答中には [1] などの引用番号を付記し、回答末尾に参照した根拠資料の一覧およびダウンロード案内を明記してください。ナレッジに記載がない情報については憶測で回答せず、『参照可能なナレッジに記載がありません』と明記してください。参照すべきナレッジがない一般的な質問に対しては、一般的な知識に基づいて親切に回答してください。」
-            </span>
-          </div>
-          <button
-            type="button"
-            class="btn btn-outline-primary btn-sm py-1 px-3 text-nowrap"
-            style="font-size: 0.78rem;"
-            onclick="insertKnowledgePromptExample('keySystemPromptInput')"
-          >
-            この指示例を挿入
-          </button>
+      <div class="col-12 mt-1">
+        <div id="keyPromptHint" class="text-muted small" style="font-size: 0.78rem;">
+          ※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。
         </div>
       </div>
+
     </div>
   </form>
 </div>
@@ -157,13 +190,83 @@
 </div>
 
 <script>
-  const KNOWLEDGE_PROMPT_EXAMPLE = "参照可能なナレッジ（検索された参考資料・コンテキスト）がある場合は、必ずその内容に基づいて正確・誠実に回答してください。回答中には [1] などの引用番号を付記し、回答末尾に参照した根拠資料の一覧およびダウンロード案内を明記してください。ナレッジに記載がない情報については憶測で回答せず、「参照可能なナレッジに記載がありません」と明記してください。参照すべきナレッジがない一般的な質問に対しては、一般的な知識に基づいて親切に回答してください。";
+  const PROMPT_EXAMPLES = {
+    business: "あなたは業務アシスタントです。丁寧な敬語を用い、要点を整理して箇条書きで簡潔・明確に回答してください。",
+    general: "あなたは親切で誠実なAIアシスタントです。質問に対して具体的かつ分かりやすく回答してください。"
+  };
 
-  function insertKnowledgePromptExample(targetId) {
-    const el = document.getElementById(targetId);
-    if (el) {
-      el.value = KNOWLEDGE_PROMPT_EXAMPLE;
-      el.focus();
+  function onKeyGroupsChanged() {
+    const checkboxes = document.querySelectorAll('#key-groups-container input[type=checkbox]');
+    let checkedCount = 0;
+    checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+
+    const badge = document.getElementById('keyModeBadge');
+    const hint = document.getElementById('keyPromptHint');
+    const builtinContainer = document.getElementById('keyBuiltinPromptContainer');
+    const exampleText = document.getElementById('keyPromptExampleText');
+
+    if (checkedCount > 0) {
+      if (badge) {
+        badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🔍 ナレッジ検索有効（組み込みプロンプト自動適用）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "block";
+      }
+      if (exampleText) {
+        exampleText.textContent = `「${PROMPT_EXAMPLES.business}」`;
+      }
+    } else {
+      if (badge) {
+        badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ LLM単体モード: ナレッジ検索ツールおよび組み込みプロンプトは適用されません。役割やルールを固定したい場合は本欄に入力してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "none";
+      }
+      if (exampleText) {
+        exampleText.textContent = `「${PROMPT_EXAMPLES.general}」`;
+      }
+    }
+  }
+
+  function onEditKeyGroupsChanged(keyId) {
+    const checkboxes = document.querySelectorAll(`#edit-groups-container-${keyId} input[type=checkbox]`);
+    let checkedCount = 0;
+    checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+
+    const badge = document.getElementById(`editKeyModeBadge-${keyId}`);
+    const hint = document.getElementById(`editKeyPromptHint-${keyId}`);
+    const builtinContainer = document.getElementById(`editBuiltinPromptContainer-${keyId}`);
+
+    if (checkedCount > 0) {
+      if (badge) {
+        badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🔍 ナレッジ検索有効（組み込みプロンプト自動適用）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "block";
+      }
+    } else {
+      if (badge) {
+        badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ LLM単体モード: ナレッジ検索ツールおよび組み込みプロンプトは適用されません。役割やルールを固定したい場合は本欄に入力してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "none";
+      }
     }
   }
 
@@ -178,6 +281,10 @@
       prompt("API キーをコピーしてください:", keyText);
     });
   }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    onKeyGroupsChanged();
+  });
 </script>
 {% endblock %}
 

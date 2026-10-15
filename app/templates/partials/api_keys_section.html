@@ -173,14 +173,40 @@
                       {% endif %}
 
                       <div class="col-12">
-                        <label class="form-label small fw-semibold text-secondary mb-1">
-                          検索を許可するナレッジグループ
-                        </label>
+                        <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                          <div class="d-flex align-items-center gap-2">
+                            <label class="form-label small fw-semibold text-secondary mb-0">
+                              検索を許可するナレッジグループ
+                            </label>
+                            {% set current_groups = k.get_allowed_groups() %}
+                            <span id="editKeyModeBadge-{{ k.id }}" class="badge {% if current_groups %}bg-success-subtle text-success border border-success-subtle{% else %}bg-secondary-subtle text-secondary border border-secondary-subtle{% endif %} px-2 py-1 rounded-pill small" style="font-size: 0.75rem;">
+                              {% if current_groups %}🔍 ナレッジ検索有効（組み込みプロンプト自動適用）{% else %}🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）{% endif %}
+                            </span>
+                          </div>
+                          <div class="btn-group btn-group-sm" role="group">
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary py-0 px-2"
+                              style="font-size: 0.72rem;"
+                              onclick="document.querySelectorAll('#edit-groups-container-{{ k.id }} input[type=checkbox]').forEach(cb => cb.checked = true); onEditKeyGroupsChanged('{{ k.id }}');"
+                            >
+                              全選択
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary py-0 px-2"
+                              style="font-size: 0.72rem;"
+                              onclick="document.querySelectorAll('#edit-groups-container-{{ k.id }} input[type=checkbox]').forEach(cb => cb.checked = false); onEditKeyGroupsChanged('{{ k.id }}');"
+                            >
+                              全解除
+                            </button>
+                          </div>
+                        </div>
                         <div
+                          id="edit-groups-container-{{ k.id }}"
                           class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-light"
                           style="min-height: 44px; max-height: 120px; overflow-y: auto;"
                         >
-                          {% set current_groups = k.get_allowed_groups() %}
                           {% for grp in available_groups %}
                           <label
                             class="px-2 py-1 border rounded-2 bg-white d-inline-flex align-items-center gap-2 m-0 user-select-none"
@@ -194,25 +220,67 @@
                               value="{{ grp }}"
                               id="edit-grp-{{ k.id }}-{{ grp }}"
                               {% if grp in current_groups %}checked{% endif %}
+                              onchange="onEditKeyGroupsChanged('{{ k.id }}')"
                               style="cursor: pointer;"
                             >
                             <span class="small fw-medium">{{ grp }}</span>
                           </label>
                           {% endfor %}
                         </div>
-                        <div class="form-text small text-muted">※ 未選択時はナレッジ検索を行わない LLM 専用キーになります</div>
+                      </div>
+
+                      <!-- 編集用 組み込みプロンプト可視化アコーディオン -->
+                      <div class="col-12" id="editBuiltinPromptContainer-{{ k.id }}" {% if not current_groups %}style="display: none;"{% endif %}>
+                        <div class="border rounded-3 p-2 px-3 bg-light" style="border-color: var(--border-color) !important;">
+                          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.72rem;">システム仕様</span>
+                              <span class="small fw-semibold text-dark">ナレッジ検索時の組み込みプロンプト（自動適用）</span>
+                              <span class="text-muted small" style="font-size: 0.75rem;">※ 重複記述は不要です</span>
+                            </div>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary btn-sm py-0 px-2"
+                              style="font-size: 0.72rem;"
+                              data-bs-toggle="collapse"
+                              data-bs-target="#editBuiltinPromptCollapse-{{ k.id }}"
+                              aria-expanded="false"
+                              aria-controls="editBuiltinPromptCollapse-{{ k.id }}"
+                            >
+                              内容を確認 ▼
+                            </button>
+                          </div>
+                          <div class="collapse mt-2 pt-2 border-top" id="editBuiltinPromptCollapse-{{ k.id }}">
+                            <div class="row g-2">
+                              <div class="col-12 col-lg-6">
+                                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                                  <div class="fw-semibold text-secondary mb-1" style="font-size: 0.75rem;">① ツール利用判定ガイドライン (自動合成)</div>
+                                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.75rem; max-height: 120px; overflow-y: auto;">{{ builtin_knowledge_prompt }}</pre>
+                                </div>
+                              </div>
+                              <div class="col-12 col-lg-6">
+                                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                                  <div class="fw-semibold text-secondary mb-1" style="font-size: 0.75rem;">② 回答・根拠提示ルール (自動適用)</div>
+                                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.75rem; max-height: 120px; overflow-y: auto;">{{ builtin_grounding_rules }}</pre>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       <div class="col-12">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                          <label class="form-label small fw-semibold text-secondary mb-0">事前定義システムプロンプト (基底ポリシー・ペルソナ / 任意)</label>
+                          <label class="form-label small fw-semibold text-secondary mb-0">
+                            事前定義システムプロンプト (ペルソナ・口調等の追加指示 / 任意)
+                          </label>
                           <button
                             type="button"
                             class="btn btn-outline-primary btn-sm py-0 px-2"
                             style="font-size: 0.75rem;"
-                            onclick="insertKnowledgePromptExample('editSystemPromptInput-{{ k.id }}')"
+                            onclick="insertPromptExample('editSystemPromptInput-{{ k.id }}', 'business')"
                           >
-                            💡 ナレッジ優先回答の指示例を挿入
+                            💡 丁寧な敬語・箇条書きの指示例を挿入
                           </button>
                         </div>
                         <textarea
@@ -220,15 +288,14 @@
                           name="system_prompt"
                           class="form-control form-control-modern"
                           rows="4"
-                          placeholder="例: あなたは業務アシスタントです。参照可能なナレッジがある場合はその内容に基づいて正確に回答してください。"
+                          placeholder="例: あなたは業務アシスタントです。丁寧な敬語を用い、要点を分かりやすく整理して回答してください。"
                         >{{ k.system_prompt or '' }}</textarea>
-                        <div class="form-text small text-muted mt-1">
-                          <div class="p-2 bg-light border rounded-2">
-                            <span class="fw-semibold text-secondary">💡 推奨指示例（ナレッジ利用時）:</span>
-                            <span class="text-secondary" style="font-size: 0.8rem;">
-                              「参照可能なナレッジ（検索された参考資料・コンテキスト）がある場合は、必ずその内容に基づいて正確・誠実に回答してください。回答中には [1] などの引用番号を付記し、回答末尾に参照した根拠資料の一覧およびダウンロード案内を明記してください。ナレッジに記載がない情報については憶測で回答せず、『参照可能なナレッジに記載がありません』と明記してください。参照すべきナレッジがない一般的な質問に対しては、一般的な知識に基づいて親切に回答してください。」
-                            </span>
-                          </div>
+                        <div id="editKeyPromptHint-{{ k.id }}" class="form-text small text-muted mt-1" style="font-size: 0.78rem;">
+                          {% if current_groups %}
+                          ※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。
+                          {% else %}
+                          ※ LLM単体モード: ナレッジ検索ツールおよび組み込みプロンプトは適用されません。役割やルールを固定したい場合は本欄に入力してください。
+                          {% endif %}
                         </div>
                       </div>
                     </div>

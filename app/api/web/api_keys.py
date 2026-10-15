@@ -6,6 +6,10 @@ from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from app.api.web.auth import require_admin_user
 from app.core.database import get_session
+from app.core.prompts import (
+    KNOWLEDGE_GROUNDING_RULES_SUMMARY,
+    KNOWLEDGE_TOOL_SYSTEM_PROMPT,
+)
 from app.core.security import generate_api_key
 from app.core.templates import templates
 from app.models.api_key import ApiKey
@@ -46,6 +50,8 @@ async def api_keys_list(
             "available_groups": groups,
             "available_models": active_models,
             "new_raw_key": None,
+            "builtin_knowledge_prompt": KNOWLEDGE_TOOL_SYSTEM_PROMPT,
+            "builtin_grounding_rules": KNOWLEDGE_GROUNDING_RULES_SUMMARY,
         },
     )
 
@@ -94,6 +100,8 @@ async def api_key_create(
             "available_models": active_models,
             "new_raw_key": raw_key,
             "new_key_name": name,
+            "builtin_knowledge_prompt": KNOWLEDGE_TOOL_SYSTEM_PROMPT,
+            "builtin_grounding_rules": KNOWLEDGE_GROUNDING_RULES_SUMMARY,
         },
     )
 
@@ -138,6 +146,8 @@ async def api_key_edit(
             "available_groups": groups,
             "available_models": active_models,
             "new_raw_key": None,
+            "builtin_knowledge_prompt": KNOWLEDGE_TOOL_SYSTEM_PROMPT,
+            "builtin_grounding_rules": KNOWLEDGE_GROUNDING_RULES_SUMMARY,
         },
     )
 
