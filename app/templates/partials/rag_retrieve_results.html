@@ -15,7 +15,13 @@
   {% else %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h6 class="fw-bold mb-0">検索結果 ({{ results | length }} 件取得)</h6>
-    <span class="badge-pill-modern badge-group">Filter Group: {{ group }}</span>
+    <span class="badge-pill-modern badge-group">
+      {% if group == 'public' %}
+      Filter: public (全社共通)
+      {% else %}
+      Filter: {{ group }} + public (共通)
+      {% endif %}
+    </span>
   </div>
 
   {% if results %}
@@ -69,7 +75,7 @@
   </div>
   {% else %}
   <div class="p-4 text-center text-muted border rounded-3 bg-white">
-    該当するナレッジチャンクは見つかりませんでした（Pre-filtering 条件により除外された可能性があります）。
+    該当するナレッジチャンクは見つかりませんでした（グループ: <strong>{{ group }}</strong> {% if group != 'public' %}および <strong>public</strong>{% endif %} の範囲で検索）。
   </div>
   {% endif %}
   {% endif %}

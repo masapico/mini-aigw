@@ -61,7 +61,7 @@ def test_api_key_model_override():
 def test_api_key_system_prompt_injection():
     """APIキーにシステムプロンプトが設定されている場合、messagesに基底注入・合成されることの検証"""
     api_key = setup_api_key_with_config(
-        system_prompt="あなたは組織内のの業アシスタントです。"
+        system_prompt="あなたは組織内の営業アシスタントです。"
     )
 
     with patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_client:
