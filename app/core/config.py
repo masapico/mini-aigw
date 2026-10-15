@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # RAG Configuration
     RAG_SCORE_THRESHOLD: float = 0.40  # 類似度スコア閾値 (0.0〜1.0)
     RAG_NUMBER_OF_RESULTS: int = 5     # Retrieve API で取得する最大件数
+
+    # Inference Parameters & Guardrails
+    DEFAULT_TEMPERATURE: Optional[float] = None  # None の場合はモデルデフォルトに委任
+    DEFAULT_MAX_TOKENS: int = 4096              # クライアント未指定時のデフォルト最大トークン数
+    MAX_ALLOWED_TOKENS: int = 8192              # AIGW が許容する最大出力トークン数 (ハードキャップ)
     # mini-id OIDC
     OIDC_ISSUER: Optional[str] = None  # e.g. "https://auth.internal"
     OIDC_CLIENT_ID: Optional[str] = None

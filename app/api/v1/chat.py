@@ -35,6 +35,7 @@ class ChatCompletionRequest(BaseModel):
     model: Optional[str] = None
     messages: List[Dict[str, Any]]
     temperature: Optional[float] = None
+    top_p: Optional[float] = None
     max_tokens: Optional[int] = Field(default=None, alias="max_completion_tokens")
     stream: bool = False
 
@@ -163,6 +164,7 @@ async def chat_completions(
                 model_id=model_id,
                 messages=effective_messages,
                 temperature=request.temperature,
+                top_p=request.top_p,
                 max_tokens=request.max_tokens,
             ),
             media_type="text/event-stream",
@@ -185,6 +187,7 @@ async def chat_completions(
                 model_id=model_id,
                 messages=effective_messages,
                 temperature=request.temperature,
+                top_p=request.top_p,
                 max_tokens=request.max_tokens,
             )
             result.pop("stop_reason", None)
@@ -216,6 +219,7 @@ async def chat_completions(
             model_id=model_id,
             messages=effective_messages,
             temperature=request.temperature,
+            top_p=request.top_p,
             max_tokens=request.max_tokens,
             tool_config=tool_config,
         )
@@ -346,6 +350,7 @@ async def chat_completions(
             model_id=model_id,
             messages=turn2_messages,
             temperature=request.temperature,
+            top_p=request.top_p,
             max_tokens=request.max_tokens,
             tool_config=None,  # 2ターン目は最終回答を生成させるためツール指定なし
         )

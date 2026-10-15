@@ -247,11 +247,76 @@ def filter_knowledge_results_by_score(
     return [r for r in results if float(r.get("score", 0.0)) >= float(threshold)]
 
 
+def build_inference_config(
+    temperature: Optional[float] = None,
+    top_p: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    OpenAI 互換パラメータを Bedrock Converse API の inferenceConfig にサニタイズ・マッピングする。
+    - maxTokens: 1 〜 MAX_ALLOWED_TOKENS にクランプ。未指定時は DEFAULT_MAX_TOKENS を適用。
+    - temperature: 0.0 〜 1.0 にクランプ。未指定時は DEFAULT_TEMPERATURE を適用。
+    - topP: 0.0 〜 1.0 にクランプ。
+    - 排他制御:
+      Claude 等のモデルは temperature と topP の両方変更を嫌うため:
+      - 両方指定され、片方が 1.0 (OpenAIデフォルト) の場合は非デフォルト側を採用
+      - 両方とも 1.0 未満で指定された場合は temperature を優先
+    """
+    config: Dict[str, Any] = {}
+
+    # 1. maxTokens の解決とクランプ
+    effective_max_tokens = max_tokens if max_tokens is not None else settings.DEFAULT_MAX_TOKENS
+    if effective_max_tokens is not None:
+        capped_tokens = min(max(int(effective_max_tokens), 1), settings.MAX_ALLOWED_TOKENS)
+        config["maxTokens"] = capped_tokens
+
+    # 2. temperature と top_p のサニタイズ
+    raw_temp_specified = temperature is not None
+    raw_top_p_specified = top_p is not None
+
+    sanitized_temp: Optional[float] = None
+    if raw_temp_specified:
+        sanitized_temp = round(max(0.0, min(float(temperature), 1.0)), 4)
+    elif settings.DEFAULT_TEMPERATURE is not None:
+        sanitized_temp = round(max(0.0, min(float(settings.DEFAULT_TEMPERATURE), 1.0)), 4)
+
+    sanitized_top_p: Optional[float] = None
+    if raw_top_p_specified:
+        sanitized_top_p = round(max(0.0, min(float(top_p), 1.0)), 4)
+
+    # 3. 排他制御 (Bedrock / Claude 等の仕様互換)
+    if sanitized_temp is not None and sanitized_top_p is not None:
+        temp_is_default = (temperature == 1.0)
+        top_p_is_default = (top_p == 1.0)
+
+        if top_p_is_default and not temp_is_default:
+            config["temperature"] = sanitized_temp
+        elif temp_is_default and not top_p_is_default:
+            config["topP"] = sanitized_top_p
+        elif temp_is_default and top_p_is_default:
+            config["temperature"] = sanitized_temp
+        else:
+            # 両方ともデフォルト以外 (例: temp=1.8, top_p=0.9 や temp=0.7, top_p=0.8)
+            logger.warning(
+                "Both temperature (%s) and top_p (%s) explicitly specified. Prioritizing temperature for Converse API compatibility.",
+                temperature,
+                top_p,
+            )
+            config["temperature"] = sanitized_temp
+    elif sanitized_temp is not None:
+        config["temperature"] = sanitized_temp
+    elif sanitized_top_p is not None:
+        config["topP"] = sanitized_top_p
+
+    return config
+
+
 def call_converse(
     client: Any,
     model_id: str,
     messages: List[Dict[str, Any]],
     temperature: Optional[float] = None,
+    top_p: Optional[float] = None,
     max_tokens: Optional[int] = None,
     tool_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -261,11 +326,11 @@ def call_converse(
     """
     system_prompts, converse_messages = convert_openai_messages_to_bedrock(messages)
 
-    inference_config: Dict[str, Any] = {}
-    if temperature is not None:
-        inference_config["temperature"] = float(temperature)
-    if max_tokens is not None:
-        inference_config["maxTokens"] = int(max_tokens)
+    inference_config = build_inference_config(
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
 
     kwargs: Dict[str, Any] = {
         "modelId": model_id,
@@ -328,6 +393,7 @@ async def call_converse_stream(
     model_id: str,
     messages: List[Dict[str, Any]],
     temperature: Optional[float] = None,
+    top_p: Optional[float] = None,
     max_tokens: Optional[int] = None,
 ) -> AsyncGenerator[str, None]:
     """
@@ -335,11 +401,11 @@ async def call_converse_stream(
     """
     system_prompts, converse_messages = convert_openai_messages_to_bedrock(messages)
 
-    inference_config: Dict[str, Any] = {}
-    if temperature is not None:
-        inference_config["temperature"] = float(temperature)
-    if max_tokens is not None:
-        inference_config["maxTokens"] = int(max_tokens)
+    inference_config = build_inference_config(
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
 
     kwargs: Dict[str, Any] = {
         "modelId": model_id,
