@@ -50,7 +50,7 @@
         </label>
         <select class="form-select form-select-modern" name="group_name" required>
           {% if is_admin %}
-          <option value="public" selected>public (全体共有・全社)</option>
+          <option value="public" selected>public (全体共有)</option>
           {% endif %}
           {% for g in groups %}
           <option value="{{ g.name }}" {% if not is_admin and loop.first %}selected{% endif %}>
