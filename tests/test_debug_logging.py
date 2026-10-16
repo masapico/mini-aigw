@@ -51,7 +51,7 @@ def test_debug_logging_enabled_non_streaming(mock_bedrock_client, monkeypatch, c
 
     result = call_converse(
         client=mock_bedrock_client,
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model_id="openai.gpt-oss-20b-1:0",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -61,7 +61,7 @@ def test_debug_logging_enabled_non_streaming(mock_bedrock_client, monkeypatch, c
 
     log_output = caplog.text
     assert "[DEBUG] AI Request" in log_output
-    assert "Model: anthropic.claude-3-5-sonnet-20241022-v2:0" in log_output
+    assert "Model: openai.gpt-oss-20b-1:0" in log_output
     assert "You are a test assistant." in log_output
     assert "What is the capital of Japan?" in log_output
     assert "[DEBUG] AI Response" in log_output
@@ -81,7 +81,7 @@ async def test_debug_logging_enabled_streaming(mock_bedrock_client, monkeypatch,
 
     stream_gen = call_converse_stream(
         client=mock_bedrock_client,
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model_id="openai.gpt-oss-20b-1:0",
         messages=messages,
     )
 
@@ -107,7 +107,7 @@ def test_debug_logging_disabled(mock_bedrock_client, monkeypatch, caplog):
 
     call_converse(
         client=mock_bedrock_client,
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model_id="openai.gpt-oss-20b-1:0",
         messages=messages,
     )
 
@@ -138,7 +138,7 @@ def test_debug_logging_attachment_filename_only(mock_bedrock_client, monkeypatch
 
     call_converse(
         client=mock_bedrock_client,
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model_id="openai.gpt-oss-20b-1:0",
         messages=openai_messages,
     )
 
@@ -170,7 +170,7 @@ def test_debug_logging_image_sanitized(mock_bedrock_client, monkeypatch, caplog)
 
     call_converse(
         client=mock_bedrock_client,
-        model_id="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model_id="openai.gpt-oss-20b-1:0",
         messages=openai_messages,
     )
 

@@ -162,7 +162,7 @@ def test_rag_test_web_endpoints(mock_runtime, mock_agent):
     }
     chat_resp = client.post(
         "/rag-test/chat",
-        data={"query": "chat query", "group": "public", "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0"},
+        data={"query": "chat query", "group": "public", "model_id": "openai.gpt-oss-20b-1:0", "temperature": 0.7, "max_tokens": 100},
     )
     assert chat_resp.status_code == 200
     assert "Based on [1], here is the answer." in chat_resp.text
@@ -181,7 +181,7 @@ def test_rag_test_web_endpoints(mock_runtime, mock_agent):
 
     err_chat_resp = client.post(
         "/rag-test/chat",
-        data={"query": "error chat query", "group": "public"},
+        data={"query": "error chat query", "group": "public", "model_id": "openai.gpt-oss-20b-1:0", "temperature": 0.7, "max_tokens": 100},
     )
     assert err_chat_resp.status_code == 200
     assert "ナレッジ検索中にエラーが発生しました" in err_chat_resp.text

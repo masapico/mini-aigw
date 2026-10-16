@@ -94,7 +94,7 @@ AWS_REGION=us-east-1
 BEDROCK_KB_ID=your-bedrock-knowledge-base-id
 BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
 KNOWLEDGE_S3_BUCKET=your-s3-knowledge-bucket
-DEFAULT_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0
 
 # mini-id (OIDC IdP) 設定（SSO 連携時）
 # OIDC_ISSUER=https://mini-id.internal
@@ -208,7 +208,7 @@ client = OpenAI(
 
 # 1. 通常チャット補完
 response = client.chat.completions.create(
-    model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    model="openai.gpt-oss-20b-1:0",
     messages=[
         {"role": "system", "content": "あなたは優秀な業務アシスタントです。"},
         {"role": "user", "content": "こんにちは！"},
@@ -219,7 +219,7 @@ print(response.choices[0].message.content)
 
 # 2. ストリーミング応答 (SSE)
 stream = client.chat.completions.create(
-    model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    model="openai.gpt-oss-20b-1:0",
     messages=[
         {"role": "user", "content": "AI Gateway のアーキテクチャについて簡潔に説明してください。"},
     ],
@@ -238,7 +238,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-live-..." \
   -d '{
-    "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "model": "openai.gpt-oss-20b-1:0",
     "messages": [
       {"role": "user", "content": "Hello Bedrock!"}
     ],
@@ -260,7 +260,7 @@ with open("spec.pdf", "rb") as f:
     pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
 
 response = client.chat.completions.create(
-    model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+    model="openai.gpt-oss-20b-1:0",
     messages=[
         {
             "role": "user",

@@ -6,8 +6,8 @@ from sqlmodel import Field, SQLModel
 class LlmModel(SQLModel, table=True):
     __tablename__ = "llm_models"
 
-    id: str = Field(primary_key=True)  # モデルID (例: 'anthropic.claude-3-5-sonnet-20241022-v2:0')
-    name: str                          # 表示名 (例: 'Claude 3.5 Sonnet v2')
+    id: str = Field(primary_key=True)  # モデルID (例: 'openai.gpt-oss-20b-1:0')
+    name: str                          # 表示名 (例: 'GPT-OSS 20B')
     description: Optional[str] = None  # 説明・用途
     provider: str = Field(default="bedrock")  # プロバイダ
     is_active: bool = Field(default=True)     # 有効/無効フラグ

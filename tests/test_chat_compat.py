@@ -82,7 +82,7 @@ def test_openai_sdk_non_streaming_chat(mock_get_client):
     )
 
     response = client.chat.completions.create(
-        model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model="openai.gpt-oss-20b-1:0",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Hello Bedrock!"},
@@ -123,7 +123,7 @@ def test_openai_sdk_streaming_chat(mock_get_client):
     )
 
     stream = client.chat.completions.create(
-        model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model="openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "Stream to me"}],
         stream=True,
     )
@@ -253,7 +253,7 @@ def test_openai_sdk_inference_config_clamping_and_forwarding(mock_get_client):
 
     # temperature=1.8 (OpenAIでは許容、Bedrockでは不可), top_p=0.9, max_tokens=50000 (上限超え)
     response = client.chat.completions.create(
-        model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model="openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "Test clamping"}],
         temperature=1.8,
         top_p=0.9,
@@ -297,7 +297,7 @@ def test_openai_sdk_top_p_streaming_forwarding(mock_get_client):
     )
 
     stream = client.chat.completions.create(
-        model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        model="openai.gpt-oss-20b-1:0",
         messages=[{"role": "user", "content": "Stream test"}],
         top_p=0.85,
         stream=True,

@@ -42,12 +42,12 @@ def test_api_key_model_override():
         }
 
         client = TestClient(app)
-        # クライアントは claude-3-5-sonnet を要求
+        # クライアントは gpt-oss-20b を要求
         resp = client.post(
             "/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}"},
             json={
-                "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+                "model": "openai.gpt-oss-20b-1:0",
                 "messages": [{"role": "user", "content": "Hi"}],
             },
         )
@@ -276,13 +276,13 @@ def test_api_key_web_create_with_model_and_prompt():
         data={
             "name": "営業特化Botキー",
             "allowed_groups": ["public", "sales"],
-            "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+            "model_id": "openai.gpt-oss-20b-1:0",
             "system_prompt": "営業資料を元に提案書を作成してください。",
         },
     )
     assert create_resp.status_code == 200
     assert "営業特化Botキー" in create_resp.text
-    assert "anthropic.claude-3-5-sonnet-20241022-v2:0" in create_resp.text
+    assert "openai.gpt-oss-20b-1:0" in create_resp.text
     assert "設定あり (基底注入)" in create_resp.text
 
     # DB に正しく保存されているか確認
@@ -291,7 +291,7 @@ def test_api_key_web_create_with_model_and_prompt():
             select(ApiKey).where(ApiKey.name == "営業特化Botキー")
         ).first()
         assert created_key is not None
-        assert created_key.model_id == "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        assert created_key.model_id == "openai.gpt-oss-20b-1:0"
         assert created_key.system_prompt == "営業資料を元に提案書を作成してください。"
 
 
