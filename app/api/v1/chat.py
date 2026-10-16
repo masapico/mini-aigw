@@ -28,6 +28,7 @@ from app.services.bedrock_service import (
     stream_prebuilt_text_as_sse,
 )
 from app.services.knowledge_service import (
+    find_matching_metadata_from_query,
     is_chunk_from_deleted_document,
     resolve_document_and_download_url,
 )
@@ -479,13 +480,27 @@ async def chat_completions(
     base_url = str(http_request.base_url)
     agent_client = get_bedrock_agent_runtime_client()
 
+    last_user_text = extract_last_user_query(request.messages) or ""
+
     for tu_block in tool_use_blocks:
         tool_use_id = tu_block.get("toolUseId", "")
         query = tu_block.get("input", {}).get("query", "").strip()
         if not query:
-            query = extract_last_user_query(request.messages) or ""
+            query = last_user_text
         if query:
             executed_queries.append(query)
+
+        combined_match_text = f"{query} {last_user_text}".strip()
+        matched_meta = find_matching_metadata_from_query(
+            db=db,
+            query=combined_match_text,
+            allowed_groups=allowed_groups,
+        )
+        extra_retrieve_kwargs: Dict[str, Any] = {}
+        if matched_meta.get("tags"):
+            extra_retrieve_kwargs["matched_tags"] = matched_meta["tags"]
+        if matched_meta.get("document_ids"):
+            extra_retrieve_kwargs["matched_document_ids"] = matched_meta["document_ids"]
 
         retrieval_error: Optional[str] = None
         filtered_results: List[Dict[str, Any]] = []
@@ -498,6 +513,7 @@ async def chat_completions(
                 query=query,
                 allowed_groups=allowed_groups,
                 number_of_results=settings.RAG_NUMBER_OF_RESULTS,
+                **extra_retrieve_kwargs,
             )
             # 1) スコア閾値による足切り (Score Filtering)
             score_filtered = filter_knowledge_results_by_score(

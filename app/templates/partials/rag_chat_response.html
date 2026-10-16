@@ -48,8 +48,13 @@
     </div>
     {% else %}
     <div class="pt-2 border-top">
-      <div class="badge bg-light text-muted border py-2 px-3 fw-normal" style="font-size: 0.8rem;">
+      <div class="badge bg-light text-muted border py-2 px-3 fw-normal text-wrap text-start" style="font-size: 0.8rem;">
         ℹ️ ナレッジベースから該当チャンクは取得されませんでした（LLMの事前学習知識からの回答）
+        {% if filtered_out_count is defined and filtered_out_count > 0 %}
+        <span class="text-warning-emphasis ms-1">
+          ※ KBから {{ filtered_out_count }} 件取得されましたが、類似度スコア閾値 ({{ (score_threshold * 100) | round(0) | int }}%) 未満のため除外されました（最高スコア: {{ (max_raw_score * 100) | round(1) }}%）
+        </span>
+        {% endif %}
       </div>
     </div>
     {% endif %}

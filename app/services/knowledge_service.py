@@ -227,6 +227,27 @@ def delete_knowledge_document(
     return True
 
 
+def _extract_s3_key_from_uri(s3_uri: str) -> Optional[str]:
+    """
+    Bedrock KB が返す s3Location.uri ('s3://bucket/key' または 'https://bucket.s3.region.amazonaws.com/key')
+    から URL デコード済みの S3 オブジェクトキーを抽出する。
+    """
+    if not s3_uri:
+        return None
+    import urllib.parse
+
+    if s3_uri.startswith("s3://"):
+        parts = s3_uri.split("/")
+        if len(parts) >= 4:
+            return urllib.parse.unquote("/".join(parts[3:]))
+    elif s3_uri.startswith("https://") or s3_uri.startswith("http://"):
+        parsed = urllib.parse.urlparse(s3_uri)
+        path = parsed.path.lstrip("/")
+        if path:
+            return urllib.parse.unquote(path)
+    return None
+
+
 def is_chunk_from_deleted_document(
     db: Session,
     s3_uri: str,
@@ -239,13 +260,9 @@ def is_chunk_from_deleted_document(
     if doc_id and str(doc_id) in _DELETED_DOC_IDS:
         return True
 
-    key: Optional[str] = None
-    if s3_uri and s3_uri.startswith("s3://"):
-        parts = s3_uri.split("/")
-        if len(parts) >= 4:
-            key = "/".join(parts[3:])
-            if key in _DELETED_S3_KEYS:
-                return True
+    key = _extract_s3_key_from_uri(s3_uri)
+    if key and key in _DELETED_S3_KEYS:
+        return True
 
     if doc_id:
         doc = db.get(KnowledgeDocument, str(doc_id))
@@ -275,11 +292,9 @@ def resolve_document_and_download_url(
     from app.core.security import generate_download_token
 
     doc_id = metadata.get("document_id")
-    if not doc_id and s3_uri and s3_uri.startswith("s3://"):
-        # s3://bucket/key から key を抽出して DB 検索
-        parts = s3_uri.split("/")
-        if len(parts) >= 4:
-            key = "/".join(parts[3:])
+    if not doc_id and s3_uri:
+        key = _extract_s3_key_from_uri(s3_uri)
+        if key:
             doc = db.exec(select(KnowledgeDocument).where(KnowledgeDocument.s3_key == key)).first()
             if doc:
                 doc_id = doc.id
@@ -291,6 +306,95 @@ def resolve_document_and_download_url(
         return doc_id, download_url
 
     return None, None
+
+
+def find_matching_metadata_from_query(
+    db: Optional[Session],
+    query: str,
+    allowed_groups: List[str],
+) -> Dict[str, List[str]]:
+    """
+    検索クエリ内に、許可グループの登録ドキュメントのタグ (tags) やファイル名 (filename) が
+    含まれているかを検査し、.metadata.json の Pre-filtering に利用できる
+    {"tags": [...], "document_ids": [...]} を返却する。
+    """
+    if not db or not query or not query.strip():
+        return {"tags": [], "document_ids": []}
+
+    import os
+    import re
+
+    q_norm = query.strip().lower()
+    # 句読点や典型的な質問末尾（「について」「とは」「を教えて」等）を除去したコア語句も抽出
+    q_core = re.sub(
+        r"(について教えてください|について教えて|を教えてください|を教えて|について|とは何ですか|とは|って何|ですか|ますか|[？\?！!。、，,\s])+$",
+        "",
+        q_norm,
+    ).strip()
+
+    groups_to_include = list(set(["public"] + [g.strip() for g in allowed_groups if g and g.strip()]))
+    stmt = (
+        select(KnowledgeDocument)
+        .where(KnowledgeDocument.group_name.in_(groups_to_include))
+        .where(KnowledgeDocument.sync_status != "DELETING")
+    )
+    docs = db.exec(stmt).all()
+
+    matched_tags: List[str] = []
+    matched_doc_ids: List[str] = []
+
+    for doc in docs:
+        if doc.id in _DELETED_DOC_IDS or doc.s3_key in _DELETED_S3_KEYS:
+            continue
+
+        doc_matched = False
+        # 1. タグ一致判定
+        for tag in doc.get_tags():
+            tag_clean = tag.strip()
+            if not tag_clean:
+                continue
+            tag_lower = tag_clean.lower()
+            if tag_lower in q_norm or (q_core and len(q_core) >= 2 and q_core in tag_lower):
+                if tag_clean not in matched_tags:
+                    matched_tags.append(tag_clean)
+                doc_matched = True
+
+        # 2. ファイル名一致判定
+        if doc.filename:
+            fname_lower = doc.filename.strip().lower()
+            stem_lower = os.path.splitext(fname_lower)[0].strip()
+            if fname_lower in q_norm or (len(stem_lower) >= 2 and stem_lower in q_norm):
+                doc_matched = True
+            elif q_core and len(q_core) >= 2 and q_core in stem_lower:
+                doc_matched = True
+
+        if doc_matched and doc.id not in matched_doc_ids:
+            matched_doc_ids.append(doc.id)
+
+    return {
+        "tags": matched_tags,
+        "document_ids": matched_doc_ids,
+    }
+
+
+def get_available_tags_for_groups(
+    db: Session,
+    allowed_groups: Optional[List[str]] = None,
+) -> List[str]:
+    """指定されたグループ範囲（None の場合は全グループ）で登録されているユニークなタグ一覧を取得する"""
+    stmt = select(KnowledgeDocument).where(KnowledgeDocument.sync_status != "DELETING")
+    if allowed_groups is not None:
+        groups_to_include = list(set(["public"] + [g.strip() for g in allowed_groups if g and g.strip()]))
+        stmt = stmt.where(KnowledgeDocument.group_name.in_(groups_to_include))
+
+    docs = db.exec(stmt).all()
+    tag_set: Set[str] = set()
+    for d in docs:
+        for t in d.get_tags():
+            if t.strip():
+                tag_set.add(t.strip())
+    return sorted(list(tag_set))
+
 
 
 

@@ -143,18 +143,34 @@ s3://<kb-bucket>/
 [同期完了確認後: SQLite レコードを物理削除 (または 'DELETED' 確定)]
 ```
 
-### 4.3 S3 Vectors プリフィルタリング (Pre-Filtering)
-RAG 検索時、ユーザーのグループ・権限に基づき、Bedrock の `Retrieve` API に `retrievalFilter` を設定。
-S3 Vectors の pre-filtering 機構により、ベクトル類似度計算の前に権限外のドキュメントを厳格に除外する。
+### 4.3 S3 Vectors / Managed Store プリフィルタリング (Pre-Filtering) とタグ活用
+RAG 検索時、ユーザーのグループ・権限に基づき、Bedrock の `Retrieve` API (`managedSearchConfiguration`) に `filter` を設定。
+pre-filtering 機構により、ベクトル類似度計算の前に権限外のドキュメントを厳格に除外する。
+
+また、`.metadata.json` の `metadataAttributes`（`tags`, `document_id`, `filename`）は本文 Embedding の対象外であるため、検索クエリ内に登録済みタグやファイル名が検知された場合（または明示的にタグが指定された場合）は、`andAll` と `listContains(tags)` / `in(document_id)` を組み合わせたメタデータフィルタ検索を実行する（※ Managed Store では `stringContains` は非対応）。
 
 ```python
 retrieval_filter = {
-    "orAll": [
-        {"equals": {"key": "group", "value": "public"}},
-        {"equals": {"key": "group", "value": user_primary_group}}
+    "andAll": [
+        {
+            "orAll": [
+                {"equals": {"key": "group", "value": "public"}},
+                {"equals": {"key": "group", "value": user_primary_group}},
+            ]
+        },
+        {"listContains": {"key": "tags", "value": "統計検定"}},
     ]
 }
 ```
+
+### 4.4 Bedrock Managed KB 特有の検索仕様と対策
+1. **自然文クエリの優先と単語単体フォールバック**:
+   - Managed KB は助詞を含まない単語単体（例: `統計検定`）で 0 件を返す特性があるため、Tool Use ではユーザーの自然な質問文をそのまま渡し、0 件時は `"{query}について"` で自動再検索する。
+2. **Pre-filtering 時のスコア減衰と閾値 (`RAG_SCORE_THRESHOLD=0.30`)**:
+   - `filter` 適用時は類似度スコアが `0.30〜0.42` 前後に正規化されるため、デフォルト閾値を `0.30` とする。
+3. **PDF 解析設定 (`SMART_PARSING` 非推奨)**:
+   - 日本語の細かい表組み PDF に `SMART_PARSING`（OCR）を適用すると文字化けが発生するため、データソースでは標準パーサーを使用する。
+   - 詳細は `docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md` を参照。
 
 ---
 

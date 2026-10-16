@@ -641,31 +641,128 @@ async def call_converse_stream(
 
 
 
-def build_retrieval_filter(allowed_groups: List[str]) -> Optional[Dict[str, Any]]:
+def build_retrieval_filter(
+    allowed_groups: List[str],
+    tags: Optional[List[str]] = None,
+    document_ids: Optional[List[str]] = None,
+) -> Optional[Dict[str, Any]]:
     """
-    S3 Vectors 用の Pre-filtering 条件オブジェクトを生成する。
-    public グループと、ユーザーの許可グループを含める。
+    Bedrock Knowledge Base (Managed Store / S3 Vectors) 用の Pre-filtering 条件オブジェクトを生成する。
+    - public グループと、ユーザーの許可グループを基本条件として含める。
+    - tags または document_ids が指定された場合は、.metadata.json の metadataAttributes に対する
+      listContains (tags) / equals・in (document_id) 条件を andAll で合成する。
+      ※ Managed Store では stringContains は非サポートのため listContains / equals / in を使用する。
     """
     groups_to_include = list(set(["public"] + [g for g in allowed_groups if g]))
     if len(groups_to_include) == 1:
-        return {"equals": {"key": "group", "value": groups_to_include[0]}}
+        group_filter: Dict[str, Any] = {"equals": {"key": "group", "value": groups_to_include[0]}}
+    else:
+        or_list = [{"equals": {"key": "group", "value": grp}} for grp in groups_to_include]
+        group_filter = {"orAll": or_list}
 
-    or_list = [{"equals": {"key": "group", "value": grp}} for grp in groups_to_include]
-    return {"orAll": or_list}
+    clean_tags = [t.strip() for t in (tags or []) if t and t.strip()]
+    clean_doc_ids = [d.strip() for d in (document_ids or []) if d and d.strip()]
+
+    if not clean_tags and not clean_doc_ids:
+        return group_filter
+
+    meta_conditions: List[Dict[str, Any]] = []
+    for t in clean_tags:
+        meta_conditions.append({"listContains": {"key": "tags", "value": t}})
+
+    if len(clean_doc_ids) == 1:
+        meta_conditions.append({"equals": {"key": "document_id", "value": clean_doc_ids[0]}})
+    elif len(clean_doc_ids) > 1:
+        meta_conditions.append({"in": {"key": "document_id", "value": clean_doc_ids}})
+
+    if len(meta_conditions) == 1:
+        meta_filter = meta_conditions[0]
+    else:
+        meta_filter = {"orAll": meta_conditions}
+
+    return {"andAll": [group_filter, meta_filter]}
 
 
-def retrieve_knowledge(
+_NATURAL_QUERY_SUFFIXES = (
+    "について",
+    "とは",
+    "ですか",
+    "ますか",
+    "教えて",
+    "ください",
+    "とは？",
+    "？",
+    "?",
+    "。",
+)
+
+
+def build_fallback_natural_query(query: str) -> Optional[str]:
+    """
+    Bedrock Managed KB (managedSearchConfiguration) は助詞を含まない単語単体や名詞列クエリ
+    （例: '統計検定', '出題範囲', '統計検定2級 出題範囲表'）に対して 0 件を返す仕様があるため、
+    自然文でないクエリに対して『{query}について』の補完クエリを生成する。
+    すでに自然文末尾を持っている場合は None を返す。
+    """
+    q_clean = (query or "").strip()
+    if not q_clean:
+        return None
+    if any(q_clean.endswith(sfx) for sfx in _NATURAL_QUERY_SUFFIXES):
+        return None
+    return f"{q_clean}について"
+
+
+def _format_retrieval_results(raw_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    formatted: List[Dict[str, Any]] = []
+    for res in raw_items:
+        content = res.get("content", {}).get("text", "")
+        location = res.get("location", {})
+        metadata = res.get("metadata", {})
+        score = res.get("score", 0.0)
+        formatted.append({
+            "content": content,
+            "location": location,
+            "metadata": metadata,
+            "score": score,
+        })
+    return formatted
+
+
+def _merge_retrieval_results(
+    primary: List[Dict[str, Any]],
+    secondary: List[Dict[str, Any]],
+    limit: int,
+) -> List[Dict[str, Any]]:
+    """
+    複数の Retrieve 結果リストをチャンク単位で重複排除（高スコア側を採用）してスコア降順でマージする。
+    """
+    merged_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for item in primary + secondary:
+        meta = item.get("metadata", {})
+        chunk_id = meta.get("_chunk_id")
+        s3_uri = item.get("location", {}).get("s3Location", {}).get("uri", "")
+        content = item.get("content", "")
+        key = ("chunk_id", str(chunk_id)) if chunk_id else (s3_uri, content)
+
+        existing = merged_map.get(key)
+        if existing is None or float(item.get("score", 0.0)) > float(existing.get("score", 0.0)):
+            merged_map[key] = item
+
+    merged_list = sorted(
+        merged_map.values(),
+        key=lambda x: float(x.get("score", 0.0)),
+        reverse=True,
+    )
+    return merged_list[:limit]
+
+
+def _execute_single_retrieve(
     agent_client: Any,
     kb_id: str,
     query: str,
-    allowed_groups: List[str],
-    number_of_results: int = 5,
+    retrieval_filter: Optional[Dict[str, Any]],
+    number_of_results: int,
 ) -> List[Dict[str, Any]]:
-    """
-    Bedrock Knowledge Base (Managed) から pre-filtering を適用してナレッジを検索する。
-    本システムはマネージド Knowledge Base (managedSearchConfiguration) を標準として使用する。
-    """
-    retrieval_filter = build_retrieval_filter(allowed_groups)
     managed_search_config: Dict[str, Any] = {
         "numberOfResults": number_of_results,
     }
@@ -679,22 +776,83 @@ def retrieve_knowledge(
             "managedSearchConfiguration": managed_search_config
         },
     }
+    response = agent_client.retrieve(**kwargs)
+    return _format_retrieval_results(response.get("retrievalResults", []))
+
+
+def retrieve_knowledge(
+    agent_client: Any,
+    kb_id: str,
+    query: str,
+    allowed_groups: List[str],
+    number_of_results: int = 5,
+    tags: Optional[List[str]] = None,
+    matched_tags: Optional[List[str]] = None,
+    matched_document_ids: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Bedrock Knowledge Base (Managed) から pre-filtering を適用してナレッジを検索する。
+    1. 基本検索: グループフィルタ（+ 明示指定された tags フィルタ）で検索。
+    2. 単語単体クエリ0件フォールバック: Managed KB が単語単体クエリで 0 件を返した場合、
+       自動的に『{query}について』の自然文クエリへ補完して再検索する。
+    3. .metadata.json ハイブリッド検索: クエリ内に DB 登録済みのタグ (matched_tags) や
+       対象ドキュメント (matched_document_ids) が検知された場合、.metadata.json の
+       listContains(tags) / in(document_id) フィルタを用いた検索を実行・マージし、
+       本文にタグ語句が含まれないドキュメントでも確実にヒットさせる。
+    """
+    retrieval_filter = build_retrieval_filter(allowed_groups, tags=tags)
 
     try:
-        response = agent_client.retrieve(**kwargs)
-        results = response.get("retrievalResults", [])
-        formatted = []
-        for res in results:
-            content = res.get("content", {}).get("text", "")
-            location = res.get("location", {})
-            metadata = res.get("metadata", {})
-            score = res.get("score", 0.0)
-            formatted.append({
-                "content": content,
-                "location": location,
-                "metadata": metadata,
-                "score": score,
-            })
+        formatted = _execute_single_retrieve(
+            agent_client=agent_client,
+            kb_id=kb_id,
+            query=query,
+            retrieval_filter=retrieval_filter,
+            number_of_results=number_of_results,
+        )
+
+        # 単語単体クエリで 0 件だった場合の自然文補完フォールバック
+        if not formatted:
+            fallback_query = build_fallback_natural_query(query)
+            if fallback_query:
+                logger.info(
+                    "Managed KB returned 0 results for short query '%s'; retrying with natural query '%s'",
+                    query,
+                    fallback_query,
+                )
+                formatted = _execute_single_retrieve(
+                    agent_client=agent_client,
+                    kb_id=kb_id,
+                    query=fallback_query,
+                    retrieval_filter=retrieval_filter,
+                    number_of_results=number_of_results,
+                )
+
+        # クエリ内のタグ・ファイル名マッチによる .metadata.json フィルタ検索の統合
+        if not tags and (matched_tags or matched_document_ids):
+            meta_filter = build_retrieval_filter(
+                allowed_groups=allowed_groups,
+                tags=matched_tags,
+                document_ids=matched_document_ids,
+            )
+            effective_meta_query = build_fallback_natural_query(query) or query
+            try:
+                meta_results = _execute_single_retrieve(
+                    agent_client=agent_client,
+                    kb_id=kb_id,
+                    query=effective_meta_query,
+                    retrieval_filter=meta_filter,
+                    number_of_results=number_of_results,
+                )
+                if meta_results:
+                    formatted = _merge_retrieval_results(
+                        primary=formatted,
+                        secondary=meta_results,
+                        limit=number_of_results,
+                    )
+            except Exception as meta_err:
+                logger.warning("Metadata-assisted retrieve fallback skipped: %s", meta_err)
+
         return formatted
     except Exception as e:
         err_msg = str(e)
@@ -707,5 +865,6 @@ def retrieve_knowledge(
         else:
             logger.error("Error retrieving knowledge from Bedrock KB: %s", e)
         raise
+
 
 

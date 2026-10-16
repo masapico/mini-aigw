@@ -67,7 +67,7 @@
         hx-indicator="#retrieve-spinner"
       >
         <div class="row g-3">
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-3">
             <label class="form-label small fw-semibold text-secondary">
               対象グループ (Pre-filtering)
               {% if not is_admin %}
@@ -80,23 +80,42 @@
               {% endfor %}
             </select>
             <div class="form-text text-muted" style="font-size: 0.75rem;">
-              ※ 選択グループに加え、共有ナレッジ (<code>public</code>) も自動的に検索対象に含まれます。
+              ※ 選択グループ + <code>public</code> が対象
             </div>
           </div>
-          <div class="col-12 col-md-8">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">
+              タグ絞り込み (<code>.metadata.json</code>)
+            </label>
+            <select class="form-select form-select-modern" name="tag">
+              <option value="">自動判定 / 全タグ対象</option>
+              {% if available_tags %}
+              {% for t in available_tags %}
+              <option value="{{ t }}">#{{ t }}</option>
+              {% endfor %}
+              {% endif %}
+            </select>
+            <div class="form-text text-muted" style="font-size: 0.75rem;">
+              ※ クエリ内のタグ語句も自動検知されます
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
             <label class="form-label small fw-semibold text-secondary">検索クエリ</label>
             <div class="d-flex gap-2">
               <input
                 type="text"
                 class="form-control form-control-modern"
                 name="query"
-                placeholder="ナレッジベースを検索..."
+                placeholder="質問文またはタグ・キーワードを入力 (例: 統計検定の出題範囲について)"
                 required
               >
               <button type="submit" class="btn-modern-primary text-nowrap px-4">
                 <span class="spinner-border spinner-border-sm htmx-indicator" id="retrieve-spinner" role="status"></span>
                 検索
               </button>
+            </div>
+            <div class="form-text text-muted" style="font-size: 0.75rem;">
+              ※ 単語単体で0件の場合、自動的に自然文（<code>〜について</code>）へ補完して再検索します。
             </div>
           </div>
         </div>
@@ -112,14 +131,21 @@
   <!-- 2. Converse + RAG 対話タブ (管理者専用) -->
   <div class="tab-pane fade" id="chat-panel" role="tabpanel">
     <div class="modern-card">
-      <h5 class="fw-bold mb-3">対話テスト (Citations 引用付き)</h5>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">対話テスト (Citations 引用付き)</h5>
+        {% if score_threshold is defined %}
+        <span class="badge bg-light text-secondary border font-monospace">
+          スコア閾値: {{ (score_threshold * 100) | round(0) | int }}% ({{ score_threshold }})
+        </span>
+        {% endif %}
+      </div>
       <form
         hx-post="/rag-test/chat"
         hx-target="#chat-results-box"
         hx-indicator="#chat-spinner"
       >
         <div class="row g-3 mb-3">
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-4">
             <label class="form-label small fw-semibold text-secondary">LLM モデル</label>
             <select class="form-select form-select-modern font-monospace small" name="model_id">
               {% for m in models %}
@@ -127,7 +153,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-4">
             <label class="form-label small fw-semibold text-secondary">所属グループ (アクセス可能ナレッジ)</label>
             <select class="form-select form-select-modern" name="group">
               {% for grp in groups %}
@@ -135,7 +161,21 @@
               {% endfor %}
             </select>
             <div class="form-text text-muted" style="font-size: 0.75rem;">
-              ※ 所属グループのナレッジに加え、共有ナレッジ (<code>public</code>) も自動的に参照されます。
+              ※ 所属グループに加え <code>public</code> も参照されます
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary">タグ絞り込み (<code>.metadata.json</code>)</label>
+            <select class="form-select form-select-modern" name="tag">
+              <option value="">自動判定 / 全タグ対象</option>
+              {% if available_tags %}
+              {% for t in available_tags %}
+              <option value="{{ t }}">#{{ t }}</option>
+              {% endfor %}
+              {% endif %}
+            </select>
+            <div class="form-text text-muted" style="font-size: 0.75rem;">
+              ※ 質問内のタグ・ファイル名も自動連携されます
             </div>
           </div>
         </div>

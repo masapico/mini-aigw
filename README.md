@@ -18,7 +18,9 @@
 - **Bedrock マネージド Knowledge Base 連携 (`managedSearchConfiguration`)**:
   - 本システムは Bedrock プロキシとしてシンプルな構成を維持するため、Amazon Bedrock の**マネージド Knowledge Base（Managed Vector Store）専用**として設計されています。
   - 検索クエリには `managedSearchConfiguration` を標準使用し、Pre-filtering によるグループ分離（`public` およびユーザーグループ）を実行します。
-  - ※ カスタムベクターストア構成（`vectorSearchConfiguration`）は非対応です。接続時に `Incompatible configuration` エラーが発生した場合は、画面およびログに設定エラーが明示されます。
+  - **短文・単語単体クエリ補完 & 自然文クエリ最適化**: Managed KB が単語単体クエリで 0 件を返す仕様に対処するため、Tool Use 時にはユーザーの自然な質問文をそのまま検索に使用し、単語単体で 0 件だった場合は自動的に自然文（`〜について`）へ補完して再検索します。
+  - **`.metadata.json` タグ・ドキュメントID ハイブリッド検索**: クエリ内に登録ドキュメントのタグ（`tags`）やファイル名が含まれる場合、`.metadata.json` の `listContains(tags)` / `in(document_id)` フィルタ検索を自動統合し、本文にタグ語句が含まれない資料も確実にヒットさせます。
+  - ※ Bedrock Managed KB の詳細な検索仕様・スコア減衰特性・`SMART_PARSING`（OCR）の注意点については、[Amazon Bedrock Managed Knowledge Base 検索仕様・トラブルシューティングガイド (docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md)](docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md) を参照してください。
 - **S3 Vectors プリフィルタリング**:
   - `retrievalFilter` により、グループ（`sales`, `dev` 等）および `public` のドキュメントのみを厳格に分離して検索。
 

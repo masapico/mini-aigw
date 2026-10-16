@@ -44,7 +44,7 @@ class Settings(BaseSettings):
         "amazon.nova-lite-v1:0",
     ]
     # RAG Configuration
-    RAG_SCORE_THRESHOLD: float = 0.40  # 類似度スコア閾値 (0.0〜1.0)
+    RAG_SCORE_THRESHOLD: float = 0.30  # 類似度スコア閾値 (0.0〜1.0, Managed KB + Pre-filtering 時は 0.30 推奨)
     RAG_NUMBER_OF_RESULTS: int = 5     # Retrieve API で取得する最大件数
 
     # Inference Parameters & Guardrails

@@ -20,6 +20,8 @@ from app.services.bedrock_service import (
     retrieve_knowledge,
 )
 from app.services.knowledge_service import (
+    find_matching_metadata_from_query,
+    get_available_tags_for_groups,
     is_chunk_from_deleted_document,
     resolve_document_and_download_url,
 )
@@ -41,9 +43,11 @@ async def rag_test_page(
     if is_admin:
         db_groups = [g.name for g in db.exec(select(Group)).all()]
         groups = sorted(list(set(["public"] + user_groups + db_groups)))
+        available_tags = get_available_tags_for_groups(db, None)
     else:
         # 一般ユーザーは public と自身が所属するグループのみ選択可能
         groups = sorted(list(set(["public"] + user_groups)))
+        available_tags = get_available_tags_for_groups(db, groups)
 
     db_models = db.exec(select(LlmModel).where(LlmModel.is_active == True).order_by(LlmModel.created_at.asc())).all()
     models_list = [m.id for m in db_models] if db_models else settings.AVAILABLE_MODELS
@@ -54,6 +58,8 @@ async def rag_test_page(
         context={
             "user": user,
             "groups": groups,
+            "available_tags": available_tags,
+            "score_threshold": settings.RAG_SCORE_THRESHOLD,
             "models": models_list,
             "kb_id": settings.BEDROCK_KB_ID,
             "is_admin": is_admin,
@@ -66,11 +72,13 @@ async def rag_retrieve_test(
     request: Request,
     query: str = Form(...),
     group: str = Form("public"),
+    tag: Optional[str] = Form(None),
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
     is_admin = "admin" in user.get_roles()
     clean_group = group.strip() if group.strip() else "public"
+    clean_tag = tag.strip() if tag and tag.strip() else None
 
     # 権限チェック: 一般ユーザーは public または自身のグループのみ指定可能
     if not is_admin and clean_group != "public" and clean_group not in user.get_groups():
@@ -82,6 +90,20 @@ async def rag_retrieve_test(
     agent_client = get_bedrock_agent_runtime_client()
     allowed_groups = [clean_group]
 
+    matched_meta = find_matching_metadata_from_query(
+        db=db,
+        query=query,
+        allowed_groups=allowed_groups,
+    )
+    extra_kwargs = {}
+    if clean_tag:
+        extra_kwargs["tags"] = [clean_tag]
+    else:
+        if matched_meta.get("tags"):
+            extra_kwargs["matched_tags"] = matched_meta["tags"]
+        if matched_meta.get("document_ids"):
+            extra_kwargs["matched_document_ids"] = matched_meta["document_ids"]
+
     results = []
     error_message = None
     try:
@@ -92,6 +114,7 @@ async def rag_retrieve_test(
             query=query,
             allowed_groups=allowed_groups,
             number_of_results=5,
+            **extra_kwargs,
         )
         results = [
             r
@@ -124,6 +147,9 @@ async def rag_retrieve_test(
         context={
             "query": query,
             "group": group,
+            "selected_tag": clean_tag,
+            "matched_tags": matched_meta.get("tags", []),
+            "score_threshold": settings.RAG_SCORE_THRESHOLD,
             "results": results,
             "error": error_message,
         },
@@ -136,6 +162,7 @@ async def rag_chat_test(
     query: str = Form(...),
     model_id: str = Form(settings.DEFAULT_MODEL_ID),
     group: str = Form("public"),
+    tag: Optional[str] = Form(None),
     user: User = Depends(require_admin_user),
     db: Session = Depends(get_session),
 ):
@@ -143,6 +170,24 @@ async def rag_chat_test(
     runtime_client = get_bedrock_runtime_client()
 
     allowed_groups = [group.strip()] if group.strip() else ["public"]
+    clean_tag = tag.strip() if tag and tag.strip() else None
+
+    matched_meta = find_matching_metadata_from_query(
+        db=db,
+        query=query,
+        allowed_groups=allowed_groups,
+    )
+    extra_kwargs = {}
+    if clean_tag:
+        extra_kwargs["tags"] = [clean_tag]
+    else:
+        if matched_meta.get("tags"):
+            extra_kwargs["matched_tags"] = matched_meta["tags"]
+        if matched_meta.get("document_ids"):
+            extra_kwargs["matched_document_ids"] = matched_meta["document_ids"]
+
+    filtered_out_count = 0
+    max_raw_score = 0.0
 
     # 1. ナレッジ検索 (Pre-filtering)
     try:
@@ -153,18 +198,22 @@ async def rag_chat_test(
             query=query,
             allowed_groups=allowed_groups,
             number_of_results=settings.RAG_NUMBER_OF_RESULTS,
+            **extra_kwargs,
         )
-        # スコア閾値による足切り (Score Filtering) & 削除済み文書除外
-        score_filtered = filter_knowledge_results_by_score(raw_results, threshold=settings.RAG_SCORE_THRESHOLD)
-        results = [
+        active_raw = [
             r
-            for r in score_filtered
+            for r in raw_results
             if not is_chunk_from_deleted_document(
                 db=db,
                 s3_uri=r.get("location", {}).get("s3Location", {}).get("uri", ""),
                 metadata=r.get("metadata", {}),
             )
         ]
+        if active_raw:
+            max_raw_score = max(float(r.get("score", 0.0)) for r in active_raw)
+        # スコア閾値による足切り (Score Filtering)
+        results = filter_knowledge_results_by_score(active_raw, threshold=settings.RAG_SCORE_THRESHOLD)
+        filtered_out_count = max(0, len(active_raw) - len(results))
     except Exception as e:
         error_message = str(e)
         logger.error("RAG retrieval error during chat test: %s", error_message)
@@ -250,5 +299,9 @@ async def rag_chat_test(
             "answer": answer,
             "citations": citations,
             "model_id": model_id,
+            "filtered_out_count": filtered_out_count,
+            "max_raw_score": max_raw_score,
+            "score_threshold": settings.RAG_SCORE_THRESHOLD,
         },
     )
+
