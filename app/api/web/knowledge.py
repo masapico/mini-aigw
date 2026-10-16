@@ -440,6 +440,34 @@ async def knowledge_sync(
     return RedirectResponse(url="/knowledge", status_code=status.HTTP_302_FOUND)
 
 
+@router.get("/knowledge/sync/status", response_class=HTMLResponse)
+async def knowledge_sync_status(
+    request: Request,
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_session),
+):
+    """
+    HTMX ポーリング / 更新用: 最新の Bedrock Ingestion Job 同期ステータスバーHTMLを返却する。
+    同期完了 (COMPLETE) 時はドキュメントテーブルの更新を促すイベントヘッダーを付与する。
+    """
+    latest_job = _get_latest_kb_job()
+    _sync_completed_documents(db, latest_job)
+    is_admin = "admin" in user.get_roles()
+
+    response = templates.TemplateResponse(
+        request=request,
+        name="partials/knowledge_sync_status.html",
+        context={
+            "latest_sync_job": latest_job,
+            "is_admin": is_admin,
+            "just_started_job_id": None,
+        },
+    )
+    if latest_job and latest_job.get("status") == "COMPLETE":
+        response.headers["HX-Trigger"] = "refreshKnowledgeTable"
+    return response
+
+
 @router.get("/knowledge/{doc_id}/download")
 async def knowledge_download(
     doc_id: str,
@@ -507,10 +535,31 @@ async def knowledge_delete(
         bedrock_agent=bedrock_agent,
         kb_id=settings.BEDROCK_KB_ID,
         doc_id=doc_id,
-        trigger_sync=False,  # 同期は手動またはバッチへ委任
+        trigger_sync=True,  # 削除時に即時にKB同期を発火
     )
 
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    if request.headers.get("HX-Request"):
+        latest_job = _get_latest_kb_job()
+        _sync_completed_documents(db, latest_job)
+        sync_status_response = templates.TemplateResponse(
+            request=request,
+            name="partials/knowledge_sync_status.html",
+            context={
+                "latest_sync_job": latest_job,
+                "is_admin": is_admin,
+            },
+        )
+        sync_status_html = sync_status_response.body.decode("utf-8")
+        # HTMX の Out-of-Band (OOB) swap で #kb-sync-status-container を更新し、
+        # メインターゲットの #doc-row-{doc_id} は空文字（outerHTML置換）で行を削除
+        content = f'<div id="kb-sync-status-container" hx-swap-oob="innerHTML">{sync_status_html}</div>'
+        return HTMLResponse(
+            content=content,
+            status_code=status.HTTP_200_OK,
+            headers={"HX-Trigger": "refreshKbSyncStatus"},
+        )
 
     return Response(content="", status_code=status.HTTP_200_OK)

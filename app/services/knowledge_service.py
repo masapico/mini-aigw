@@ -213,8 +213,9 @@ def delete_knowledge_document(
         logger.error("Error deleting S3 objects for %s: %s", doc.s3_key, e)
 
     # 3. オプションで KB Ingestion ジョブのトリガー
-    if trigger_sync and bedrock_agent and doc.data_source_id and kb_id:
-        trigger_ingestion_job(bedrock_agent, kb_id, doc.data_source_id)
+    ds_id = doc.data_source_id or settings.BEDROCK_DATA_SOURCE_ID
+    if trigger_sync and bedrock_agent and ds_id and kb_id:
+        trigger_ingestion_job(bedrock_agent, kb_id, ds_id)
 
     # 4. 完了後レコード削除 & Ghost Chunk 除外レジストリへ登録
     _DELETED_DOC_IDS.add(doc_id)

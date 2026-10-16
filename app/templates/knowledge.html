@@ -226,7 +226,12 @@
     </form>
   </div>
 
-  <div id="knowledge-table-container">
+  <div
+    id="knowledge-table-container"
+    hx-get="/knowledge/table"
+    hx-trigger="refreshKnowledgeTable from:body"
+    hx-include="#knowledge-filter-form"
+  >
     {% include "partials/knowledge_table.html" %}
   </div>
 </div>

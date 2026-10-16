@@ -1,4 +1,13 @@
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-light rounded-3 border">
+{% set is_syncing = latest_sync_job and latest_sync_job.status in ['IN_PROGRESS', 'STARTING'] %}
+<div
+  class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-light rounded-3 border"
+  {% if is_syncing %}
+  hx-get="/knowledge/sync/status"
+  hx-trigger="every 3s"
+  hx-target="#kb-sync-status-container"
+  hx-swap="innerHTML"
+  {% endif %}
+>
   <div class="d-flex align-items-center gap-3">
     <div class="d-flex align-items-center gap-2">
       <span class="text-secondary small fw-semibold">最新KB同期ステータス:</span>
@@ -53,16 +62,27 @@
     {% if is_admin %}
     <button
       type="button"
-      class="btn-modern-primary py-1 px-3"
+      id="btn-knowledge-sync"
+      class="btn-modern-primary py-1 px-3 {% if is_syncing %}disabled opacity-50{% endif %}"
       style="font-size: 0.85rem;"
+      {% if is_syncing %}
+      disabled
+      title="同期ジョブ実行中のため再同期できません"
+      {% else %}
       hx-post="/knowledge/sync"
       hx-target="#kb-sync-status-container"
       hx-swap="innerHTML"
       hx-indicator="#sync-spinner"
       title="Bedrock Knowledge Base のデータソース同期ジョブを開始します"
+      {% endif %}
     >
+      {% if is_syncing %}
+      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+      <span>同期実行中...</span>
+      {% else %}
       <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="sync-spinner" role="status"></span>
       <span>今すぐKB同期を実行</span>
+      {% endif %}
     </button>
     {% endif %}
   </div>
