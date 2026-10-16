@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 from app.api.web.auth import require_admin_user, require_current_user
@@ -18,7 +19,10 @@ from app.services.bedrock_service import (
     get_bedrock_runtime_client,
     retrieve_knowledge,
 )
-from app.services.knowledge_service import resolve_document_and_download_url
+from app.services.knowledge_service import (
+    is_chunk_from_deleted_document,
+    resolve_document_and_download_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +72,7 @@ async def rag_retrieve_test(
     is_admin = "admin" in user.get_roles()
     clean_group = group.strip() if group.strip() else "public"
 
-    # 権限チェック: 一般ユーザーは public または自身の所属グループのみ指定可能
+    # 権限チェック: 一般ユーザーは public または自身のグループのみ指定可能
     if not is_admin and clean_group != "public" and clean_group not in user.get_groups():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -81,13 +85,23 @@ async def rag_retrieve_test(
     results = []
     error_message = None
     try:
-        results = retrieve_knowledge(
+        raw_results = await run_in_threadpool(
+            retrieve_knowledge,
             agent_client=agent_client,
             kb_id=settings.BEDROCK_KB_ID,
             query=query,
             allowed_groups=allowed_groups,
             number_of_results=5,
         )
+        results = [
+            r
+            for r in raw_results
+            if not is_chunk_from_deleted_document(
+                db=db,
+                s3_uri=r.get("location", {}).get("s3Location", {}).get("uri", ""),
+                metadata=r.get("metadata", {}),
+            )
+        ]
         base_url = str(request.base_url)
         for res in results:
             s3_uri = res.get("location", {}).get("s3Location", {}).get("uri", "")
@@ -132,15 +146,25 @@ async def rag_chat_test(
 
     # 1. ナレッジ検索 (Pre-filtering)
     try:
-        results = retrieve_knowledge(
+        raw_results = await run_in_threadpool(
+            retrieve_knowledge,
             agent_client=agent_client,
             kb_id=settings.BEDROCK_KB_ID,
             query=query,
             allowed_groups=allowed_groups,
             number_of_results=settings.RAG_NUMBER_OF_RESULTS,
         )
-        # スコア閾値による足切り (Score Filtering)
-        results = filter_knowledge_results_by_score(results, threshold=settings.RAG_SCORE_THRESHOLD)
+        # スコア閾値による足切り (Score Filtering) & 削除済み文書除外
+        score_filtered = filter_knowledge_results_by_score(raw_results, threshold=settings.RAG_SCORE_THRESHOLD)
+        results = [
+            r
+            for r in score_filtered
+            if not is_chunk_from_deleted_document(
+                db=db,
+                s3_uri=r.get("location", {}).get("s3Location", {}).get("uri", ""),
+                metadata=r.get("metadata", {}),
+            )
+        ]
     except Exception as e:
         error_message = str(e)
         logger.error("RAG retrieval error during chat test: %s", error_message)
@@ -206,7 +230,8 @@ async def rag_chat_test(
     ]
 
     try:
-        response = call_converse(
+        response = await run_in_threadpool(
+            call_converse,
             client=runtime_client,
             model_id=model_id,
             messages=messages,

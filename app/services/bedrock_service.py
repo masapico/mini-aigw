@@ -107,20 +107,51 @@ def _log_ai_response(
     logger.info("\n".join(lines))
 
 
+from botocore.config import Config
+from fastapi.concurrency import iterate_in_threadpool, run_in_threadpool
+
+_BEDROCK_CLIENT_CACHE: Dict[Tuple[str, str, Optional[str]], Any] = {}
+
+
+def _build_bedrock_boto_config() -> Config:
+    return Config(
+        retries={
+            "max_attempts": settings.AWS_MAX_RETRY_ATTEMPTS,
+            "mode": "adaptive",
+        },
+        connect_timeout=settings.AWS_CONNECT_TIMEOUT,
+        read_timeout=settings.AWS_READ_TIMEOUT,
+        max_pool_connections=settings.AWS_MAX_POOL_CONNECTIONS,
+    )
+
+
 def get_bedrock_runtime_client() -> Any:
-    """Bedrock Runtime クライアントを取得する"""
-    kwargs: Dict[str, Any] = {"region_name": settings.AWS_REGION}
-    if settings.AWS_ENDPOINT_URL:
-        kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
-    return boto3.client("bedrock-runtime", **kwargs)
+    """Bedrock Runtime クライアントを取得する（コネクションプール再利用 & Adaptive Retry）"""
+    cache_key = ("bedrock-runtime", settings.AWS_REGION, settings.AWS_ENDPOINT_URL)
+    if cache_key not in _BEDROCK_CLIENT_CACHE:
+        kwargs: Dict[str, Any] = {
+            "region_name": settings.AWS_REGION,
+            "config": _build_bedrock_boto_config(),
+        }
+        if settings.AWS_ENDPOINT_URL:
+            kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
+        _BEDROCK_CLIENT_CACHE[cache_key] = boto3.client("bedrock-runtime", **kwargs)
+    return _BEDROCK_CLIENT_CACHE[cache_key]
 
 
 def get_bedrock_agent_runtime_client() -> Any:
-    """Bedrock Agent Runtime クライアントを取得する"""
-    kwargs: Dict[str, Any] = {"region_name": settings.AWS_REGION}
-    if settings.AWS_ENDPOINT_URL:
-        kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
-    return boto3.client("bedrock-agent-runtime", **kwargs)
+    """Bedrock Agent Runtime クライアントを取得する（コネクションプール再利用 & Adaptive Retry）"""
+    cache_key = ("bedrock-agent-runtime", settings.AWS_REGION, settings.AWS_ENDPOINT_URL)
+    if cache_key not in _BEDROCK_CLIENT_CACHE:
+        kwargs: Dict[str, Any] = {
+            "region_name": settings.AWS_REGION,
+            "config": _build_bedrock_boto_config(),
+        }
+        if settings.AWS_ENDPOINT_URL:
+            kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
+        _BEDROCK_CLIENT_CACHE[cache_key] = boto3.client("bedrock-agent-runtime", **kwargs)
+    return _BEDROCK_CLIENT_CACHE[cache_key]
+
 
 
 def _detect_image_format(header: str) -> Optional[str]:
@@ -388,6 +419,81 @@ def call_converse(
     }
 
 
+async def stream_prebuilt_text_as_sse(
+    model_id: str,
+    text: str,
+    stop_reason: str = "end_turn",
+    usage: Optional[Dict[str, int]] = None,
+    citations: Optional[List[Dict[str, Any]]] = None,
+    on_complete: Optional[Any] = None,
+) -> AsyncGenerator[str, None]:
+    """
+    既に確定しているテキスト応答（Turn 1でツール不要と判定された場合など）を
+    OpenAI 互換の SSE チャンクストリームとして yield する。
+    """
+    completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+    created_at = int(time.time())
+    finish_reason = "stop" if stop_reason == "end_turn" else stop_reason
+
+    first_chunk = {
+        "id": completion_id,
+        "object": "chat.completion.chunk",
+        "created": created_at,
+        "model": model_id,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {"role": "assistant", "content": ""},
+                "finish_reason": None,
+            }
+        ],
+    }
+    yield f"data: {json.dumps(first_chunk, ensure_ascii=False)}\n\n"
+
+    if text:
+        content_chunk = {
+            "id": completion_id,
+            "object": "chat.completion.chunk",
+            "created": created_at,
+            "model": model_id,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {"content": text},
+                    "finish_reason": None,
+                }
+            ],
+        }
+        yield f"data: {json.dumps(content_chunk, ensure_ascii=False)}\n\n"
+
+    end_chunk: Dict[str, Any] = {
+        "id": completion_id,
+        "object": "chat.completion.chunk",
+        "created": created_at,
+        "model": model_id,
+        "choices": [
+            {
+                "index": 0,
+                "delta": {},
+                "finish_reason": finish_reason,
+            }
+        ],
+    }
+    if usage:
+        end_chunk["usage"] = usage
+    if citations:
+        end_chunk["citations"] = citations
+
+    yield f"data: {json.dumps(end_chunk, ensure_ascii=False)}\n\n"
+    if on_complete:
+        try:
+            on_complete(usage or {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})
+        except Exception as e:
+            logger.warning("on_complete callback error in stream_prebuilt_text_as_sse: %s", e)
+
+    yield "data: [DONE]\n\n"
+
+
 async def call_converse_stream(
     client: Any,
     model_id: str,
@@ -395,11 +501,17 @@ async def call_converse_stream(
     temperature: Optional[float] = None,
     top_p: Optional[float] = None,
     max_tokens: Optional[int] = None,
+    citations: Optional[List[Dict[str, Any]]] = None,
+    prior_usage: Optional[Dict[str, int]] = None,
+    on_complete: Optional[Any] = None,
 ) -> AsyncGenerator[str, None]:
     """
-    Bedrock ConverseStream を呼び出し、OpenAI 互換の SSE チャンク文字列を順次 yield する。
+    Bedrock ConverseStream を非ブロッキングで呼び出し、OpenAI 互換の SSE チャンク文字列を順次 yield する。
+    RAG (Tool Use) 経由時は citations および Turn 1 + Turn 2 の合算 usage を終了チャンクに付与する。
     """
-    system_prompts, converse_messages = convert_openai_messages_to_bedrock(messages)
+    system_prompts, converse_messages = await run_in_threadpool(
+        convert_openai_messages_to_bedrock, messages
+    )
 
     inference_config = build_inference_config(
         temperature=temperature,
@@ -419,13 +531,16 @@ async def call_converse_stream(
     if settings.DEBUG:
         _log_ai_request(model_id, system_prompts, converse_messages, inference_config)
 
-    response = client.converse_stream(**kwargs)
-    stream = response.get("stream")
+    response = await run_in_threadpool(lambda: client.converse_stream(**kwargs))
+    stream = response.get("stream", [])
 
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created_at = int(time.time())
     accumulated_text: List[str] = []
-    final_stop_reason: Optional[str] = None
+    final_stop_reason: str = "end_turn"
+    saw_message_stop: bool = False
+    stream_input_tokens: int = 0
+    stream_output_tokens: int = 0
 
     # 初回ロール通知チャンク
     first_chunk = {
@@ -443,7 +558,7 @@ async def call_converse_stream(
     }
     yield f"data: {json.dumps(first_chunk, ensure_ascii=False)}\n\n"
 
-    for event in stream:
+    async for event in iterate_in_threadpool(stream):
         if "contentBlockDelta" in event:
             delta_text = event["contentBlockDelta"].get("delta", {}).get("text", "")
             if delta_text:
@@ -464,34 +579,66 @@ async def call_converse_stream(
                 }
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
         elif "messageStop" in event:
-            stop_reason = event["messageStop"].get("stopReason", "end_turn")
-            final_stop_reason = stop_reason
-            finish_reason = "stop" if stop_reason == "end_turn" else stop_reason
-            end_chunk = {
-                "id": completion_id,
-                "object": "chat.completion.chunk",
-                "created": created_at,
-                "model": model_id,
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {},
-                        "finish_reason": finish_reason,
-                    }
-                ],
-            }
-            yield f"data: {json.dumps(end_chunk, ensure_ascii=False)}\n\n"
+            final_stop_reason = event["messageStop"].get("stopReason", "end_turn")
+            saw_message_stop = True
+        elif "metadata" in event:
+            meta_usage = event["metadata"].get("usage", {})
+            stream_input_tokens = int(meta_usage.get("inputTokens", 0))
+            stream_output_tokens = int(meta_usage.get("outputTokens", 0))
+
+    # 終了チャンクの組み立て (citations および合算 usage の付加)
+    finish_reason = "stop" if final_stop_reason == "end_turn" else final_stop_reason
+    prior_prompt = int((prior_usage or {}).get("prompt_tokens", 0))
+    prior_completion = int((prior_usage or {}).get("completion_tokens", 0))
+    total_prompt = prior_prompt + stream_input_tokens
+    total_completion = prior_completion + stream_output_tokens
+    combined_usage = {
+        "prompt_tokens": total_prompt,
+        "completion_tokens": total_completion,
+        "total_tokens": total_prompt + total_completion,
+    }
+
+    if saw_message_stop or citations or prior_usage or stream_input_tokens or stream_output_tokens:
+        end_chunk: Dict[str, Any] = {
+            "id": completion_id,
+            "object": "chat.completion.chunk",
+            "created": created_at,
+            "model": model_id,
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {},
+                    "finish_reason": finish_reason,
+                }
+            ],
+        }
+        if total_prompt > 0 or total_completion > 0 or prior_usage is not None:
+            end_chunk["usage"] = combined_usage
+        if citations:
+            end_chunk["citations"] = citations
+        yield f"data: {json.dumps(end_chunk, ensure_ascii=False)}\n\n"
 
     if settings.DEBUG:
         _log_ai_response(
             model_id=model_id,
             response_text="".join(accumulated_text),
-            usage=None,
+            usage={
+                "inputTokens": total_prompt,
+                "outputTokens": total_completion,
+                "totalTokens": total_prompt + total_completion,
+            } if (total_prompt or total_completion) else None,
             stop_reason=final_stop_reason,
             is_stream=True,
         )
 
+    if on_complete:
+        try:
+            on_complete(combined_usage)
+        except Exception as e:
+            logger.warning("on_complete callback error in call_converse_stream: %s", e)
+
     yield "data: [DONE]\n\n"
+
 
 
 def build_retrieval_filter(allowed_groups: List[str]) -> Optional[Dict[str, Any]]:

@@ -135,6 +135,41 @@ def test_v1_knowledge_download_endpoint():
         )
         assert resp6.status_code == 403
 
+        # 7. public グループのドキュメントは、allowed_groups に "public" が明示されていない API キー (例: ["sales"]) でもダウンロード可能
+        public_doc_id = "doc-public-handbook-001"
+        with Session(engine) as session:
+            if not session.get(KnowledgeDocument, public_doc_id):
+                session.add(
+                    KnowledgeDocument(
+                        id=public_doc_id,
+                        s3_key="public/handbook.pdf",
+                        s3_bucket="sample-knowledge-bucket",
+                        filename="社員ハンドブック.pdf",
+                        file_size=512,
+                        content_type="application/pdf",
+                        group_name="public",
+                        sync_status="SYNCED",
+                    )
+                )
+                session.commit()
+
+        fake_body.seek(0)
+        resp7 = client.get(
+            f"/v1/knowledge/download/{public_doc_id}",
+            headers={"Authorization": f"Bearer {raw_key_sales}"},
+        )
+        assert resp7.status_code == 200
+
+
+def test_health_check_endpoint():
+    """GET /health エンドポイントが 200 OK と DB 正常ステータスを返却することの検証"""
+    client = TestClient(app)
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "healthy"
+    assert data["database"] == "ok"
+
 
 def test_chat_completions_rag_grounding_and_download_link():
     """
@@ -332,7 +367,7 @@ def test_chat_completions_llm_only_key_does_not_call_rag():
 
 
 def test_chat_completions_streaming_rag():
-    """ストリーミング呼び出し (stream=True) では現時点で直接ストリーミング配信されることの検証"""
+    """ストリーミング呼び出し (stream=True) でも Tool Use による RAG 検索が行われ converse_stream に連携されることの検証"""
     init_db()
 
     raw_key, key_hash, prefix = generate_api_key()
@@ -354,9 +389,40 @@ def test_chat_completions_streaming_rag():
         yield "data: {\"choices\": [{\"delta\": {\"content\": \"回答\"}}]}\n\n"
         yield "data: [DONE]\n\n"
 
+    mock_turn1_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tu_stream_test_1",
+                            "name": "retrieve_knowledge",
+                            "input": {"query": "ストリーミングテスト"},
+                        }
+                    }
+                ],
+            }
+        },
+        "usage": {"inputTokens": 10, "outputTokens": 10, "totalTokens": 20},
+        "stopReason": "tool_use",
+    }
+
     with patch("app.api.v1.chat.retrieve_knowledge") as mock_retrieve, \
+         patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_runtime, \
          patch("app.api.v1.chat.call_converse_stream") as mock_converse_stream:
 
+        mock_runtime = MagicMock()
+        mock_get_runtime.return_value = mock_runtime
+        mock_runtime.converse.return_value = mock_turn1_resp
+        mock_retrieve.return_value = [
+            {
+                "content": "ストリーミング用ナレッジ本文",
+                "location": {"s3Location": {"uri": "s3://sample-knowledge-bucket/public/doc.pdf"}},
+                "metadata": {"filename": "doc.pdf", "group": "public"},
+                "score": 0.85,
+            }
+        ]
         mock_converse_stream.return_value = fake_stream_generator()
 
         resp = client.post(
@@ -369,14 +435,14 @@ def test_chat_completions_streaming_rag():
         )
 
         assert resp.status_code == 200
-        # 現状ストリーミングでは RAG 検索は行われず直接 converse_stream が呼ばれること
-        assert not mock_retrieve.called
+        assert mock_retrieve.called
         assert mock_converse_stream.called
         stream_kwargs = mock_converse_stream.call_args[1]
         messages = stream_kwargs["messages"]
         system_msg = next((m for m in messages if m["role"] == "system"), None)
         assert system_msg is not None
         assert "あなたはストリーミングボットです。" in system_msg["content"]
+        assert stream_kwargs["citations"][0]["filename"] == "doc.pdf"
 
 
 def test_rag_test_web_chat_download_link():

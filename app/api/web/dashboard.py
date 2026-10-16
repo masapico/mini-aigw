@@ -8,6 +8,7 @@ from app.core.templates import templates
 from app.models.api_key import ApiKey
 from app.models.knowledge import KnowledgeDocument
 from app.models.llm_model import LlmModel
+from app.models.usage_log import ChatUsageLog
 from app.models.user import User
 
 router = APIRouter()
@@ -22,6 +23,11 @@ async def dashboard_index(
     is_admin = "admin" in user.get_roles()
     viewable_groups = get_user_viewable_groups(user)
 
+    total_requests = 0
+    total_tokens = 0
+    rag_requests = 0
+    recent_usage_logs = []
+
     if viewable_groups is None:
         # 管理者: 全体集計
         doc_count = db.exec(select(func.count(KnowledgeDocument.id))).one()
@@ -29,8 +35,19 @@ async def dashboard_index(
         recent_docs = db.exec(
             select(KnowledgeDocument).order_by(KnowledgeDocument.created_at.desc()).limit(5)
         ).all()
+
+        # 利用状況・監査ログ集計
+        total_requests = db.exec(select(func.count(ChatUsageLog.id))).one() or 0
+        total_tokens = db.exec(select(func.coalesce(func.sum(ChatUsageLog.total_tokens), 0))).one() or 0
+        rag_requests = (
+            db.exec(select(func.count(ChatUsageLog.id)).where(ChatUsageLog.rag_triggered == True)).one()
+            or 0
+        )
+        recent_usage_logs = db.exec(
+            select(ChatUsageLog).order_by(ChatUsageLog.created_at.desc()).limit(10)
+        ).all()
     else:
-        # 一般ユーザー: 所属グループ + public に絞り込み
+        # 一般ユーザー: 該当グループ + public に絞り込み
         doc_count = db.exec(
             select(func.count(KnowledgeDocument.id)).where(KnowledgeDocument.group_name.in_(viewable_groups))
         ).one()
@@ -70,5 +87,10 @@ async def dashboard_index(
             "settings": settings,
             "active_models_count": active_models_count,
             "default_model_name": default_model_name,
+            "total_requests": total_requests,
+            "total_tokens": total_tokens,
+            "rag_requests": rag_requests,
+            "recent_usage_logs": recent_usage_logs,
         },
     )
+

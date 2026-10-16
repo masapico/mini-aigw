@@ -210,30 +210,54 @@ def test_knowledge_ui_icons_and_collapse():
         follow_redirects=False,
     )
 
-    with patch("app.api.web.knowledge.get_bedrock_agent_client"):
-        # メインページ (/knowledge)
-        resp = client.get("/knowledge")
-        assert resp.status_code == 200
-        html = resp.text
+    with Session(engine) as session:
+        if not session.get(KnowledgeDocument, "doc-icon-test-001"):
+            session.add(
+                KnowledgeDocument(
+                    id="doc-icon-test-001",
+                    s3_key="public/icon_test.pdf",
+                    s3_bucket="sample-bucket",
+                    filename="アイコン検証.pdf",
+                    file_size=1024,
+                    content_type="application/pdf",
+                    group_name="public",
+                    sync_status="SYNCED",
+                )
+            )
+            session.commit()
 
-        # 1. アップロードカードの Collapse 検証 (初期状態は show クラスなし)
-        assert 'id="uploadCollapse"' in html
-        assert 'class="collapse mb-4"' in html
-        assert 'id="btn-toggle-upload"' in html
-        assert '新規ドキュメントをアップロード' in html
+    try:
+        with patch("app.api.web.knowledge.get_bedrock_agent_client"):
+            # メインページ (/knowledge)
+            resp = client.get("/knowledge")
+            assert resp.status_code == 200
+            html = resp.text
 
-        # 2. 検索・フィルターバーの検証
-        assert 'id="knowledge-filter-form"' in html
-        assert 'name="q"' in html
-        assert 'name="group"' in html
-        assert 'name="status"' in html
-        assert '検索' in html
+            # 1. アップロードカードの Collapse 検証 (初期状態は show クラスなし)
+            assert 'id="uploadCollapse"' in html
+            assert 'class="collapse mb-4"' in html
+            assert 'id="btn-toggle-upload"' in html
+            assert '新規ドキュメントをアップロード' in html
 
-        # 3. Bootstrap Icons の検証
-        assert "bi bi-file-earmark-text" in html or "bi-file-earmark-text" in html
-        assert "bi bi-download" in html or "bi-download" in html
-        assert "bi bi-cloud-arrow-up" in html
+            # 2. 検索・フィルターバーの検証
+            assert 'id="knowledge-filter-form"' in html
+            assert 'name="q"' in html
+            assert 'name="group"' in html
+            assert 'name="status"' in html
+            assert '検索' in html
 
-        # 4. 人型絵文字 👤 がテーブル内に含まれていないこと
-        assert "👤" not in html
+            # 3. Bootstrap Icons の検証
+            assert "bi bi-file-earmark-text" in html or "bi-file-earmark-text" in html
+            assert "bi bi-download" in html or "bi-download" in html
+            assert "bi bi-cloud-arrow-up" in html
+
+            # 4. 人型絵文字 👤 がテーブル内に含まれていないこと
+            assert "👤" not in html
+    finally:
+        with Session(engine) as session:
+            doc = session.get(KnowledgeDocument, "doc-icon-test-001")
+            if doc:
+                session.delete(doc)
+                session.commit()
+
 

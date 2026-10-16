@@ -98,19 +98,19 @@ def test_api_keys_permission_denied_for_regular_user():
 
 @patch("app.api.web.knowledge.get_s3_client")
 def test_knowledge_upload_group_isolation(mock_s3_client):
-    """一般ユーザーは自身の所属グループにのみアップロードでき、他グループおよび public への登録は拒否される"""
+    """一般ユーザーは自身の登録グループにのみアップロードでき、他グループおよび public への登録は拒否される"""
     setup_test_users_and_groups()
     client = TestClient(app)
     login_as(client, "sales_user", "user_pass")
 
     mock_s3_client.return_value.put_object.return_value = {}
 
-    # 1. 自身の所属グループ sales へのアップロード ➔ 成功 (200 OK & S3_UPLOADED)
+    # 1. 自身の登録グループ grp000 へのアップロード ➔ 成功 (200 OK & S3_UPLOADED)
     file_content = b"Sales report content"
     resp_sales = client.post(
         "/knowledge/upload",
         files={"file": ("sales_doc.txt", io.BytesIO(file_content), "text/plain")},
-        data={"group_name": "sales"},
+        data={"group_name": "grp000"},
         headers={"HX-Request": "true"},
     )
     assert resp_sales.status_code == 200
@@ -121,7 +121,7 @@ def test_knowledge_upload_group_isolation(mock_s3_client):
     resp_dev = client.post(
         "/knowledge/upload",
         files={"file": ("hacked_doc.txt", io.BytesIO(file_content), "text/plain")},
-        data={"group_name": "dev"},
+        data={"group_name": "grp001"},
         headers={"HX-Request": "true"},
     )
     assert resp_dev.status_code == 403
@@ -223,30 +223,30 @@ def test_rag_test_permissions_plan_a(mock_runtime, mock_agent):
     sales_client = TestClient(app)
     login_as(sales_client, "sales_user", "user_pass")
 
-    # 1. 所属グループ sales での Retrieve 単体検索 ➔ 成功 (200 OK)
+    # 1. 所属グループ grp000 での Retrieve 単体検索 ➔ 成功 (200 OK)
     mock_agent.return_value.retrieve.return_value = {
         "retrievalResults": [
             {
                 "content": {"text": "Sales plan chunk"},
                 "location": {"s3Location": {"uri": "s3://b/k"}},
-                "metadata": {"group": "sales", "filename": "sales.pdf"},
+                "metadata": {"group": "group000", "filename": "sales.pdf"},
                 "score": 0.9,
             }
         ]
     }
-    ret_sales = sales_client.post("/rag-test/retrieve", data={"query": "test query", "group": "sales"})
+    ret_sales = sales_client.post("/rag-test/retrieve", data={"query": "test query", "group": "group000"})
     assert ret_sales.status_code == 200
     assert "Sales plan chunk" in ret_sales.text
 
-    # 2. 所属外グループ dev での Retrieve 単体検索 ➔ 拒否 (403 Forbidden)
-    ret_dev = sales_client.post("/rag-test/retrieve", data={"query": "dev query", "group": "dev"})
+    # 2. 所属外グループ grp001 での Retrieve 単体検索 ➔ 拒否 (403 Forbidden)
+    ret_dev = sales_client.post("/rag-test/retrieve", data={"query": "dev query", "group": "group001"})
     assert ret_dev.status_code == 403
     assert "検索する権限がありません" in ret_dev.json()["detail"]
 
     # 3. 一般ユーザーによる対話テスト (Chat) ➔ 拒否 (403 Forbidden)
     chat_user = sales_client.post(
         "/rag-test/chat",
-        data={"query": "hello", "group": "sales", "model_id": "test-model"},
+        data={"query": "hello", "group": "group000", "model_id": "test-model"},
     )
     assert chat_user.status_code == 403
 
@@ -265,7 +265,7 @@ def test_rag_test_permissions_plan_a(mock_runtime, mock_agent):
     }
     chat_admin = admin_client.post(
         "/rag-test/chat",
-        data={"query": "admin query", "group": "public", "model_id": "test-model"},
+        data={"query": "admin query", "group": "group000", "model_id": "test-model"},
     )
     assert chat_admin.status_code == 200
     assert "Admin RAG response." in chat_admin.text
@@ -309,7 +309,7 @@ def test_knowledge_sync_status_lifecycle_and_error_handling(mock_s3, mock_agent)
     upload_resp = admin_client.post(
         "/knowledge/upload",
         files={"file": ("sync_test.txt", io.BytesIO(b"Sync content"), "text/plain")},
-        data={"group_name": "sales"},
+        data={"group_name": "group000"},
         headers={"HX-Request": "true"},
     )
     assert upload_resp.status_code == 200

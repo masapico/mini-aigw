@@ -17,10 +17,10 @@
   - 削除時は「ステータス更新 (`DELETING`) ➔ S3実体およびメタデータ削除 ➔ Bedrock KB同期実行 ➔ DB物理削除」の整合性保証フロー。
 - **Bedrock マネージド Knowledge Base 連携 (`managedSearchConfiguration`)**:
   - 本システムは Bedrock プロキシとしてシンプルな構成を維持するため、Amazon Bedrock の**マネージド Knowledge Base（Managed Vector Store）専用**として設計されています。
-  - 検索クエリには `managedSearchConfiguration` を標準使用し、Pre-filtering による所属グループ分離（`public` およびユーザー所属グループ）を実行します。
+  - 検索クエリには `managedSearchConfiguration` を標準使用し、Pre-filtering によるグループ分離（`public` およびユーザーグループ）を実行します。
   - ※ カスタムベクターストア構成（`vectorSearchConfiguration`）は非対応です。接続時に `Incompatible configuration` エラーが発生した場合は、画面およびログに設定エラーが明示されます。
 - **S3 Vectors プリフィルタリング**:
-  - `retrievalFilter` により、所属グループ（`sales`, `dev` 等）および `public` のドキュメントのみを厳格に分離して検索。
+  - `retrievalFilter` により、グループ（`sales`, `dev` 等）および `public` のドキュメントのみを厳格に分離して検索。
 
 - **ハイブリッド認証**:
   - **mini-id OIDC**: Authorization Code Flow + PKCE (`S256`)、不変の `sub` (UUID) 主識別子、RP-Initiated Logout 対応。
@@ -141,10 +141,10 @@ DEFAULT_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 
 ### 主要画面
 1. **ダッシュボード (`/`)**:
-   - ナレッジ登録件数、有効 API キー数、Bedrock リージョン、所属グループを表示。
+   - ナレッジ登録件数、有効 API キー数、Bedrock リージョン、グループを表示。
    - OpenAI SDK 接続サンプルコードのクイックコピー。
 2. **ナレッジ管理 (`/knowledge`)**:
-   - 所属グループ（`public`, `sales`, `dev` 等）を指定してドキュメントをドラッグ＆ドロップまたはファイル選択でアップロード。
+   - グループ（`public`, `grp000` 等）を指定してドキュメントをドラッグ＆ドロップまたはファイル選択でアップロード。
    - S3 実体および `.metadata.json` が同期され、Bedrock KB Ingestion ジョブがトリガーされます。
    - 不要なドキュメントの安全な削除（S3 実体・メタデータ・DB 連動削除）。
 3. **RAG テスト画面 (`/rag-test`)**:

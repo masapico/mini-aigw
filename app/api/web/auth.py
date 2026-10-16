@@ -76,7 +76,7 @@ def get_user_viewable_groups(user: User) -> Optional[list[str]]:
     """
     ユーザーが閲覧可能なグループ名リストを取得する。
     admin の場合は全グループ閲覧可能なため None を返却する。
-    一般ユーザーの場合は ['public'] + 自身所属グループ を返却する。
+    一般ユーザーの場合は ['public'] + 自身の グループ を返却する。
     """
     if "admin" in user.get_roles():
         return None
@@ -101,12 +101,24 @@ def can_user_download_document(user: User, doc_group: str) -> bool:
     """
     ユーザーが指定ドキュメント（のグループ）をダウンロード可能かを判定する。
     admin: 全ドキュメント可能。
-    一般ユーザー: public または自身の所属グループのみ可能。
+    一般ユーザー: public または自身のグループのみ可能。
     """
     if "admin" in user.get_roles():
         return True
     clean = doc_group.strip().lower()
     return clean == "public" or clean in user.get_groups()
+
+
+def purge_expired_sessions(db: Session) -> None:
+    """期限切れのセッションレコードをDBから一括削除する"""
+    try:
+        from sqlalchemy import delete
+
+        now = datetime.now(timezone.utc)
+        db.exec(delete(SessionRecord).where(SessionRecord.expires_at <= now))
+        db.commit()
+    except Exception as e:
+        logger.warning("Failed to purge expired sessions: %s", e)
 
 
 def create_user_session(
@@ -118,6 +130,7 @@ def create_user_session(
     """
     セッションIDを新規生成（セッション固定攻撃対策）し、DBへ保存してCookieを発行する。
     """
+    purge_expired_sessions(db)
     new_session_id = generate_session_id()
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.SESSION_MAX_AGE_SECONDS)
 

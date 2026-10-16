@@ -32,7 +32,7 @@ async def download_knowledge_file(
 
     認証・アクセス認可 (以下のいずれかを満たすこと):
     1. 有効な HMAC 署名付きダウンロードトークン (?token=...)
-    2. ドキュメントの所属グループに対する閲覧権限を持つ API キー (ヘッダー Bearer または ?api_key=...)
+    2. ドキュメントのグループに対する閲覧権限を持つ API キー (ヘッダー Bearer または ?api_key=...)
     3. ドキュメントの閲覧権限を持つログインユーザーの Web セッション Cookie
     """
     doc = db.get(KnowledgeDocument, doc_id)
@@ -66,7 +66,7 @@ async def download_knowledge_file(
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
             allowed_groups = api_key_obj.get_allowed_groups()
-            if doc.group_name in allowed_groups or "public" in allowed_groups and doc.group_name == "public":
+            if doc.group_name == "public" or doc.group_name in allowed_groups:
                 is_authorized = True
             else:
                 raise HTTPException(
@@ -86,10 +86,12 @@ async def download_knowledge_file(
             detail="ダウンロード権限がありません。有効なトークンまたは API キーが必要です",
         )
 
-    # S3 からストリーミング取得
+    # S3 からストリーミング取得 (イベントループをブロックしないようスレッドプール実行)
+    from fastapi.concurrency import run_in_threadpool
+
     s3_client = get_s3_client()
     try:
-        doc_stream = get_document_stream(s3_client, bucket=doc.s3_bucket, key=doc.s3_key)
+        doc_stream = await run_in_threadpool(get_document_stream, s3_client, bucket=doc.s3_bucket, key=doc.s3_key)
     except Exception as e:
         logger.error("Failed to fetch document %s from S3: %s", doc.s3_key, e)
         raise HTTPException(

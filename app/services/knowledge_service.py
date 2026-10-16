@@ -1,28 +1,60 @@
 import json
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 import boto3
-from sqlmodel import Session
+from botocore.config import Config
+from sqlmodel import Session, select
 from app.core.config import settings
 from app.models.knowledge import KnowledgeDocument
 
 logger = logging.getLogger(__name__)
 
+# Boto3 クライアントのコネクションプール再利用キャッシュ
+_CLIENT_CACHE: Dict[Tuple[str, str, Optional[str]], Any] = {}
+
+# KB同期完了前に検索ヒットするGhost Chunkを即座に除外するための削除済みレジストリ
+_DELETED_DOC_IDS: Set[str] = set()
+_DELETED_S3_KEYS: Set[str] = set()
+
+
+def _build_boto_config() -> Config:
+    return Config(
+        retries={
+            "max_attempts": settings.AWS_MAX_RETRY_ATTEMPTS,
+            "mode": "adaptive",
+        },
+        connect_timeout=settings.AWS_CONNECT_TIMEOUT,
+        read_timeout=settings.AWS_READ_TIMEOUT,
+        max_pool_connections=settings.AWS_MAX_POOL_CONNECTIONS,
+    )
+
 
 def get_s3_client() -> Any:
-    """S3 クライアントを取得する"""
-    kwargs: Dict[str, Any] = {"region_name": settings.AWS_REGION}
-    if settings.AWS_ENDPOINT_URL:
-        kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
-    return boto3.client("s3", **kwargs)
+    """S3 クライアントを取得する（コネクションプール再利用）"""
+    cache_key = ("s3", settings.AWS_REGION, settings.AWS_ENDPOINT_URL)
+    if cache_key not in _CLIENT_CACHE:
+        kwargs: Dict[str, Any] = {
+            "region_name": settings.AWS_REGION,
+            "config": _build_boto_config(),
+        }
+        if settings.AWS_ENDPOINT_URL:
+            kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
+        _CLIENT_CACHE[cache_key] = boto3.client("s3", **kwargs)
+    return _CLIENT_CACHE[cache_key]
 
 
 def get_bedrock_agent_client() -> Any:
-    """Bedrock Agent クライアントを取得する"""
-    kwargs: Dict[str, Any] = {"region_name": settings.AWS_REGION}
-    if settings.AWS_ENDPOINT_URL:
-        kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
-    return boto3.client("bedrock-agent", **kwargs)
+    """Bedrock Agent クライアントを取得する（コネクションプール再利用）"""
+    cache_key = ("bedrock-agent", settings.AWS_REGION, settings.AWS_ENDPOINT_URL)
+    if cache_key not in _CLIENT_CACHE:
+        kwargs: Dict[str, Any] = {
+            "region_name": settings.AWS_REGION,
+            "config": _build_boto_config(),
+        }
+        if settings.AWS_ENDPOINT_URL:
+            kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
+        _CLIENT_CACHE[cache_key] = boto3.client("bedrock-agent", **kwargs)
+    return _CLIENT_CACHE[cache_key]
 
 
 def upload_document_with_metadata(
@@ -44,6 +76,11 @@ def upload_document_with_metadata(
     prefix_clean = prefix.strip("/")
     obj_key = f"{prefix_clean}/{filename}" if prefix_clean else filename
     meta_key = f"{obj_key}.metadata.json"
+
+    # 再アップロード時は削除済みレジストリから解除
+    _DELETED_S3_KEYS.discard(obj_key)
+    if document_id:
+        _DELETED_DOC_IDS.discard(document_id)
 
     metadata_content: Dict[str, Any] = {
         "metadataAttributes": {
@@ -155,11 +192,13 @@ def delete_knowledge_document(
     1. DB上のステータスを 'DELETING' に更新・コミット
     2. S3 からファイル本体 & メタデータを削除
     3. オプションで Bedrock KB Ingestion ジョブのトリガー（同期は管理者/バッチに委任可能）
-    4. DB レコード物理削除
+    4. 削除済みレジストリに登録し、DB レコード物理削除
     """
     doc = db.get(KnowledgeDocument, doc_id)
     if not doc:
         return False
+
+    s3_key_to_mark = doc.s3_key
 
     # 1. ステータス更新
     doc.sync_status = "DELETING"
@@ -177,11 +216,48 @@ def delete_knowledge_document(
     if trigger_sync and bedrock_agent and doc.data_source_id and kb_id:
         trigger_ingestion_job(bedrock_agent, kb_id, doc.data_source_id)
 
-    # 4. 完了後レコード削除
+    # 4. 完了後レコード削除 & Ghost Chunk 除外レジストリへ登録
+    _DELETED_DOC_IDS.add(doc_id)
+    if s3_key_to_mark:
+        _DELETED_S3_KEYS.add(s3_key_to_mark)
+
     db.delete(doc)
     db.commit()
     logger.info("Deleted knowledge document %s (%s)", doc_id, doc.filename)
     return True
+
+
+def is_chunk_from_deleted_document(
+    db: Session,
+    s3_uri: str,
+    metadata: Dict[str, Any],
+) -> bool:
+    """
+    検索チャンクが削除済みまたは削除処理中 (DELETING) のドキュメントに由来するかを判定する（Ghost Chunk 防止）。
+    """
+    doc_id = metadata.get("document_id")
+    if doc_id and str(doc_id) in _DELETED_DOC_IDS:
+        return True
+
+    key: Optional[str] = None
+    if s3_uri and s3_uri.startswith("s3://"):
+        parts = s3_uri.split("/")
+        if len(parts) >= 4:
+            key = "/".join(parts[3:])
+            if key in _DELETED_S3_KEYS:
+                return True
+
+    if doc_id:
+        doc = db.get(KnowledgeDocument, str(doc_id))
+        if doc and doc.sync_status == "DELETING":
+            return True
+
+    if key:
+        doc = db.exec(select(KnowledgeDocument).where(KnowledgeDocument.s3_key == key)).first()
+        if doc and doc.sync_status == "DELETING":
+            return True
+
+    return False
 
 
 def resolve_document_and_download_url(
@@ -196,7 +272,6 @@ def resolve_document_and_download_url(
     Returns:
         (doc_id, download_url)
     """
-    from sqlmodel import select
     from app.core.security import generate_download_token
 
     doc_id = metadata.get("document_id")
@@ -216,5 +291,6 @@ def resolve_document_and_download_url(
         return doc_id, download_url
 
     return None, None
+
 
 

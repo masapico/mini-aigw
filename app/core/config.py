@@ -28,16 +28,19 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SAMESITE: str = "lax"
 
     # AWS
-    AWS_REGION: str = "us-east-1"
+    AWS_REGION: str = "ap-northeast-1"
     AWS_ENDPOINT_URL: Optional[str] = None
+    AWS_CONNECT_TIMEOUT: int = 10
+    AWS_READ_TIMEOUT: int = 120
+    AWS_MAX_RETRY_ATTEMPTS: int = 4
+    AWS_MAX_POOL_CONNECTIONS: int = 50
     BEDROCK_KB_ID: str = "SAMPLE_KB_ID"
     BEDROCK_DATA_SOURCE_ID: str = "SAMPLE_DS_ID"
     KNOWLEDGE_S3_BUCKET: str = "sample-knowledge-bucket"
-    DEFAULT_MODEL_ID: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    MAX_UPLOAD_FILE_SIZE_MB: int = 50
+    DEFAULT_MODEL_ID: str = "openai.gpt-oss-20b-1:0"
     AVAILABLE_MODELS: List[str] = [
-        "anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "anthropic.claude-3-haiku-20240307-v1:0",
-        "amazon.nova-pro-v1:0",
+        "openai.gpt-oss-20b-1:0",
         "amazon.nova-lite-v1:0",
     ]
     # RAG Configuration

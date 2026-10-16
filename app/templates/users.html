@@ -7,7 +7,7 @@
   <div>
     <h3 class="fw-bold mb-1">ユーザー & グループ管理</h3>
     <p class="text-muted small mb-0">
-      ローカルユーザーアカウントの発行、ロール割り当て、および所属グループ（S3 Vectors 分離）の動的管理
+      ローカルユーザーアカウントの発行、ロール割り当て、およびグループ（S3 Vectors 分離）の動的管理
     </p>
   </div>
 </div>
@@ -35,7 +35,7 @@
       type="button"
       role="tab"
     >
-      所属グループ管理
+      グループ管理
     </button>
   </li>
 </ul>
@@ -106,7 +106,7 @@
             </select>
           </div>
           <div class="col-12 col-md-9">
-            <label class="form-label small fw-semibold text-secondary">所属グループ (ナレッジアクセス権限)</label>
+            <label class="form-label small fw-semibold text-secondary">グループ (ナレッジアクセス権限)</label>
             <div class="d-flex flex-wrap align-items-center gap-3 p-2 border rounded-3 bg-light" style="min-height: 42px;">
               {% for g in groups %}
               <div class="form-check mb-0">
@@ -122,7 +122,7 @@
                 </label>
               </div>
               {% else %}
-              <span class="text-muted small">登録されたグループがありません。「所属グループ管理」タブから追加してください。</span>
+              <span class="text-muted small">登録されたグループがありません。「グループ管理」タブから追加してください。</span>
               {% endfor %}
             </div>
           </div>

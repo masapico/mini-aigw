@@ -207,4 +207,107 @@ for chunk in response:
     </div>
   </div>
 </div>
+
+{% if is_admin %}
+<!-- API 利用統計 & RAG 監査ログ -->
+<div class="row g-4 mt-1">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+          <h5 class="fw-bold mb-0">API 利用状況・RAG 監査ログ</h5>
+          <p class="text-muted small mb-0">APIキーごとのトークン消費量および参照ナレッジドキュメントの履歴</p>
+        </div>
+        <div class="d-flex flex-wrap gap-3">
+          <div class="px-3 py-1 rounded-3 bg-light border">
+            <span class="text-muted small">累計リクエスト:</span>
+            <strong class="ms-1">{{ total_requests }}</strong> <span class="text-muted small">回</span>
+          </div>
+          <div class="px-3 py-1 rounded-3 bg-light border">
+            <span class="text-muted small">RAG 検索実行:</span>
+            <strong class="ms-1 text-indigo">{{ rag_requests }}</strong> <span class="text-muted small">回</span>
+          </div>
+          <div class="px-3 py-1 rounded-3 bg-light border">
+            <span class="text-muted small">累計消費トークン:</span>
+            <strong class="ms-1">{{ total_tokens }}</strong> <span class="text-muted small">tokens</span>
+          </div>
+        </div>
+      </div>
+
+      {% if recent_usage_logs %}
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle mb-0" style="font-size: 0.85rem;">
+          <thead>
+            <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
+              <th>日時 (UTC)</th>
+              <th>API キー</th>
+              <th>モデル</th>
+              <th>種別</th>
+              <th>検索クエリ / 参照ナレッジ</th>
+              <th class="text-end">トークン数</th>
+              <th class="text-end">応答時間</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in recent_usage_logs %}
+            <tr class="border-bottom">
+              <td class="text-muted small text-nowrap">
+                {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}
+              </td>
+              <td class="fw-semibold">{{ log.api_key_name }}</td>
+              <td><code class="small">{{ log.model_id }}</code></td>
+              <td>
+                {% if log.rag_triggered %}
+                <span class="badge-pill-modern bg-primary text-white">RAG</span>
+                {% else %}
+                <span class="badge-pill-modern bg-light text-dark border">LLM</span>
+                {% endif %}
+                {% if log.is_stream %}
+                <span class="badge-pill-modern bg-light text-secondary border">Stream</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if log.rag_triggered %}
+                  {% set queries = log.get_search_queries() %}
+                  {% if queries %}
+                  <div class="small text-dark">
+                    <i class="bi bi-search text-muted me-1"></i>{{ queries | join(', ') }}
+                  </div>
+                  {% endif %}
+                  {% set docs = log.get_cited_documents() %}
+                  {% if docs %}
+                  <div class="d-flex flex-wrap gap-1 mt-1">
+                    {% for d in docs %}
+                    <span class="badge-pill-modern badge-group">
+                      <i class="bi bi-file-earmark-text me-1"></i>{{ d.filename }} ({{ d.group }})
+                    </span>
+                    {% endfor %}
+                  </div>
+                  {% else %}
+                  <span class="text-muted small">該当チャンクなし</span>
+                  {% endif %}
+                {% else %}
+                <span class="text-muted small">-</span>
+                {% endif %}
+              </td>
+              <td class="text-end font-monospace small">
+                {{ log.total_tokens }}
+                <span class="text-muted" style="font-size: 0.75rem;">(in:{{ log.prompt_tokens }}/out:{{ log.completion_tokens }})</span>
+              </td>
+              <td class="text-end text-muted small text-nowrap">{{ log.latency_ms }} ms</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-4 text-muted small">
+        API チャットの利用履歴はまだありません。
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
+

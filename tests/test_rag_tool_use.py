@@ -373,3 +373,379 @@ def test_chat_branch_retrieval_exception_resilience():
         data = resp.json()
         assert "現在ナレッジシステムが一時的に利用できないため" in data["choices"][0]["message"]["content"]
 
+
+def test_chat_streaming_rag_tool_use_and_citations():
+    """
+    ストリーミング (stream=True) かつナレッジ必要な場合:
+    Turn 1 で tool_use 判定 -> Retrieve API 実行 -> Turn 2 で converse_stream が呼ばれ、
+    SSE ストリームの終了チャンクに citations と合算 usage が付与され、ChatUsageLog が記録されることの検証。
+    """
+    from sqlmodel import select
+    from app.models.usage_log import ChatUsageLog
+
+    raw_key = setup_knowledge_api_key("Streaming RAG Bot")
+    client = TestClient(app)
+
+    mock_turn1_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tooluse_stream_01",
+                            "name": "retrieve_knowledge",
+                            "input": {"query": "リモートワーク 手当"},
+                        }
+                    }
+                ],
+            }
+        },
+        "usage": {"inputTokens": 35, "outputTokens": 15, "totalTokens": 50},
+        "stopReason": "tool_use",
+    }
+
+    mock_retrieved_results = [
+        {
+            "content": "在宅勤務手当は月額5,000円を支給します。",
+            "location": {"s3Location": {"uri": "s3://sample-knowledge-bucket/public/remote_work.pdf"}},
+            "metadata": {
+                "filename": "在宅勤務規程.pdf",
+                "group": "public",
+                "tags": ["規程", "手当"],
+            },
+            "score": 0.91,
+        }
+    ]
+
+    mock_turn2_stream = {
+        "stream": [
+            {"messageStart": {"role": "assistant"}},
+            {"contentBlockDelta": {"delta": {"text": "在宅勤務手当は月額5,000円です [1]。\n\n"}}},
+            {"contentBlockDelta": {"delta": {"text": "### 根拠資料 (参照ドキュメント)\n- [1] 在宅勤務規程.pdf"}}},
+            {"messageStop": {"stopReason": "end_turn"}},
+            {"metadata": {"usage": {"inputTokens": 120, "outputTokens": 40, "totalTokens": 160}}},
+        ]
+    }
+
+    with patch("app.api.v1.chat.retrieve_knowledge") as mock_retrieve, \
+         patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_runtime:
+
+        mock_retrieve.return_value = mock_retrieved_results
+        mock_runtime = MagicMock()
+        mock_get_runtime.return_value = mock_runtime
+        mock_runtime.converse.return_value = mock_turn1_resp
+        mock_runtime.converse_stream.return_value = mock_turn2_stream
+
+        resp = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={
+                "messages": [{"role": "user", "content": "リモートワーク手当はいくらですか？"}],
+                "stream": True,
+            },
+        )
+
+        assert resp.status_code == 200
+        assert mock_retrieve.called
+        assert mock_runtime.converse.call_count == 1
+        assert mock_runtime.converse_stream.call_count == 1
+
+        # Turn 2 にタグ情報付きのコンテキストが渡されていること
+        turn2_kwargs = mock_runtime.converse_stream.call_args[1]
+        tool_msg = turn2_kwargs["messages"][-1]
+        tool_text = tool_msg["content"][0]["toolResult"]["content"][0]["text"]
+        assert "タグ: 規程, 手当" in tool_text
+
+        # SSE パース検証
+        sse_Events = []
+        for line in resp.text.splitlines():
+            if line.startswith("data: ") and line != "data: [DONE]":
+                sse_Events.append(json.loads(line[6:]))
+
+        full_text = "".join(
+            ev["choices"][0]["delta"].get("content", "") for ev in sse_Events
+        )
+        assert "在宅勤務手当は月額5,000円です [1]。" in full_text
+
+        # 最終チャンクに citations と合算 usage (50 + 160 = 210) が含まれること
+        last_chunk = sse_Events[-1]
+        assert "citations" in last_chunk
+        assert last_chunk["citations"][0]["filename"] == "在宅勤務規程.pdf"
+        assert "usage" in last_chunk
+        assert last_chunk["usage"]["prompt_tokens"] == 155
+        assert last_chunk["usage"]["completion_tokens"] == 55
+        assert last_chunk["usage"]["total_tokens"] == 210
+
+        # ChatUsageLog に監査ログが保存されていること
+        with Session(engine) as session:
+            log_rec = session.exec(
+                select(ChatUsageLog)
+                .where(ChatUsageLog.api_key_name == "Streaming RAG Bot")
+                .order_by(ChatUsageLog.created_at.desc())
+            ).first()
+            assert log_rec is not None
+            assert log_rec.is_stream is True
+            assert log_rec.rag_triggered is True
+            assert log_rec.total_tokens == 210
+            assert "リモートワーク 手当" in log_rec.get_search_queries()
+            assert log_rec.get_cited_documents()[0]["filename"] == "在宅勤務規程.pdf"
+
+
+def test_chat_streaming_no_tool_used_for_greetings():
+    """
+    ストリーミング (stream=True) でナレッジ不要な場合:
+    Turn 1 の回答がそのまま SSE ストリームとして返却され、Retrieve API も Turn 2 も呼ばれないことの検証。
+    """
+    raw_key = setup_knowledge_api_key("Streaming Greeting Bot")
+    client = TestClient(app)
+
+    mock_turn1_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [{"text": "お疲れ様です！何かお手伝いできることはありますか？"}],
+            }
+        },
+        "usage": {"inputTokens": 25, "outputTokens": 15, "totalTokens": 40},
+        "stopReason": "end_turn",
+    }
+
+    with patch("app.api.v1.chat.retrieve_knowledge") as mock_retrieve, \
+         patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_runtime:
+
+        mock_runtime = MagicMock()
+        mock_get_runtime.return_value = mock_runtime
+        mock_runtime.converse.return_value = mock_turn1_resp
+
+        resp = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={
+                "messages": [{"role": "user", "content": "お疲れ様です"}],
+                "stream": True,
+            },
+        )
+
+        assert resp.status_code == 200
+        assert not mock_retrieve.called
+        assert mock_runtime.converse.call_count == 1
+        assert not mock_runtime.converse_stream.called
+
+        sse_events = [
+            json.loads(line[6:])
+            for line in resp.text.splitlines()
+            if line.startswith("data: ") and line != "data: [DONE]"
+        ]
+        full_text = "".join(ev["choices"][0]["delta"].get("content", "") for ev in sse_events)
+        assert full_text == "お疲れ様です！何かお手伝いできることはありますか？"
+
+
+def test_chat_multiple_tool_use_blocks_handled_without_crash():
+    """
+    Turn 1 で LLM が複数の toolUse ブロックを同時に返した場合、
+    すべての toolUseId に対応する toolResult が構築されて Turn 2 に渡され、
+    重複チャンクが排除されて正常に回答が生成されることの検証。
+    """
+    raw_key = setup_knowledge_api_key("Multi Tool Bot")
+    client = TestClient(app)
+
+    mock_turn1_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tu_vacation_1",
+                            "name": "retrieve_knowledge",
+                            "input": {"query": "有給休暇 付与日数"},
+                        }
+                    },
+                    {
+                        "toolUse": {
+                            "toolUseId": "tu_expense_2",
+                            "name": "retrieve_knowledge",
+                            "input": {"query": "出張旅費 宿泊上限"},
+                        }
+                    },
+                ],
+            }
+        },
+        "usage": {"inputTokens": 50, "outputTokens": 30, "totalTokens": 80},
+        "stopReason": "tool_use",
+    }
+
+    mock_turn2_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"text": "有給休暇は初年度10日 [1]、宿泊上限は1泊12,000円です [2]。"}
+                ],
+            }
+        },
+        "usage": {"inputTokens": 150, "outputTokens": 40, "totalTokens": 190},
+        "stopReason": "end_turn",
+    }
+
+    res_query1 = [
+        {
+            "content": "年次有給休暇は入社時に10日付与される。",
+            "location": {"s3Location": {"uri": "s3://sample-knowledge-bucket/public/vacation.pdf"}},
+            "metadata": {"filename": "休暇規程.pdf", "group": "public"},
+            "score": 0.85,
+        }
+    ]
+    res_query2 = [
+        {
+            "content": "国内出張の宿泊費上限は1泊あたり12,000円とする。",
+            "location": {"s3Location": {"uri": "s3://sample-knowledge-bucket/public/expense.pdf"}},
+            "metadata": {"filename": "旅費規程.pdf", "group": "public"},
+            "score": 0.89,
+        }
+    ]
+
+    with patch("app.api.v1.chat.retrieve_knowledge") as mock_retrieve, \
+         patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_runtime:
+
+        mock_retrieve.side_effect = [res_query1, res_query2]
+        mock_runtime = MagicMock()
+        mock_get_runtime.return_value = mock_runtime
+        mock_runtime.converse.side_effect = [mock_turn1_resp, mock_turn2_resp]
+
+        resp = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={
+                "messages": [{"role": "user", "content": "有給休暇の日数と出張の宿泊上限を教えて"}]
+            },
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # retrieve_knowledge が 2 回呼ばれていること
+        assert mock_retrieve.call_count == 2
+
+        # Turn 2 の最後の user メッセージに 2 つの toolResult ブロックが含まれていること
+        turn2_kwargs = mock_runtime.converse.call_args_list[1][1]
+        user_tool_msg = turn2_kwargs["messages"][-1]
+        assert len(user_tool_msg["content"]) == 2
+        assert user_tool_msg["content"][0]["toolResult"]["toolUseId"] == "tu_vacation_1"
+        assert user_tool_msg["content"][1]["toolResult"]["toolUseId"] == "tu_expense_2"
+
+        # citations に 2 件（index 1, 2）が含まれていること
+        assert len(data["citations"]) == 2
+        assert data["citations"][0]["filename"] == "休暇規程.pdf"
+        assert data["citations"][1]["filename"] == "旅費規程.pdf"
+
+
+def test_chat_deleted_document_ghost_chunk_filtered_out():
+    """
+    削除されたドキュメントが KB 同期完了前に Retrieve API から返却された場合でも、
+    Ghost Chunk Filter により検索結果から即座に除外されることの検証。
+    """
+    from app.models.knowledge import KnowledgeDocument
+    from app.services.knowledge_service import delete_knowledge_document
+
+    raw_key = setup_knowledge_api_key("Ghost Filter Bot")
+    client = TestClient(app)
+
+    # ドキュメントを登録して削除を実行
+    ghost_doc_id = "doc-ghost-deleted-999"
+    with Session(engine) as session:
+        doc = KnowledgeDocument(
+            id=ghost_doc_id,
+            s3_key="public/obsolete_rule.pdf",
+            s3_bucket="sample-knowledge-bucket",
+            filename="廃止規程.pdf",
+            file_size=512,
+            content_type="application/pdf",
+            group_name="public",
+            sync_status="SYNCED",
+        )
+        session.add(doc)
+        session.commit()
+
+        delete_knowledge_document(
+            db=session,
+            s3_client=MagicMock(),
+            bedrock_agent=None,
+            kb_id="SAMPLE_KB_ID",
+            doc_id=ghost_doc_id,
+            trigger_sync=False,
+        )
+
+    mock_turn1_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "toolUse": {
+                            "toolUseId": "tu_ghost_01",
+                            "name": "retrieve_knowledge",
+                            "input": {"query": "古い規程"},
+                        }
+                    }
+                ],
+            }
+        },
+        "usage": {"inputTokens": 20, "outputTokens": 10, "totalTokens": 30},
+        "stopReason": "tool_use",
+    }
+
+    mock_turn2_resp = {
+        "output": {
+            "message": {
+                "role": "assistant",
+                "content": [{"text": "現行規程のみに基づいて回答します [1]。"}],
+            }
+        },
+        "usage": {"inputTokens": 50, "outputTokens": 20, "totalTokens": 70},
+        "stopReason": "end_turn",
+    }
+
+    # Retrieve API が削除済みの廃止規程と有効な現行規程の両方を返したと仮定
+    mock_retrieved = [
+        {
+            "content": "廃止された古いルールです。",
+            "location": {"s3Location": {"uri": "s3://sample-knowledge-bucket/public/obsolete_rule.pdf"}},
+            "metadata": {"document_id": ghost_doc_id, "filename": "廃止規程.pdf", "group": "public"},
+            "score": 0.95,
+        },
+        {
+            "content": "現在有効な新しいルールです。",
+            "location": {"s3Location": {"uri": "s3://sample-knowledge-bucket/public/active_rule.pdf"}},
+            "metadata": {"filename": "現行規程.pdf", "group": "public"},
+            "score": 0.80,
+        },
+    ]
+
+    with patch("app.api.v1.chat.retrieve_knowledge") as mock_retrieve, \
+         patch("app.api.v1.chat.get_bedrock_runtime_client") as mock_get_runtime:
+
+        mock_retrieve.return_value = mock_retrieved
+        mock_runtime = MagicMock()
+        mock_get_runtime.return_value = mock_runtime
+        mock_runtime.converse.side_effect = [mock_turn1_resp, mock_turn2_resp]
+
+        resp = client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": f"Bearer {raw_key}"},
+            json={"messages": [{"role": "user", "content": "規程を教えて"}]},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+
+        # 廃止規程.pdf は除外され、現行規程.pdf のみが含まれていること
+        assert len(data["citations"]) == 1
+        assert data["citations"][0]["filename"] == "現行規程.pdf"
+        turn2_kwargs = mock_runtime.converse.call_args_list[1][1]
+        tool_text = turn2_kwargs["messages"][-1]["content"][0]["toolResult"]["content"][0]["text"]
+        assert "廃止規程.pdf" not in tool_text
+        assert "現行規程.pdf" in tool_text
+
+

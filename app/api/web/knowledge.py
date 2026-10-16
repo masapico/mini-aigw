@@ -286,6 +286,12 @@ async def knowledge_upload(
     prefix = "public" if group_clean == "public" else f"groups/{group_clean}"
     content = await file.read()
     file_size = len(content)
+    max_bytes = settings.MAX_UPLOAD_FILE_SIZE_MB * 1024 * 1024
+    if file_size > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"ファイルサイズが上限 ({settings.MAX_UPLOAD_FILE_SIZE_MB}MB) を超えています。",
+        )
     filename = file.filename or "uploaded_file"
     content_type = file.content_type or "application/octet-stream"
 
@@ -336,10 +342,13 @@ async def knowledge_upload(
     db.commit()
     db.refresh(doc)
 
-    # S3 へ本体 & .metadata.json をアップロード（KB同期は管理者手動またはバッチへ委任）
+    # S3 へ本体 & .metadata.json をアップロード（イベントループをブロックしないようスレッドプール実行）
+    from fastapi.concurrency import run_in_threadpool
+
     s3_client = get_s3_client()
     try:
-        upload_document_with_metadata(
+        await run_in_threadpool(
+            upload_document_with_metadata,
             s3_client=s3_client,
             bucket=settings.KNOWLEDGE_S3_BUCKET,
             prefix=prefix,

@@ -30,13 +30,13 @@ async def lifespan(app: FastAPI):
         existing_groups = session.exec(select(Group)).all()
         if not existing_groups:
             seed_groups = [
-                Group(name="sales", display_name="営業部 (sales)", description="営業部門のナレッジ"),
-                Group(name="dev", display_name="開発部 (dev)", description="開発部門のナレッジ"),
+                Group(name="group000", display_name="グループ000", description="グループ0のナレッジ"),
+                Group(name="group001", display_name="グループ001", description="グループ1のナレッジ"),
             ]
             for g in seed_groups:
                 session.add(g)
             session.commit()
-            logger.info("Initialized default groups: 'sales', 'dev'")
+            logger.info("Initialized default groups: 'group000', 'group001'")
 
         # 初期ローカルユーザーが存在しない場合にシード
         existing_user = session.exec(select(User)).first()
@@ -44,15 +44,18 @@ async def lifespan(app: FastAPI):
             default_admin = User(
                 auth_type="local",
                 username="admin",
-                password_hash=hash_password("admin123"),
+                password_hash=hash_password("Password1234"),
                 email="admin@internal.local",
                 display_name="System Admin",
                 roles='["admin"]',
-                groups='["sales", "dev"]',
+                groups='["group000", "group001"]',
             )
             session.add(default_admin)
             session.commit()
-            logger.info("Initialized default admin user: 'admin' (password: 'admin123')")
+            logger.info("Initialized default admin user: 'admin' (password: 'Password1234')")
+
+        # 起動時に期限切れセッションをクリーンアップ
+        auth.purge_expired_sessions(session)
 
     logger.info("mini-aigw initialized successfully on %s:%s", settings.HOST, settings.PORT)
     yield
@@ -64,6 +67,25 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.get("/health", tags=["Health Check"])
+async def health_check():
+    """ALB / EC2 AutoRecovery 用のヘルスチェックエンドポイント"""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import text
+
+    try:
+        with Session(engine) as session:
+            session.exec(text("SELECT 1"))
+        return {"status": "healthy", "database": "ok", "version": app.version}
+    except Exception as e:
+        logger.error("Health check failed: %s", e)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "database": "error", "detail": str(e)},
+        )
+
 
 # 静的ファイルの完全ローカル配信 (CDN 依存の排除)
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -87,4 +109,5 @@ app.include_router(rag_test.router, tags=["Web RAG Test"])
 app.include_router(api_keys.router, tags=["Web API Keys"])
 app.include_router(web_models.router, tags=["Web Models"])
 app.include_router(users.router, tags=["Web Users"])
+
 
