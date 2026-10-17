@@ -226,3 +226,8 @@ __marimo__/
 
 # Test screenshots
 tests/screenshots/
+
+# Go artifacts
+bin/
+*.exe
+mini-aigw

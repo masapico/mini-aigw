@@ -1,0 +1,78 @@
+{{define "users_table.html"}}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>ユーザー名</th>
+        <th>表示名 / メール</th>
+        <th>認証方式</th>
+        <th>ロール</th>
+        <th>所属グループ</th>
+        <th>登録日時</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Users}}
+      <tr class="border-bottom" id="user-row-{{.ID}}">
+        <td class="fw-semibold text-dark">
+          <div class="d-flex align-items-center gap-2">
+            <span>👤</span>
+            <span>{{.Username}}</span>
+          </div>
+        </td>
+        <td>
+          <div>{{if .DisplayName}}{{.DisplayName}}{{else}}-{{end}}</div>
+          {{if .Email}}
+          <div class="text-muted small">{{.Email}}</div>
+          {{end}}
+        </td>
+        <td>
+          <span class="badge-pill-modern {{if eq .AuthType "oidc"}}badge-group{{else}}bg-secondary text-white{{end}}">
+            {{.AuthType}}
+          </span>
+        </td>
+        <td>
+          {{range .GetRoles}}
+          <span class="badge-pill-modern {{if eq . "admin"}}bg-primary text-white{{else}}bg-light text-dark border{{end}}">
+            {{.}}
+          </span>
+          {{end}}
+        </td>
+        <td>
+          <div class="d-flex flex-wrap gap-1">
+            {{range .GetGroups}}
+            <span class="badge-pill-modern badge-group">{{.}}</span>
+            {{else}}
+            <span class="text-muted small">-</span>
+            {{end}}
+          </div>
+        </td>
+        <td class="text-muted small">
+          {{formatTime .CreatedAt}}
+        </td>
+        <td class="text-end">
+          <div class="d-inline-flex gap-1">
+            {{if and $.CurrentUser (ne .ID $.CurrentUser.ID)}}
+            <button
+              class="btn-modern-danger py-1 px-2"
+              style="font-size: 0.82rem;"
+              hx-delete="/users/{{.ID}}"
+              hx-confirm="ユーザー「{{.Username}}」を削除しますか？"
+              hx-target="#user-row-{{.ID}}"
+              hx-swap="outerHTML"
+            >
+              削除
+            </button>
+            {{else}}
+            <span class="badge-pill-modern badge-group px-2" style="font-size: 0.82rem;">自分</span>
+            {{end}}
+          </div>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+

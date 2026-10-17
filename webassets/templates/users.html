@@ -1,0 +1,200 @@
+{{template "base" .}}
+
+{{define "title"}}ユーザー・グループ管理 - mini-aigw{{end}}
+
+{{define "content"}}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+  <div>
+    <h3 class="fw-bold mb-1">ユーザー & グループ管理</h3>
+    <p class="text-muted small mb-0">
+      ローカルユーザーアカウントの発行、ロール割り当て、およびグループ（S3 Vectors 分離）の動的管理
+    </p>
+  </div>
+</div>
+
+<ul class="nav nav-pills mb-4 gap-2" id="userMgmtTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button
+      class="nav-link active rounded-pill px-4 fw-semibold"
+      id="users-tab"
+      data-bs-toggle="pill"
+      data-bs-target="#users-panel"
+      type="button"
+      role="tab"
+    >
+      ユーザー一覧・作成
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button
+      class="nav-link rounded-pill px-4 fw-semibold"
+      id="groups-tab"
+      data-bs-toggle="pill"
+      data-bs-target="#groups-panel"
+      type="button"
+      role="tab"
+    >
+      グループ管理
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content" id="userMgmtTabsContent">
+  <!-- 1. ユーザー管理タブ -->
+  <div class="tab-pane fade show active" id="users-panel" role="tabpanel">
+    <div class="modern-card mb-4">
+      <h5 class="fw-bold mb-3">新規ローカルユーザー作成</h5>
+      <form
+        id="create-user-form"
+        hx-post="/users/create"
+        hx-target="#users-table-container"
+        hx-swap="innerHTML"
+        hx-indicator="#create-user-spinner"
+        onsubmit="setTimeout(() => { document.getElementById('new-password-input').value = ''; document.getElementById('new-username-input').value = ''; }, 300)"
+      >
+        <div class="row g-3 mb-3 align-items-start">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">ユーザー名 <span class="text-danger">*</span></label>
+            <input
+              type="text"
+              class="form-control form-control-modern"
+              name="username"
+              id="new-username-input"
+              placeholder="例: tanaka"
+              required
+            >
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">初期パスワード <span class="text-danger">*</span></label>
+            <input
+              type="password"
+              class="form-control form-control-modern"
+              name="password"
+              id="new-password-input"
+              placeholder="8文字以上推奨"
+              required
+            >
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">表示名 (任意)</label>
+            <input
+              type="text"
+              class="form-control form-control-modern"
+              name="display_name"
+              placeholder="例: 田中 太郎"
+            >
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">メールアドレス (任意)</label>
+            <input
+              type="email"
+              class="form-control form-control-modern"
+              name="email"
+              placeholder="例: tanaka@example.com"
+            >
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3 align-items-start">
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary mb-1">管理者権限ロール</label>
+            <div class="form-check form-switch mt-1">
+              <input class="form-check-input" type="checkbox" name="is_admin" value="true" id="isAdminSwitch">
+              <label class="form-check-label small" for="isAdminSwitch">admin ロールを付与する</label>
+            </div>
+          </div>
+          <div class="col-12 col-md-8">
+            <label class="form-label small fw-semibold text-secondary mb-1">所属グループ (アクセス許可範囲)</label>
+            <div class="d-flex flex-wrap gap-2 p-2 border rounded-3 bg-white">
+              {{range .Groups}}
+              <label class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
+                <input class="form-check-input m-0" type="checkbox" name="groups" value="{{.Name}}">
+                <span>{{.DisplayName}} ({{.Name}})</span>
+              </label>
+              {{end}}
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end">
+          <button type="submit" class="btn-modern-primary px-4 py-2">
+            <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="create-user-spinner" role="status"></span>
+            ユーザーを作成
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="modern-card p-0 overflow-hidden">
+      <div class="p-3 border-bottom bg-white">
+        <h6 class="fw-bold mb-0">登録ユーザー一覧</h6>
+      </div>
+      <div id="users-table-container">
+        {{template "users_table.html" .}}
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. グループ管理タブ -->
+  <div class="tab-pane fade" id="groups-panel" role="tabpanel">
+    <div class="modern-card mb-4">
+      <h5 class="fw-bold mb-3">新規グループ作成</h5>
+      <form
+        hx-post="/groups/create"
+        hx-target="#groups-table-container"
+        hx-swap="innerHTML"
+        hx-indicator="#group-spinner"
+      >
+        <div class="row g-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary">グループ識別名 (半角英数小文字) <span class="text-danger">*</span></label>
+            <input
+              type="text"
+              class="form-control form-control-modern font-monospace"
+              name="name"
+              placeholder="例: sales, dev, hr"
+              required
+              pattern="^[a-z0-9_-]+$"
+            >
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary">表示名 <span class="text-danger">*</span></label>
+            <input
+              type="text"
+              class="form-control form-control-modern"
+              name="display_name"
+              placeholder="例: 営業本部 ナレッジ"
+              required
+            >
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary">説明 (任意)</label>
+            <input
+              type="text"
+              class="form-control form-control-modern"
+              name="description"
+              placeholder="例: 提案書・営業マニュアル"
+            >
+          </div>
+          <div class="col-12 d-flex justify-content-end">
+            <button type="submit" class="btn-modern-primary px-4 py-2">
+              <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="group-spinner" role="status"></span>
+              グループを作成
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="modern-card p-0 overflow-hidden">
+      <div class="p-3 border-bottom bg-white">
+        <h6 class="fw-bold mb-0">ナレッジ分離グループ一覧</h6>
+      </div>
+      <div id="groups-table-container">
+        {{template "groups_table.html" .}}
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+

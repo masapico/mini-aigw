@@ -45,38 +45,62 @@
 
 ## 2. 必要要件 (Requirements)
 
+### Go 版（推奨：単一バイナリ・閉域Windows/Linuxデプロイ）
+- **Go**: 1.22+（ビルド環境のみ。デプロイ先サーバーにはランタイムのインストールは不要）
+- **AWS 資格情報**: EC2 インスタンスプロファイル、または `~/.aws/credentials` / 環境変数（Bedrock Runtime, Bedrock Agent Runtime, S3 操作権限）
+- **ドキュメント抽出ツール（任意）**: [xberg CLI](https://github.com/xberg-io/xberg)（PDF/Office等の高度なMarkdown抽出を行う場合に配置。未配置時は自動的にセキュアなUTF-8平文フォールバックが稼働）
+
+### Python 版（リファレンス実装）
 - **Python**: 3.12+ (Python 3.14 対応確認済み)
 - **パッケージマネージャ**: `uv` または `mise`
-- **AWS 資格情報**: EC2 インスタンスプロファイル、または `~/.aws/credentials` / 環境変数（Bedrock Runtime, Bedrock Agent Runtime, S3 操作権限）
 
 ---
 
-## 3. セットアップ手順
+## 3. Go 単一バイナリのビルドと起動手順（推奨）
 
-### 3.1 仮想環境の作成と依存関係のインストール
+mini-aigw は CGO フリー（`modernc.org/sqlite` 採用）かつ HTML テンプレート・静的 UI アセット（Bootstrap 5.3 + HTMX 2.x）をバイナリ内部に完全内包（Go `embed.FS`）しているため、外部依存なしの単一バイナリとして動作します。
+
+### 3.1 ローカル環境でのビルド & 実行
 
 ```bash
-# リポジトリ直下に移動
-cd /path/to/mini-aigw
+# ビルド (bin/mini-aigw が生成されます)
+make build
 
-# 仮想環境作成 (.venv がない場合)
-uv venv --python 3.14 .venv
-# または mise 経由:
-# mise exec python@3.14 -- python -m venv .venv
-
-# 依存関係のインストール
-.venv/bin/python -m pip install -e ".[dev]"
-# または uv 経由:
-# uv pip install -e ".[dev]" --python .venv/bin/python
+# 実行
+./bin/mini-aigw
+# または直接実行:
+make run
 ```
 
-> [!TIP]
-> **本番・閉域（オフライン・エアギャップ）環境へのデプロイ手順**
-> インターネット接続のない本番環境（Linux / Windows）へ依存パッケージを事前に取得・持ち込んで仮想環境を構築する手順については、[閉域・オフライン環境向けパッケージ取得・インストール運用手順書 (docs/OFFLINE_PACKAGE_INSTALL_GUIDE.md)](docs/OFFLINE_PACKAGE_INSTALL_GUIDE.md) を参照してください。
+### 3.2 閉域 Windows 向けクロスコンパイル (`.exe` 生成)
 
-### 3.2 環境変数の設定 (`.env`)
+macOS や Linux 開発環境から、CGO 不要で閉域 Windows 用の実行可能ファイル（約 28MB）を一発で生成できます。
 
-必要に応じてリポジトリルートに `.env` ファイルを作成して設定します。
+```bash
+make build-windows
+# -> dist/mini-aigw.exe が出力されます
+```
+
+生成された `dist/mini-aigw.exe` と `.env`（必要に応じて）を対象の Windows サーバーへコピーし、ダブルクリックまたはコマンドプロンプト／PowerShell からそのまま実行するだけで即座に稼働します（Python や Node.js 等のインストールは一切不要です）。
+
+### 3.3 Linux サーバー向けクロスコンパイル
+
+```bash
+make build-linux
+# -> dist/mini-aigw が出力されます
+```
+
+### 3.4 テスト実行
+
+```bash
+make test
+```
+
+---
+
+## 4. 環境変数の設定 (`.env`)
+
+必要に応じてリポジトリルートまたはバイナリと同一ディレクトリに `.env` ファイルを作成して設定します。
 
 ```env
 # アプリケーション設定
@@ -87,11 +111,15 @@ PORT=8000
 # PUBLIC_BASE_URL=https://aigw.internal:8000  # リバースプロキシやカスタムホスト使用時の原本DLリンク基底URL (未設定時はリクエスト元のbase_urlを自動使用)
 SECRET_KEY=your-secret-key-change-in-production
 
-# SQLite データベース
-DATABASE_URL=sqlite:///data/gateway.db
+# SQLite データベース (自動マイグレーション & WAL モード強制適用)
+DATABASE_URL=sqlite:///data/aigw.db
+
+# ドキュメント抽出 CLI パス (任意: 未指定時は PATH 上の "xberg" を探索、見つからない場合は平文フォールバック)
+# XBERG_PATH=/usr/local/bin/xberg
+# (Windows の場合: XBERG_PATH=C:\tools\xberg.exe)
 
 # AWS 設定
-AWS_REGION=us-east-1
+AWS_REGION=ap-northeast-1
 # AWS_ENDPOINT_URL=http://localhost:4566  # LocalStack または VPC エンドポイント使用時
 BEDROCK_KB_ID=your-bedrock-knowledge-base-id
 BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
@@ -109,40 +137,13 @@ DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0
 
 ---
 
-## 4. 起動コマンド
-
-### 4.1 開発サーバーの起動
-
-```bash
-.venv/bin/uvicorn app.main:app --reload
-```
-
-```Windows console
-.\.venv\Scripts\uvicorn.exe app.main:app --reload
-```
-
-> **補足**: `--reload` はワーカー1つで動作するため、処理が長時間ブロックするとページ更新が応答しなくなることがあります。
-> 同期ステータス取得などの AWS 呼び出しはスレッドプール実行・短タイムアウト化していますが、それでも固まる場合はサーバーを再起動するか、`--reload` なしで `--workers 2` 以上で起動してください。
-
-起動後、コンソールに以下の初期化ログが表示されます:
-- データベーステーブルの自動作成 (`init_db`)
-- 初期管理者アカウントの自動登録（初回起動時のみ）
-
-### 4.2 本番用起動 (マルチワーカー / Gunicorn または Uvicorn)
-
-```bash
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
----
-
 ## 5. Web 管理画面の利用方法
 
 ブラウザで `http://localhost:8000/login` にアクセスします。
 
-### 初期ログインアカウント
+### 初期ログインアカウント（初回自動シード）
 - **ユーザー名**: `admin`
-- **パスワード**: `admin123`
+- **パスワード**: `Password1234`
 
 ### 主要画面
 1. **ダッシュボード (`/`)**:

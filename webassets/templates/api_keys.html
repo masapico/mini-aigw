@@ -1,0 +1,100 @@
+{{template "base" .}}
+
+{{define "title"}}API キー管理 - mini-aigw{{end}}
+
+{{define "content"}}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+  <div>
+    <h3 class="fw-bold mb-1">AIプロキシ APIキー管理</h3>
+    <p class="text-muted small mb-0">
+      OpenAI 互換 <code>/v1/chat/completions</code> 呼び出し用の Bearer トークンを発行・管理します
+    </p>
+  </div>
+</div>
+
+<!-- API キー発行カード -->
+<div class="modern-card mb-4">
+  <h5 class="fw-bold mb-3">新規 API キーの発行</h5>
+  <form
+    hx-post="/api-keys/create"
+    hx-target="#api-keys-container"
+    hx-swap="innerHTML"
+    hx-indicator="#key-spinner"
+    onsubmit="setTimeout(() => { document.getElementById('keyNameInput').value = ''; }, 400)"
+  >
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
+        <input
+          type="text"
+          id="keyNameInput"
+          class="form-control form-control-modern"
+          name="name"
+          placeholder="例: チャットボット (一般利用)"
+          required
+        >
+      </div>
+
+      <div class="col-12 col-md-6">
+        <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (任意)</label>
+        <select name="model_id" id="keyModelSelect" class="form-select form-control-modern">
+          <option value="">指定なし (クライアント指定 / 既定モデル)</option>
+          {{range .AvailableModels}}
+          <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+          {{end}}
+        </select>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          検索を許可するナレッジグループ
+        </label>
+        <div class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-white">
+          {{range .AvailableGroups}}
+          <label class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
+            <input
+              class="form-check-input m-0"
+              type="checkbox"
+              name="allowed_groups"
+              value="{{.}}"
+              {{if eq . "public"}}checked{{end}}
+            >
+            <span>{{.}}</span>
+          </label>
+          {{end}}
+        </div>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          カスタム基底システムプロンプト (任意)
+        </label>
+        <textarea
+          class="form-control form-control-modern font-monospace"
+          name="system_prompt"
+          rows="2"
+          placeholder="例: あなたは社内専用のITヘルプデスクアシスタントです。丁寧な敬語で回答してください。"
+        ></textarea>
+      </div>
+
+      <div class="col-12 d-flex justify-content-end">
+        <button type="submit" class="btn-modern-primary px-4 py-2">
+          <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="key-spinner" role="status"></span>
+          API キーを発行
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- API キー一覧カード -->
+<div class="modern-card p-0 overflow-hidden">
+  <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
+    <h5 class="fw-bold mb-0">発行済み API キー一覧</h5>
+  </div>
+  <div id="api-keys-container">
+    {{template "api_keys_section.html" .}}
+  </div>
+</div>
+{{end}}
+

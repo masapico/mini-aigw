@@ -1,0 +1,388 @@
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  
+  --bg-main: #f8fafc;
+  --bg-card: #ffffff;
+  --border-color: #e2e8f0;
+  --border-focus: #6366f1;
+  
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-light: #eef2ff;
+  
+  --success: #10b981;
+  --success-light: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-light: #fffbeb;
+  --danger: #ef4444;
+  --danger-light: #fef2f2;
+  
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  min-height: 100vh;
+  letter-spacing: -0.01em;
+}
+
+/* Navbar */
+.app-navbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.85rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #1e1b4b;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.brand-badge:hover {
+  color: #1e1b4b;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brand-icon svg {
+  width: 62%;
+  height: 62%;
+  display: block;
+}
+
+.brand-badge:hover .brand-icon {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.4);
+}
+
+.nav-pill-link {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.nav-pill-link:hover {
+  color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.nav-pill-link.active {
+  color: var(--primary);
+  background-color: var(--primary-light);
+  font-weight: 600;
+}
+
+/* Card */
+.modern-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.modern-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Buttons */
+.btn-modern-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-modern-primary:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+}
+
+.btn-modern-secondary {
+  background: #ffffff;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.btn-modern-secondary:hover {
+  background: var(--bg-main);
+  border-color: #cbd5e1;
+}
+
+.btn-modern-danger {
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid #fecaca;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.btn-modern-danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Badges */
+.badge-pill-modern {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.badge-status-synced {
+  background-color: var(--success-light);
+  color: #065f46;
+}
+
+.badge-status-pending {
+  background-color: var(--warning-light);
+  color: #92400e;
+}
+
+.badge-status-s3_uploaded {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-status-deleting {
+  background-color: var(--danger-light);
+  color: #991b1b;
+}
+
+.badge-status-error {
+  background-color: var(--danger-light);
+  color: #991b1b;
+}
+
+.badge-group {
+  background-color: var(--primary-light);
+  color: #3730a3;
+}
+
+/* Forms & Inputs Alignment (水平ズレ防止) */
+.form-control-modern, .form-select-modern {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.92rem;
+  background-color: #ffffff;
+  height: 42px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+select[multiple].form-select-modern {
+  height: auto;
+  min-height: 42px;
+}
+
+.form-control-modern:focus, .form-select-modern:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  outline: none;
+}
+
+/* ファイルインプットの垂直中央補正 & ボタン配置整合 */
+input[type="file"].form-control-modern {
+  height: 42px;
+  padding: 0 0.85rem 0 0;
+  line-height: 40px;
+  overflow: hidden;
+}
+
+input[type="file"].form-control-modern::file-selector-button {
+  height: 40px;
+  padding: 0 0.85rem;
+  margin: 0;
+  margin-inline-end: 0.85rem;
+  border-color: inherit;
+  border-style: solid;
+  border-width: 0;
+  border-inline-end-width: 1px;
+  line-height: 40px;
+  background-color: #f1f5f9;
+  color: var(--text-main);
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+
+input[type="file"].form-control-modern:hover:not(:disabled):not([readonly])::file-selector-button {
+  background-color: #e2e8f0;
+}
+
+/* ボタンと入力コントロールの高さ統一 */
+.btn-modern-primary, .btn-modern-secondary {
+  height: 42px;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+textarea.form-control-modern {
+  height: auto;
+}
+
+/* タグピル (入力+Enterバッジ追加・クリック削除) */
+.tag-pill {
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.tag-pill:hover {
+  background-color: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #b91c1c !important;
+}
+
+/* Drag & Drop Upload Zone */
+.dropzone-container {
+  border: 2px dashed #cbd5e1;
+  border-radius: var(--radius-lg);
+  background-color: #f8fafc;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dropzone-container:hover, .dropzone-container.dragover {
+  border-color: var(--primary);
+  background-color: #f5f3ff;
+}
+
+/* HTMX Loading Indicator */
+.htmx-indicator {
+  display: none;
+}
+.htmx-request .htmx-indicator {
+  display: inline-block;
+}
+.htmx-request.htmx-indicator {
+  display: inline-block;
+}
+
+/* Chat bubble & citation */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.chat-bubble-user {
+  align-self: flex-end;
+  max-width: 80%;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: #ffffff;
+  padding: 0.85rem 1.25rem;
+  border-radius: 16px 16px 4px 16px;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.chat-bubble-assistant {
+  align-self: flex-start;
+  max-width: 85%;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 1.25rem;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.citation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  margin-right: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+/* Code & Pre */
+pre, code {
+  font-family: var(--font-mono);
+}
+
+.code-badge {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: #f1f5f9;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+

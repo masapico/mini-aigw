@@ -1,0 +1,99 @@
+{{define "models_section.html"}}
+{{if .Error}}
+<div class="alert alert-danger border-0 rounded-3 p-3 mb-4 d-flex align-items-center shadow-sm">
+  <div class="fw-semibold text-danger">⚠️ {{.Error}}</div>
+</div>
+{{end}}
+
+{{if .Success}}
+<div class="alert alert-success border-0 rounded-3 p-3 mb-4 d-flex align-items-center shadow-sm">
+  <div class="fw-semibold text-success">✅ {{.Success}}</div>
+</div>
+{{end}}
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>表示名</th>
+        <th>モデル ID (API識別子)</th>
+        <th>プロバイダ</th>
+        <th>状態</th>
+        <th>デフォルト</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range $i, $m := .Models}}
+      <tr class="border-bottom" id="model-row-{{$i}}">
+        <td>
+          <div class="fw-semibold text-dark">{{$m.Name}}</div>
+          {{if $m.Description}}
+          <div class="text-muted small" style="font-size: 0.8rem;">{{$m.Description}}</div>
+          {{end}}
+        </td>
+        <td class="font-monospace text-muted small">{{$m.ID}}</td>
+        <td>
+          <span class="badge-pill-modern badge-group">{{$m.Provider}}</span>
+        </td>
+        <td>
+          {{if $m.IsActive}}
+          <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
+            ● 有効
+          </span>
+          {{else}}
+          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill">
+            ○ 無効
+          </span>
+          {{end}}
+        </td>
+        <td>
+          {{if $m.IsDefault}}
+          <span class="badge bg-primary px-2 py-1 rounded-pill">既定</span>
+          {{else}}
+          <button
+            class="btn btn-sm btn-outline-secondary py-0 px-2"
+            style="font-size: 0.75rem;"
+            hx-post="/models/{{$m.ID}}/default"
+            hx-target="#models-container"
+            hx-swap="innerHTML"
+          >
+            既定にする
+          </button>
+          {{end}}
+        </td>
+        <td class="text-end">
+          <div class="d-flex justify-content-end gap-1">
+            <button
+              class="btn-modern-secondary py-1 px-2"
+              style="font-size: 0.8rem;"
+              hx-post="/models/{{$m.ID}}/toggle"
+              hx-target="#models-container"
+              hx-swap="innerHTML"
+            >
+              {{if $m.IsActive}}無効化{{else}}有効化{{end}}
+            </button>
+            <button
+              class="btn-modern-danger py-1 px-2"
+              style="font-size: 0.8rem;"
+              hx-delete="/models/{{$m.ID}}"
+              hx-confirm="モデル「{{$m.Name}}」を削除しますか？"
+              hx-target="#model-row-{{$i}}"
+              hx-swap="outerHTML"
+            >
+              削除
+            </button>
+          </div>
+        </td>
+      </tr>
+      {{else}}
+      <tr>
+        <td colspan="6" class="text-center py-5 text-muted">
+          登録された LLM モデルはありません。上部から新しく登録してください。
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

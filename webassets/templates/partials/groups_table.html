@@ -1,0 +1,54 @@
+{{define "groups_table.html"}}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
+    <thead class="table-light border-bottom">
+      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+        <th>グループ識別名</th>
+        <th>表示名</th>
+        <th>説明</th>
+        <th>登録日時</th>
+        <th class="text-end">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Groups}}
+      <tr class="border-bottom" id="group-row-{{.ID}}">
+        <td class="fw-semibold">
+          <span class="badge-pill-modern badge-group font-monospace">{{.Name}}</span>
+        </td>
+        <td class="fw-semibold text-dark">
+          {{.DisplayName}}
+        </td>
+        <td class="text-muted small">
+          {{if .Description}}{{.Description}}{{else}}-{{end}}
+        </td>
+        <td class="text-muted small">
+          {{formatTime .CreatedAt}}
+        </td>
+        <td class="text-end">
+          <div class="d-inline-flex gap-1">
+            <button
+              class="btn-modern-danger py-1 px-2"
+              style="font-size: 0.82rem;"
+              hx-delete="/groups/{{.ID}}"
+              hx-confirm="グループ「{{.DisplayName}} ({{.Name}})」を削除しますか？"
+              hx-target="#group-row-{{.ID}}"
+              hx-swap="outerHTML"
+            >
+              削除
+            </button>
+          </div>
+        </td>
+      </tr>
+      {{else}}
+      <tr>
+        <td colspan="5" class="text-center py-4 text-muted">
+          登録されたグループはありません。
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+

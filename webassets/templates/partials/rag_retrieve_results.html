@@ -1,0 +1,69 @@
+{{define "rag_retrieve_results.html"}}
+<div class="mt-4">
+  {{if .Error}}
+  <div class="alert alert-danger d-flex flex-column gap-2 p-3 mb-3 rounded-3" role="alert">
+    <div class="d-flex align-items-center gap-2 fw-bold">
+      <span>⚠️</span>
+      <span>ナレッジベース検索エラーが発生しました</span>
+    </div>
+    <div class="font-monospace small text-break p-2 bg-white rounded border border-danger-subtle text-danger">{{.Error}}</div>
+  </div>
+  {{else}}
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h6 class="fw-bold mb-0">検索結果 ({{len .Results}} 件取得)</h6>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      {{if .SelectedTag}}
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace">
+        Tag Filter: #{{.SelectedTag}}
+      </span>
+      {{end}}
+      <span class="badge-pill-modern badge-group">
+        {{if eq .Group "public"}}
+        Filter: public (全社共通)
+        {{else}}
+        Filter: {{.Group}} + public (共通)
+        {{end}}
+      </span>
+    </div>
+  </div>
+
+  {{if .Results}}
+  <div class="d-flex flex-column gap-3">
+    {{range .Results}}
+    <div class="p-3 rounded-3 border" style="background-color: #ffffff; border-color: #e2e8f0 !important;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-pill-modern badge-group font-monospace">
+            {{index .Metadata "group"}}
+          </span>
+          <span class="fw-bold" style="font-size: 0.92rem;">
+            {{if index .Metadata "filename"}}{{index .Metadata "filename"}}{{else}}Document{{end}}
+          </span>
+          {{$tags := index .Metadata "tags"}}
+          {{if $tags}}
+            {{range $tags}}
+            <span class="badge bg-light text-dark border" style="font-size: 0.72rem;">#{{.}}</span>
+            {{end}}
+          {{end}}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="text-muted small">Score:</span>
+          <span class="badge rounded-pill bg-light text-dark border font-monospace">
+            {{formatScore .Score}}
+          </span>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-2 text-secondary mb-2" style="background-color: #f8fafc; font-size: 0.88rem; white-space: pre-wrap; line-height: 1.5;">{{.Content}}</div>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="p-4 text-center text-muted border rounded-3 bg-white">
+    該当するナレッジチャンクは見つかりませんでした（グループ: <strong>{{.Group}}</strong> の範囲で検索）。
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+

@@ -1,0 +1,82 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{block "title" .}}mini-aigw{{end}}</title>
+  
+  <!-- 完全閉域ローカル静的配信 (外部CDN禁止) -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="stylesheet" href="/static/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  
+  <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js" defer></script>
+  <script src="/static/vendor/htmx/htmx.min.js"></script>
+  {{block "extra_head" .}}{{end}}
+</head>
+<body>
+  <!-- ナビゲーションバー -->
+  <header class="app-navbar">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-4">
+        <a href="/" class="brand-badge">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
+              <circle cx="19" cy="6" r="2" fill="currentColor" stroke="none" />
+              <circle cx="19" cy="18" r="2" fill="currentColor" stroke="none" />
+              <path d="M7.5 12h3c2 0 3.5-5 5.5-6h2" />
+              <path d="M7.5 12h3c2 0 3.5 5 5.5 6h2" />
+            </svg>
+          </div>
+          <span>mini-aigw</span>
+        </a>
+        {{if .User}}
+        <nav class="d-flex align-items-center gap-1">
+          <a href="/" class="nav-pill-link {{if eq .CurrentPath "/"}}active{{end}}">ダッシュボード</a>
+          <a href="/knowledge" class="nav-pill-link {{if eq .CurrentPath "/knowledge"}}active{{end}}">ナレッジ管理</a>
+          <a href="/rag-test" class="nav-pill-link {{if eq .CurrentPath "/rag-test"}}active{{end}}">RAGテスト</a>
+          {{if hasRole .User "admin"}}
+          <a href="/api-keys" class="nav-pill-link {{if eq .CurrentPath "/api-keys"}}active{{end}}">APIキー</a>
+          <a href="/models" class="nav-pill-link {{if eq .CurrentPath "/models"}}active{{end}}">モデル管理</a>
+          <a href="/users" class="nav-pill-link {{if eq .CurrentPath "/users"}}active{{end}}">ユーザー・グループ管理</a>
+          {{end}}
+        </nav>
+        {{end}}
+      </div>
+      
+      <div>
+        {{if .User}}
+        <div class="d-flex align-items-center gap-3">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge-pill-modern badge-group">
+              {{if eq .User.AuthType "oidc"}}SSO (OIDC){{else}}Local{{end}}
+            </span>
+            <span class="fw-semibold text-secondary" style="font-size: 0.9rem;">
+              {{.User.GetEffectiveName}}
+            </span>
+          </div>
+          <a href="/logout" class="btn-modern-secondary text-decoration-none px-3" style="font-size: 0.85rem;">
+            ログアウト
+          </a>
+        </div>
+        {{else}}
+        <a href="/login" class="btn-modern-primary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
+          ログイン
+        </a>
+        {{end}}
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="container-fluid px-4 py-4" style="max-width: 1400px;">
+    {{block "content" .}}{{end}}
+  </main>
+
+  {{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}
+

@@ -1,0 +1,173 @@
+{{template "base" .}}
+
+{{define "title"}}RAG テスト - mini-aigw{{end}}
+
+{{define "content"}}
+<div class="mb-4 d-flex justify-content-between align-items-center">
+  <div>
+    <h3 class="fw-bold mb-1">
+      {{if .IsAdmin}}
+      RAG 動作検証・テスト
+      {{else}}
+      ナレッジ検索・単体検証 (Retrieve)
+      {{end}}
+    </h3>
+    <p class="text-muted small mb-0">
+      {{if .IsAdmin}}
+      S3 Vectors プリフィルタリング（権限分離）と Bedrock Converse API 引用元連携のリアルタイム確認
+      {{else}}
+      登録したナレッジが正しく検索ヒットするか、スコアとチャンク内容を単体確認できます
+      {{end}}
+    </p>
+  </div>
+  <span class="badge-pill-modern badge-group font-monospace">KB ID: {{.Config.BedrockKBID}}</span>
+</div>
+
+{{if .IsAdmin}}
+<ul class="nav nav-pills mb-4 gap-2" id="ragTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button
+      class="nav-link active rounded-pill px-4 fw-semibold"
+      id="retrieve-tab"
+      data-bs-toggle="pill"
+      data-bs-target="#retrieve-panel"
+      type="button"
+      role="tab"
+    >
+      ナレッジ検索単体 (Retrieve)
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button
+      class="nav-link rounded-pill px-4 fw-semibold"
+      id="chat-tab"
+      data-bs-toggle="pill"
+      data-bs-target="#chat-panel"
+      type="button"
+      role="tab"
+    >
+      対話シミュレーション (Converse + RAG)
+    </button>
+  </li>
+</ul>
+{{end}}
+
+<div class="tab-content" id="ragTabsContent">
+  <!-- 1. Retrieve 単体タブ -->
+  <div class="tab-pane fade show active" id="retrieve-panel" role="tabpanel">
+    <div class="modern-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">ナレッジ検索単体テスト (Retrieve API)</h5>
+        <span class="text-muted small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
+      </div>
+      <form
+        hx-post="/rag-test/retrieve"
+        hx-target="#retrieve-results-box"
+        hx-indicator="#retrieve-spinner"
+      >
+        <div class="row g-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">
+              対象グループ (Pre-filtering)
+            </label>
+            <select class="form-select form-select-modern" name="group">
+              {{range .Groups}}
+              <option value="{{.}}" {{if eq . "public"}}selected{{end}}>{{.}}</option>
+              {{end}}
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold text-secondary">
+              タグ絞り込み
+            </label>
+            <select class="form-select form-select-modern" name="tag">
+              <option value="">自動判定 / 全タグ対象</option>
+              {{range .AvailableTags}}
+              <option value="{{.}}">#{{.}}</option>
+              {{end}}
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small fw-semibold text-secondary">検索クエリ (質問文)</label>
+            <div class="input-group">
+              <input
+                type="text"
+                class="form-control form-control-modern"
+                name="query"
+                required
+                placeholder="例: 有給休暇の申請手続きについて教えてください"
+              >
+              <button type="submit" class="btn-modern-primary">
+                <span class="spinner-border spinner-border-sm htmx-indicator" id="retrieve-spinner" role="status"></span>
+                検索
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div id="retrieve-results-box"></div>
+    </div>
+  </div>
+
+  {{if .IsAdmin}}
+  <!-- 2. Chat シミュレーションタブ -->
+  <div class="tab-pane fade" id="chat-panel" role="tabpanel">
+    <div class="modern-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">RAG 対話シミュレーター</h5>
+        <span class="text-muted small">Bedrock Converse API + ナレッジ検索 (Tool Use) の対話テスト</span>
+      </div>
+
+      <form
+        hx-post="/rag-test/chat"
+        hx-target="#chat-history-box"
+        hx-swap="beforeend"
+        hx-indicator="#chat-spinner"
+      >
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary">AI モデル</label>
+            <select class="form-select form-select-modern" name="model_id">
+              {{range .Models}}
+              <option value="{{.ID}}" {{if .IsDefault}}selected{{end}}>
+                {{.Name}} ({{.ID}})
+              </option>
+              {{end}}
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold text-secondary">検索対象グループ</label>
+            <select class="form-select form-select-modern" name="group">
+              {{range .Groups}}
+              <option value="{{.}}" {{if eq . "public"}}selected{{end}}>{{.}}</option>
+              {{end}}
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-secondary">質問内容</label>
+          <div class="input-group">
+            <input
+              type="text"
+              class="form-control form-control-modern"
+              name="query"
+              required
+              placeholder="例: 就業規則における慶弔休暇の規定はどうなっていますか？"
+            >
+            <button type="submit" class="btn-modern-primary">
+              <span class="spinner-border spinner-border-sm htmx-indicator" id="chat-spinner" role="status"></span>
+              送信
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div id="chat-history-box" class="mt-4 border-top pt-3"></div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
