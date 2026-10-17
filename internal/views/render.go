@@ -44,6 +44,12 @@ func InitRenderer() (*Renderer, error) {
 			}
 			return false
 		},
+		"canDeleteDoc": func(u *models.User, doc *models.KnowledgeDocument) bool {
+			if doc == nil {
+				return false
+			}
+			return doc.CanDelete(u)
+		},
 		"formatTime": func(v interface{}) string {
 			if v == nil {
 				return "-"

@@ -189,6 +189,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .badge-status-synced {

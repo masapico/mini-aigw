@@ -78,3 +78,37 @@ func (k *KnowledgeDocument) SetTags(tags []string) {
 	k.Tags = &str
 }
 
+// CanDelete checks if the specified user is allowed to delete this document.
+func (k *KnowledgeDocument) CanDelete(user *User) bool {
+	if user == nil {
+		return false
+	}
+	if user.HasRole("admin") {
+		return true
+	}
+	if k.UploaderID != nil && *k.UploaderID == user.ID {
+		return true
+	}
+	return false
+}
+
+// GetUploaderID safely returns the string value of UploaderID (or empty string if nil).
+func (k *KnowledgeDocument) GetUploaderID() string {
+	if k.UploaderID == nil {
+		return ""
+	}
+	return *k.UploaderID
+}
+
+// GetUploaderDisplayName returns the uploader's display name, username, or fallback.
+func (k *KnowledgeDocument) GetUploaderDisplayName() string {
+	if k.Uploader != nil {
+		return k.Uploader.GetEffectiveName()
+	}
+	if k.UploaderID != nil && *k.UploaderID != "" {
+		return *k.UploaderID
+	}
+	return "-"
+}
+
+

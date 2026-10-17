@@ -229,6 +229,37 @@ func (s *KnowledgeService) GetLatestIngestionJobStatus(ctx context.Context, kbID
 	return res, nil
 }
 
+// SyncCompletedDocuments updates pending documents (S3_UPLOADED) created prior to the completed job to SYNCED.
+func (s *KnowledgeService) SyncCompletedDocuments(ctx context.Context, job *IngestionJobStatus) (int64, error) {
+	if job == nil || job.Status != "COMPLETE" {
+		return 0, nil
+	}
+
+	jobTime := job.StartedAt
+	if jobTime == nil {
+		jobTime = job.UpdatedAt
+	}
+	if jobTime == nil {
+		return 0, nil
+	}
+
+	// Add 5-second buffer to absorb minor clock skew between server and AWS, converted to UTC string
+	adjustedTime := jobTime.Add(5 * time.Second).UTC().Format("2006-01-02 15:04:05")
+
+	res := s.db.WithContext(ctx).
+		Model(&models.KnowledgeDocument{}).
+		Where("sync_status = ? AND datetime(created_at) <= datetime(?)", "S3_UPLOADED", adjustedTime).
+		Update("sync_status", "SYNCED")
+	if res.Error != nil {
+		log.Printf("Failed to sync completed documents: %v", res.Error)
+		return 0, res.Error
+	}
+	if res.RowsAffected > 0 {
+		log.Printf("Marked %d documents as SYNCED for completed job %s (jobTime: %s)", res.RowsAffected, job.JobID, adjustedTime)
+	}
+	return res.RowsAffected, nil
+}
+
 func (s *KnowledgeService) DeleteKnowledgeDocument(ctx context.Context, docID string) error {
 	var doc models.KnowledgeDocument
 	if err := s.db.First(&doc, "id = ?", docID).Error; err != nil {

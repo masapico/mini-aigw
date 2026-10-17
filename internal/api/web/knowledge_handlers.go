@@ -83,7 +83,10 @@ func (h *KnowledgeHandler) ShowKnowledge(w http.ResponseWriter, r *http.Request)
 	data["Groups"] = groups
 	data["FilterGroups"] = filterGroups
 
-	_ = h.renderer.Render(w, "knowledge.html", data)
+	if err := h.renderer.Render(w, "knowledge.html", data); err != nil {
+		log.Printf("Failed to render knowledge.html: %v", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
 }
 
 func (h *KnowledgeHandler) RenderTable(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +114,10 @@ func (h *KnowledgeHandler) RenderTable(w http.ResponseWriter, r *http.Request) {
 	data["User"] = user
 	data["IsAdmin"] = isAdmin
 
-	_ = h.renderer.RenderPartial(w, "knowledge_table.html", data)
+	if err := h.renderer.RenderPartial(w, "knowledge_table.html", data); err != nil {
+		log.Printf("Failed to render knowledge_table.html: %v", err)
+		http.Error(w, "Failed to render table", http.StatusInternalServerError)
+	}
 }
 
 func (h *KnowledgeHandler) buildTableData(r *http.Request, user *models.User, isAdmin bool, filterGroups []string) map[string]interface{} {
@@ -157,7 +163,7 @@ func (h *KnowledgeHandler) buildTableData(r *http.Request, user *models.User, is
 
 	var documents []models.KnowledgeDocument
 	offset := (page - 1) * pageSize
-	query.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&documents)
+	query.Preload("Uploader").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&documents)
 
 	startIdx := offset + 1
 	endIdx := offset + len(documents)
@@ -307,7 +313,7 @@ func (h *KnowledgeHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Permission: admin or uploader
-	if !user.HasRole("admin") && (doc.UploaderID == nil || *doc.UploaderID != user.ID) {
+	if !doc.CanDelete(user) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -333,8 +339,16 @@ func (h *KnowledgeHandler) GetSyncStatus(w http.ResponseWriter, r *http.Request)
 			"IsAdmin":   isAdmin,
 			"SyncError": fmt.Sprintf("ステータス取得失敗: %v", err),
 		}
-		_ = h.renderer.RenderPartial(w, "knowledge_sync_status.html", data)
+		if err := h.renderer.RenderPartial(w, "knowledge_sync_status.html", data); err != nil {
+			log.Printf("Failed to render sync status partial: %v", err)
+			http.Error(w, "Failed to render sync status", http.StatusInternalServerError)
+		}
 		return
+	}
+
+	if jobStatus != nil && jobStatus.Status == "COMPLETE" {
+		_, _ = h.knowledgeService.SyncCompletedDocuments(r.Context(), jobStatus)
+		w.Header().Set("HX-Trigger", "refreshKnowledgeTable")
 	}
 
 	isSyncing := jobStatus.Status == "IN_PROGRESS" || jobStatus.Status == "STARTING"
@@ -344,7 +358,10 @@ func (h *KnowledgeHandler) GetSyncStatus(w http.ResponseWriter, r *http.Request)
 		"IsSyncing":     isSyncing,
 		"LatestSyncJob": jobStatus,
 	}
-	_ = h.renderer.RenderPartial(w, "knowledge_sync_status.html", data)
+	if err := h.renderer.RenderPartial(w, "knowledge_sync_status.html", data); err != nil {
+		log.Printf("Failed to render sync status partial: %v", err)
+		http.Error(w, "Failed to render sync status", http.StatusInternalServerError)
+	}
 }
 
 func (h *KnowledgeHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
@@ -361,7 +378,10 @@ func (h *KnowledgeHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
 			"IsAdmin":   true,
 			"SyncError": fmt.Sprintf("同期ジョブ開始失敗: %v", err),
 		}
-		_ = h.renderer.RenderPartial(w, "knowledge_sync_status.html", data)
+		if err := h.renderer.RenderPartial(w, "knowledge_sync_status.html", data); err != nil {
+			log.Printf("Failed to render sync status partial: %v", err)
+			http.Error(w, "Failed to render sync status", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -372,7 +392,10 @@ func (h *KnowledgeHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
 		"JustStartedJobID":  jobID,
 		"LatestSyncJob":     &services.IngestionJobStatus{JobID: jobID, Status: status},
 	}
-	_ = h.renderer.RenderPartial(w, "knowledge_sync_status.html", data)
+	if err := h.renderer.RenderPartial(w, "knowledge_sync_status.html", data); err != nil {
+		log.Printf("Failed to render sync status partial: %v", err)
+		http.Error(w, "Failed to render sync status", http.StatusInternalServerError)
+	}
 }
 
 func (h *KnowledgeHandler) HandleDownload(w http.ResponseWriter, r *http.Request) {

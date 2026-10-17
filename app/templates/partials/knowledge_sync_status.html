@@ -3,7 +3,7 @@
   class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-light rounded-3 border"
   {% if is_syncing %}
   hx-get="/knowledge/sync/status"
-  hx-trigger="every 3s"
+  hx-trigger="every 10s"
   hx-target="#kb-sync-status-container"
   hx-swap="innerHTML"
   {% endif %}

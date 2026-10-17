@@ -33,8 +33,8 @@
           <span class="badge-pill-modern badge-group">{{.GroupName}}</span>
         </td>
         <td>
-          <span class="badge bg-light text-dark border px-2 py-1 font-monospace" style="font-size: 0.8rem;">
-            {{if .UploaderID}}{{.UploaderID}}{{else}}-{{end}}
+          <span class="badge bg-light text-dark border px-2 py-1" style="font-size: 0.82rem;">
+            {{.GetUploaderDisplayName}}
           </span>
         </td>
         <td>
@@ -49,7 +49,7 @@
         <td class="text-muted small text-nowrap">
           {{formatSize .FileSize}}
         </td>
-        <td>
+        <td class="text-nowrap">
           {{if eq .SyncStatus "S3_UPLOADED"}}
           <span class="badge-pill-modern badge-status-s3_uploaded" title="S3 キー: {{.S3Key}}">
             <span>S3保管</span>
@@ -68,7 +68,7 @@
           {{formatTime .CreatedAt}}
         </td>
         <td class="text-end text-nowrap">
-          {{if or $.IsAdmin (and $.User (eq .UploaderID $.User.ID))}}
+          {{if .CanDelete $.User}}
           <button
             class="btn-modern-danger py-1 px-2 d-inline-flex align-items-center gap-1"
             style="font-size: 0.82rem;"

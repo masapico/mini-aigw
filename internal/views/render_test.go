@@ -100,3 +100,119 @@ func TestRenderer_RenderKnowledgeSyncStatus(t *testing.T) {
 	}
 }
 
+func TestRenderer_RenderKnowledge_NonAdminUser(t *testing.T) {
+	r, err := InitRenderer()
+	if err != nil {
+		t.Fatalf("InitRenderer failed: %v", err)
+	}
+
+	regularUser := &models.User{
+		ID:       "user-123",
+		Username: "regular_user",
+		Roles:    `["user"]`,
+		Groups:   `["group000"]`,
+	}
+
+	adminUploader := &models.User{
+		ID:          "admin-uuid",
+		Username:    "admin",
+		DisplayName: stringPtr("System Admin"),
+		Roles:       `["admin"]`,
+	}
+
+	adminID := "admin-uuid"
+	user123ID := "user-123"
+	docs := []models.KnowledgeDocument{
+		{
+			ID:          "doc-admin",
+			Filename:    "guideline.pdf",
+			FileSize:    1024 * 1024,
+			ContentType: "application/pdf",
+			GroupName:   "public",
+			UploaderID:  &adminID,
+			Uploader:    adminUploader,
+			SyncStatus:  "SYNCED",
+			CreatedAt:   time.Now().Add(-1 * time.Hour),
+		},
+		{
+			ID:          "doc-user",
+			Filename:    "my_report.docx",
+			FileSize:    500 * 1024,
+			ContentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+			GroupName:   "group000",
+			UploaderID:  &user123ID,
+			Uploader:    regularUser,
+			SyncStatus:  "S3_UPLOADED",
+			CreatedAt:   time.Now(),
+		},
+		{
+			ID:          "doc-no-uploader",
+			Filename:    "system_imported.txt",
+			FileSize:    1234,
+			ContentType: "text/plain",
+			GroupName:   "public",
+			UploaderID:  nil,
+			Uploader:    nil,
+			SyncStatus:  "SYNCED",
+			CreatedAt:   time.Now(),
+		},
+	}
+
+	data := map[string]interface{}{
+		"User":           regularUser,
+		"IsAdmin":        false,
+		"CurrentPath":    "/knowledge",
+		"Bucket":         "test-kb-bucket",
+		"Groups":         []models.Group{{Name: "group000", DisplayName: "営業部"}},
+		"FilterGroups":   []string{"public", "group000"},
+		"Documents":      docs,
+		"TotalCount":     int64(len(docs)),
+		"Page":           1,
+		"PageSize":       10,
+		"TotalPages":     1,
+		"SelectedGroup":  "",
+		"SelectedStatus": "",
+		"Query":          "",
+	}
+
+	// 1. Full page render test
+	w := httptest.NewRecorder()
+	err = r.Render(w, "knowledge.html", data)
+	if err != nil {
+		t.Fatalf("failed to render knowledge.html for non-admin user: %v", err)
+	}
+
+	body := w.Body.String()
+	// Must contain uploader display name "System Admin"
+	if !bytes.Contains([]byte(body), []byte("System Admin")) {
+		t.Errorf("expected rendered page to contain uploader display name 'System Admin', got: %s", body)
+	}
+	// Must contain uploader display name "regular_user"
+	if !bytes.Contains([]byte(body), []byte("regular_user")) {
+		t.Errorf("expected rendered page to contain uploader username 'regular_user'")
+	}
+	// Document owned by regular user must have delete button
+	if !bytes.Contains([]byte(body), []byte(`hx-delete="/knowledge/doc-user"`)) {
+		t.Errorf("expected delete button for owned document doc-user")
+	}
+	// Document owned by admin must NOT have delete button for regular user
+	if bytes.Contains([]byte(body), []byte(`hx-delete="/knowledge/doc-admin"`)) {
+		t.Errorf("did not expect delete button for admin document doc-admin for regular user")
+	}
+
+	// 2. Partial render test
+	wPartial := httptest.NewRecorder()
+	err = r.RenderPartial(wPartial, "knowledge_table.html", data)
+	if err != nil {
+		t.Fatalf("failed to render knowledge_table.html partial for non-admin user: %v", err)
+	}
+	if !bytes.Contains(wPartial.Body.Bytes(), []byte("System Admin")) {
+		t.Errorf("expected rendered partial to contain 'System Admin'")
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+
