@@ -771,11 +771,15 @@ func (s *BedrockService) executeSingleRetrieve(
 	filter agentTypes.RetrievalFilter,
 	limit int,
 ) ([]RetrievalResult, error) {
-	managedSearchConfig := &agentTypes.KnowledgeBaseRetrievalConfiguration{
-		VectorSearchConfiguration: &agentTypes.KnowledgeBaseVectorSearchConfiguration{
-			NumberOfResults: aws.Int32(int32(limit)),
-			Filter:          filter,
-		},
+	managedSearch := &agentTypes.ManagedSearchConfiguration{
+		NumberOfResults: aws.Int32(int32(limit)),
+	}
+	if filter != nil {
+		managedSearch.Filter = filter
+	}
+
+	retrievalConfig := &agentTypes.KnowledgeBaseRetrievalConfiguration{
+		ManagedSearchConfiguration: managedSearch,
 	}
 
 	input := &bedrockagentruntime.RetrieveInput{
@@ -783,15 +787,20 @@ func (s *BedrockService) executeSingleRetrieve(
 		RetrievalQuery: &agentTypes.KnowledgeBaseQuery{
 			Text: aws.String(query),
 		},
-		RetrievalConfiguration: managedSearchConfig,
+		RetrievalConfiguration: retrievalConfig,
 	}
 
 	resp, err := s.awsBundle.BedrockAgentRuntime.Retrieve(ctx, input)
 	if err != nil {
+		if strings.Contains(err.Error(), "Incompatible configuration") {
+			log.Printf("Bedrock Knowledge Base configuration incompatibility detected: %v. This application is configured for managed knowledge bases (managedSearchConfiguration).", err)
+		} else {
+			log.Printf("Error retrieving knowledge from Bedrock KB: %v", err)
+		}
 		return nil, err
 	}
 
-	var results []RetrievalResult
+	results := make([]RetrievalResult, 0)
 	for _, item := range resp.RetrievalResults {
 		text := ""
 		if item.Content != nil && item.Content.Text != nil {
