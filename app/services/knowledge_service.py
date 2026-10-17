@@ -57,6 +57,26 @@ def get_bedrock_agent_client() -> Any:
     return _CLIENT_CACHE[cache_key]
 
 
+def get_bedrock_agent_status_client() -> Any:
+    """同期ステータス取得専用の短タイムアウト Bedrock Agent クライアント"""
+    cache_key = ("bedrock-agent-status", settings.AWS_REGION, settings.AWS_ENDPOINT_URL)
+    if cache_key not in _CLIENT_CACHE:
+        kwargs: Dict[str, Any] = {
+            "region_name": settings.AWS_REGION,
+            "config": Config(
+                retries={"max_attempts": 2, "mode": "standard"},
+                connect_timeout=3,
+                read_timeout=10,
+                max_pool_connections=settings.AWS_MAX_POOL_CONNECTIONS,
+            ),
+        }
+        if settings.AWS_ENDPOINT_URL:
+            kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
+        _CLIENT_CACHE[cache_key] = boto3.client("bedrock-agent", **kwargs)
+    return _CLIENT_CACHE[cache_key]
+
+
+
 def upload_document_with_metadata(
     s3_client: Any,
     bucket: str,
@@ -136,23 +156,37 @@ def get_document_stream(
     }
 
 
+def start_ingestion_job_detail(
+    bedrock_agent: Any,
+    kb_id: str,
+    data_source_id: str,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], bool]:
+    """
+    Ingestion Job を開始し、(ジョブ情報, エラーメッセージ, 競合か) を返す。
+    競合 (ConflictException) は既に別ジョブが実行中であることを示す。
+    """
+    try:
+        response = bedrock_agent.start_ingestion_job(
+            knowledgeBaseId=kb_id,
+            dataSourceId=data_source_id,
+        )
+        job = response.get("ingestionJob") or {}
+        logger.info("Started ingestion job %s for KB %s", job.get("ingestionJobId"), kb_id)
+        return job, None, False
+    except Exception as e:
+        logger.error("Failed to start ingestion job: %s", e)
+        code = getattr(e, "response", {}).get("Error", {}).get("Code") if hasattr(e, "response") else None
+        return None, str(e), code == "ConflictException"
+
+
 def trigger_ingestion_job(
     bedrock_agent: Any,
     kb_id: str,
     data_source_id: str,
 ) -> Optional[str]:
     """Bedrock Knowledge Base の Ingestion Job をトリガーする"""
-    try:
-        response = bedrock_agent.start_ingestion_job(
-            knowledgeBaseId=kb_id,
-            dataSourceId=data_source_id,
-        )
-        job_id = response.get("ingestionJob", {}).get("ingestionJobId")
-        logger.info("Started ingestion job %s for KB %s", job_id, kb_id)
-        return job_id
-    except Exception as e:
-        logger.error("Failed to start ingestion job: %s", e)
-        return None
+    job, _err, _conflict = start_ingestion_job_detail(bedrock_agent, kb_id, data_source_id)
+    return job.get("ingestionJobId") if job else None
 
 
 def get_latest_ingestion_job(

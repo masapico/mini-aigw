@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import update
 from sqlmodel import Session, select
@@ -24,10 +25,10 @@ from app.models.user import User
 from app.services.knowledge_service import (
     delete_knowledge_document,
     get_bedrock_agent_client,
+    get_bedrock_agent_status_client,
     get_document_stream,
-    get_latest_ingestion_job,
     get_s3_client,
-    trigger_ingestion_job,
+    start_ingestion_job_detail,
     upload_document_with_metadata,
 )
 
@@ -139,19 +140,26 @@ def _get_available_groups_for_upload(db: Session, user: User) -> List[Group]:
 
 
 def _get_latest_kb_job() -> Optional[Dict[str, Any]]:
-    """最新の Bedrock Ingestion Job 情報を安全に取得する"""
+    """
+    最新の Bedrock Ingestion Job 情報を取得する（同期関数。呼び出し側で run_in_threadpool を使うこと）。
+    取得失敗時は {"status": "UNKNOWN", "fetch_error": True} を返し「履歴なし」と区別する。
+    """
     if not settings.BEDROCK_KB_ID or not settings.BEDROCK_DATA_SOURCE_ID:
         return None
     try:
-        bedrock_agent = get_bedrock_agent_client()
-        return get_latest_ingestion_job(
-            bedrock_agent=bedrock_agent,
-            kb_id=settings.BEDROCK_KB_ID,
-            data_source_id=settings.BEDROCK_DATA_SOURCE_ID,
+        bedrock_agent = get_bedrock_agent_status_client()
+        response = bedrock_agent.list_ingestion_jobs(
+            knowledgeBaseId=settings.BEDROCK_KB_ID,
+            dataSourceId=settings.BEDROCK_DATA_SOURCE_ID,
+            maxResults=1,
+            sortBy={"attribute": "STARTED_AT", "order": "DESCENDING"},
         )
+        jobs = response.get("ingestionJobSummaries", [])
+        return jobs[0] if jobs else None
     except Exception as e:
         logger.warning("Could not fetch latest ingestion job: %s", e)
-        return None
+        return {"status": "UNKNOWN", "fetch_error": True}
+
 
 
 def _sync_completed_documents(db: Session, latest_job: Optional[Dict[str, Any]]) -> None:
@@ -196,9 +204,7 @@ async def knowledge_list(
     user: User = Depends(require_current_user),
     db: Session = Depends(get_session),
 ):
-    latest_job = _get_latest_kb_job()
-    _sync_completed_documents(db, latest_job)
-
+    # AWS への問い合わせはページ描画から切り離し、ステータスバーを htmx (load) で非同期取得する
     docs, uploader_map, total_count, total_pages, current_page = _get_filtered_docs_and_uploaders(
         db=db, user=user, q=q, group=group, sync_status=status, page=page
     )
@@ -214,7 +220,6 @@ async def knowledge_list(
             "groups": upload_groups,
             "filter_groups": filter_groups,
             "uploader_map": uploader_map,
-            "latest_sync_job": latest_job,
             "bucket": settings.KNOWLEDGE_S3_BUCKET,
             "kb_id": settings.BEDROCK_KB_ID,
             "data_source_id": settings.BEDROCK_DATA_SOURCE_ID,
@@ -241,8 +246,6 @@ async def knowledge_table_partial(
     db: Session = Depends(get_session),
 ):
     """HTMX 部分更新用: ナレッジ一覧テーブルのみを返却する"""
-    latest_job = _get_latest_kb_job()
-    _sync_completed_documents(db, latest_job)
     docs, uploader_map, total_count, total_pages, current_page = _get_filtered_docs_and_uploaders(
         db=db, user=user, q=q, group=group, sync_status=status, page=page
     )
@@ -393,6 +396,25 @@ async def knowledge_upload(
     return RedirectResponse(url="/knowledge", status_code=status.HTTP_302_FOUND)
 
 
+def _render_sync_status(
+    request: Request,
+    latest_job: Optional[Dict[str, Any]],
+    is_admin: bool,
+    just_started_job_id: Optional[str] = None,
+    sync_error: Optional[str] = None,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/knowledge_sync_status.html",
+        context={
+            "latest_sync_job": latest_job,
+            "is_admin": is_admin,
+            "just_started_job_id": just_started_job_id,
+            "sync_error": sync_error,
+        },
+    )
+
+
 @router.post("/knowledge/sync")
 async def knowledge_sync(
     request: Request,
@@ -401,40 +423,44 @@ async def knowledge_sync(
 ):
     """
     管理者専用: Bedrock Knowledge Base の Ingestion Job (データソース同期) を手動実行する。
-    ジョブの開始が成功した時点ではジョブは STARTING/IN_PROGRESS であり、
+    開始応答のジョブ情報 (STARTING) をそのまま返却し、即座に「同期中」表示へ切り替える。
     正常完了 (COMPLETE) が検知された際にドキュメントステータスが SYNCED に昇格します。
     """
+    is_htmx = bool(request.headers.get("HX-Request"))
+
     if not settings.BEDROCK_KB_ID or not settings.BEDROCK_DATA_SOURCE_ID:
-        raise HTTPException(status_code=400, detail="BEDROCK_KB_ID または BEDROCK_DATA_SOURCE_ID が未設定です")
+        msg = "BEDROCK_KB_ID または BEDROCK_DATA_SOURCE_ID が未設定です"
+        if is_htmx:
+            return _render_sync_status(request, None, True, sync_error=msg)
+        raise HTTPException(status_code=400, detail=msg)
 
     bedrock_agent = get_bedrock_agent_client()
-    job_id = trigger_ingestion_job(
-        bedrock_agent=bedrock_agent,
-        kb_id=settings.BEDROCK_KB_ID,
-        data_source_id=settings.BEDROCK_DATA_SOURCE_ID,
+    job, error, conflict = await run_in_threadpool(
+        start_ingestion_job_detail,
+        bedrock_agent,
+        settings.BEDROCK_KB_ID,
+        settings.BEDROCK_DATA_SOURCE_ID,
     )
 
-    if not job_id:
+    if not job:
+        if conflict:
+            # すでに別ジョブが実行中: 最新ジョブ(同期中)を表示してポーリングへ移行
+            latest_job = await run_in_threadpool(_get_latest_kb_job)
+            if is_htmx:
+                return _render_sync_status(request, latest_job, True)
+        elif is_htmx:
+            latest_job = await run_in_threadpool(_get_latest_kb_job)
+            return _render_sync_status(
+                request, latest_job, True, sync_error=f"KB同期の開始に失敗しました: {error}"
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="KB同期ジョブの開始に失敗しました。すでに別の同期ジョブが実行中である可能性があります。",
         )
 
-    latest_job = get_latest_ingestion_job(
-        bedrock_agent=bedrock_agent,
-        kb_id=settings.BEDROCK_KB_ID,
-        data_source_id=settings.BEDROCK_DATA_SOURCE_ID,
-    )
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/knowledge_sync_status.html",
-            context={
-                "latest_sync_job": latest_job,
-                "is_admin": True,
-                "just_started_job_id": job_id,
-            },
+    if is_htmx:
+        return _render_sync_status(
+            request, job, True, just_started_job_id=job.get("ingestionJobId")
         )
 
     return RedirectResponse(url="/knowledge", status_code=status.HTTP_302_FOUND)
@@ -447,22 +473,14 @@ async def knowledge_sync_status(
     db: Session = Depends(get_session),
 ):
     """
-    HTMX ポーリング / 更新用: 最新の Bedrock Ingestion Job 同期ステータスバーHTMLを返却する。
+    HTMX ポーリング / 初期ロード用: 最新の Bedrock Ingestion Job 同期ステータスバーHTMLを返却する。
     同期完了 (COMPLETE) 時はドキュメントテーブルの更新を促すイベントヘッダーを付与する。
     """
-    latest_job = _get_latest_kb_job()
+    latest_job = await run_in_threadpool(_get_latest_kb_job)
     _sync_completed_documents(db, latest_job)
     is_admin = "admin" in user.get_roles()
 
-    response = templates.TemplateResponse(
-        request=request,
-        name="partials/knowledge_sync_status.html",
-        context={
-            "latest_sync_job": latest_job,
-            "is_admin": is_admin,
-            "just_started_job_id": None,
-        },
-    )
+    response = _render_sync_status(request, latest_job, is_admin)
     if latest_job and latest_job.get("status") == "COMPLETE":
         response.headers["HX-Trigger"] = "refreshKnowledgeTable"
     return response
@@ -529,7 +547,8 @@ async def knowledge_delete(
     s3_client = get_s3_client()
     bedrock_agent = get_bedrock_agent_client()
 
-    success = delete_knowledge_document(
+    success = await run_in_threadpool(
+        delete_knowledge_document,
         db=db,
         s3_client=s3_client,
         bedrock_agent=bedrock_agent,
@@ -542,7 +561,7 @@ async def knowledge_delete(
         raise HTTPException(status_code=404, detail="Document not found")
 
     if request.headers.get("HX-Request"):
-        latest_job = _get_latest_kb_job()
+        latest_job = await run_in_threadpool(_get_latest_kb_job)
         _sync_completed_documents(db, latest_job)
         sync_status_response = templates.TemplateResponse(
             request=request,

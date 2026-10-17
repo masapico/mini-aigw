@@ -22,6 +22,11 @@
             <span class="spinner-border spinner-border-sm" role="status" style="width: 0.8rem; height: 0.8rem;"></span>
             同期中 ({{ status }})
           </span>
+        {% elif latest_sync_job.fetch_error %}
+          <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+            ⚠ ステータス取得失敗
+          </span>
+          <a href="#" class="small" hx-get="/knowledge/sync/status" hx-target="#kb-sync-status-container" hx-swap="innerHTML">再取得</a>
         {% elif status == 'FAILED' %}
           <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
             ⚠ 同期エラー (FAILED)
@@ -57,6 +62,10 @@
     <span class="text-success small fw-semibold">
       ジョブ開始: <code>{{ just_started_job_id }}</code>
     </span>
+    {% endif %}
+
+    {% if sync_error %}
+    <span class="text-danger small fw-semibold">{{ sync_error }}</span>
     {% endif %}
 
     {% if is_admin %}

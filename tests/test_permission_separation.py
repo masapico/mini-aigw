@@ -289,7 +289,7 @@ def test_jst_datetime_filter():
     assert to_jst(None) == "-"
 
 
-@patch("app.api.web.knowledge.get_bedrock_agent_client")
+@patch("app.api.web.knowledge.get_bedrock_agent_status_client")
 @patch("app.api.web.knowledge.get_s3_client")
 def test_knowledge_sync_status_lifecycle_and_error_handling(mock_s3, mock_agent):
     """
@@ -334,7 +334,7 @@ def test_knowledge_sync_status_lifecycle_and_error_handling(mock_s3, mock_agent)
     }
 
     # 一覧取得
-    page_fail = admin_client.get("/knowledge")
+    page_fail = admin_client.get("/knowledge/sync/status")
     assert page_fail.status_code == 200
 
     with Session(engine) as session:
@@ -355,7 +355,7 @@ def test_knowledge_sync_status_lifecycle_and_error_handling(mock_s3, mock_agent)
     }
 
     # 一覧取得で同期検知
-    page_success = admin_client.get("/knowledge")
+    page_success = admin_client.get("/knowledge/sync/status")
     assert page_success.status_code == 200
 
     with Session(engine) as session:

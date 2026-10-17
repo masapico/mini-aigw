@@ -46,9 +46,10 @@ def setup_admin_and_document() -> tuple[User, str]:
         return user, doc.id
 
 
+@patch("app.api.web.knowledge.get_bedrock_agent_status_client")
 @patch("app.api.web.knowledge.get_s3_client")
 @patch("app.api.web.knowledge.get_bedrock_agent_client")
-def test_delete_triggers_immediate_sync_and_oob_status_update(mock_agent_client, mock_s3_client):
+def test_delete_triggers_immediate_sync_and_oob_status_update(mock_agent_client, mock_s3_client, mock_status_client):
     """
     ドキュメント削除時に即時KB同期が発火し、
     HTMXレスポンスに #kb-sync-status-container の OOB swap が含まれること、
@@ -62,6 +63,7 @@ def test_delete_triggers_immediate_sync_and_oob_status_update(mock_agent_client,
 
     mock_agent = MagicMock()
     mock_agent_client.return_value = mock_agent
+    mock_status_client.return_value = mock_agent
 
     # start_ingestion_job の戻り値
     mock_agent.start_ingestion_job.return_value = {
@@ -106,7 +108,7 @@ def test_delete_triggers_immediate_sync_and_oob_status_update(mock_agent_client,
     assert 'hx-trigger="every 3s"' in html
 
 
-@patch("app.api.web.knowledge.get_bedrock_agent_client")
+@patch("app.api.web.knowledge.get_bedrock_agent_status_client")
 def test_sync_status_polling_and_button_reactivation(mock_agent_client):
     """
     GET /knowledge/sync/status によるポーリング動作の検証:
