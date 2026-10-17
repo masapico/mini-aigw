@@ -31,12 +31,15 @@ func (k *ApiKey) BeforeCreate(tx *gorm.DB) error {
 }
 
 func (k *ApiKey) GetAllowedGroups() []string {
-	var groups []string
-	if k.AllowedGroups != "" {
-		_ = json.Unmarshal([]byte(k.AllowedGroups), &groups)
-	}
-	if len(groups) == 0 {
+	if k.AllowedGroups == "" {
 		return []string{"public"}
+	}
+	var groups []string
+	if err := json.Unmarshal([]byte(k.AllowedGroups), &groups); err != nil {
+		return []string{"public"}
+	}
+	if groups == nil {
+		return []string{}
 	}
 	return groups
 }
@@ -44,5 +47,26 @@ func (k *ApiKey) GetAllowedGroups() []string {
 func (k *ApiKey) SetAllowedGroups(groups []string) {
 	bytes, _ := json.Marshal(groups)
 	k.AllowedGroups = string(bytes)
+}
+
+func (k *ApiKey) GetModelID() string {
+	if k.ModelID == nil {
+		return ""
+	}
+	return *k.ModelID
+}
+
+func (k *ApiKey) GetSystemPrompt() string {
+	if k.SystemPrompt == nil {
+		return ""
+	}
+	return *k.SystemPrompt
+}
+
+func (k *ApiKey) GetRawKey() string {
+	if k.RawKey == nil {
+		return ""
+	}
+	return *k.RawKey
 }
 

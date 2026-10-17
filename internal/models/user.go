@@ -71,6 +71,20 @@ func (u *User) GetEffectiveName() string {
 	return u.Username
 }
 
+func (u *User) GetDisplayName() string {
+	if u.DisplayName == nil {
+		return ""
+	}
+	return *u.DisplayName
+}
+
+func (u *User) GetEmail() string {
+	if u.Email == nil {
+		return ""
+	}
+	return *u.Email
+}
+
 type Session struct {
 	SessionID  string    `gorm:"primaryKey;size:128" json:"session_id"`
 	UserID     string    `gorm:"size:64;not null;index" json:"user_id"`

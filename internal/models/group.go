@@ -22,3 +22,10 @@ func (g *Group) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+func (g *Group) GetDescription() string {
+	if g.Description == nil {
+		return ""
+	}
+	return *g.Description
+}
+

@@ -11,32 +11,79 @@
       </tr>
     </thead>
     <tbody>
-      {{range .Groups}}
-      <tr class="border-bottom" id="group-row-{{.ID}}">
+      {{range $g := .Groups}}
+      <tr class="border-bottom" id="group-row-{{$g.ID}}">
         <td class="fw-semibold">
-          <span class="badge-pill-modern badge-group font-monospace">{{.Name}}</span>
+          <span class="badge-pill-modern badge-group font-monospace">{{$g.Name}}</span>
         </td>
         <td class="fw-semibold text-dark">
-          {{.DisplayName}}
+          {{$g.DisplayName}}
         </td>
         <td class="text-muted small">
-          {{if .Description}}{{.Description}}{{else}}-{{end}}
+          {{if $g.Description}}{{$g.GetDescription}}{{else}}-{{end}}
         </td>
         <td class="text-muted small">
-          {{formatTime .CreatedAt}}
+          {{formatTime $g.CreatedAt}}
         </td>
         <td class="text-end">
           <div class="d-inline-flex gap-1">
             <button
+              class="btn-modern-secondary py-1 px-2"
+              style="font-size: 0.82rem;"
+              data-bs-toggle="modal"
+              data-bs-target="#editGroupModal-{{$g.ID}}"
+            >
+              編集
+            </button>
+            <button
               class="btn-modern-danger py-1 px-2"
               style="font-size: 0.82rem;"
-              hx-delete="/groups/{{.ID}}"
-              hx-confirm="グループ「{{.DisplayName}} ({{.Name}})」を削除しますか？"
-              hx-target="#group-row-{{.ID}}"
+              hx-delete="/groups/{{$g.ID}}"
+              hx-confirm="グループ「{{$g.DisplayName}} ({{$g.Name}})」を削除しますか？"
+              hx-target="#group-row-{{$g.ID}}"
               hx-swap="outerHTML"
             >
               削除
             </button>
+          </div>
+
+          <!-- グループ編集モーダル -->
+          <div class="modal fade text-start" id="editGroupModal-{{$g.ID}}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-md);">
+                <div class="modal-header border-bottom">
+                  <h6 class="modal-title fw-bold">グループ編集: {{$g.DisplayName}}</h6>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form
+                  hx-post="/groups/{{$g.ID}}/edit"
+                  hx-target="#groups-table-container"
+                  hx-swap="innerHTML"
+                  onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editGroupModal-{{$g.ID}}')); if (m) m.hide();"
+                >
+                  <div class="modal-body p-4">
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">グループ識別名 (プレフィックス)</label>
+                      <input type="text" class="form-control form-control-modern font-monospace bg-light" value="{{$g.Name}}" disabled readonly>
+                      <div class="form-text text-muted" style="font-size: 0.75rem;">※ プレフィックス（S3およびナレッジ検索キー）は変更できません</div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">グループ表示名 <span class="text-danger">*</span></label>
+                      <input type="text" name="display_name" class="form-control form-control-modern" value="{{$g.DisplayName}}" required>
+                      <div class="form-text" style="font-size: 0.75rem;">画面表示用の名称</div>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label small fw-semibold text-secondary">説明 (任意)</label>
+                      <input type="text" name="description" class="form-control form-control-modern" value="{{$g.GetDescription}}" placeholder="用途・対象">
+                    </div>
+                  </div>
+                  <div class="modal-footer border-top bg-light">
+                    <button type="button" class="btn-modern-secondary py-1 px-3" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" class="btn-modern-primary py-1 px-3">保存</button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         </td>
       </tr>
@@ -51,4 +98,3 @@
   </table>
 </div>
 {{end}}
-

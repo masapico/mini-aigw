@@ -6,7 +6,7 @@
       🎉 API キー「{{.NewKeyName}}」が正常に発行されました
     </div>
     <div class="small text-secondary mb-2">
-      シークレットキーが発行されました。一覧の「コピー」ボタンからもいつでも再コピーできます。
+      シークレットキーが発行されました。一覧の「コピー」ボタンや編集画面からもいつでも再コピーできます。
     </div>
     <div class="d-flex align-items-center gap-2">
       <input
@@ -20,7 +20,7 @@
       <button
         class="btn-modern-primary py-1 px-3"
         style="font-size: 0.8rem;"
-        onclick="navigator.clipboard.writeText('{{.NewRawKey}}').then(() => alert('コピーしました'))"
+        onclick="copyApiKeyToClipboard('{{.NewRawKey}}')"
       >
         コピー
       </button>
@@ -43,19 +43,19 @@
       </tr>
     </thead>
     <tbody>
-      {{range .Keys}}
-      <tr class="border-bottom" id="key-row-{{.ID}}">
-        <td class="fw-semibold text-dark">{{.Name}}</td>
+      {{range $k := .Keys}}
+      <tr class="border-bottom" id="key-row-{{$k.ID}}">
+        <td class="fw-semibold text-dark">{{$k.Name}}</td>
         <td>
           <div class="d-flex align-items-center gap-2">
-            <span class="font-monospace text-muted small">{{.Prefix}}</span>
-            {{if .RawKey}}
+            <span class="font-monospace text-muted small">{{$k.Prefix}}</span>
+            {{if $k.RawKey}}
             <button
               type="button"
               class="btn btn-outline-secondary btn-sm py-0 px-2"
               style="font-size: 0.75rem;"
               title="APIキー全体をコピー"
-              onclick="navigator.clipboard.writeText('{{.RawKey}}').then(() => alert('コピーしました'))"
+              onclick="copyApiKeyToClipboard('{{$k.GetRawKey}}')"
             >
               📋 コピー
             </button>
@@ -63,19 +63,20 @@
           </div>
         </td>
         <td>
-          {{if .ModelID}}
+          {{if $k.ModelID}}
           <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 rounded-pill small font-monospace" style="font-size: 0.78rem;">
-            {{.ModelID}}
+            {{$k.GetModelID}}
           </span>
           {{else}}
           <span class="text-muted small">指定なし (任意)</span>
           {{end}}
         </td>
         <td>
-          {{if .SystemPrompt}}
+          {{if $k.SystemPrompt}}
           <span
             class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 rounded-pill small"
-            title="{{.SystemPrompt}}"
+            title="{{$k.GetSystemPrompt}}"
+            style="cursor: help;"
           >
             設定あり (基底注入)
           </span>
@@ -84,34 +85,236 @@
           {{end}}
         </td>
         <td>
-          {{range .GetAllowedGroups}}
+          {{$currentGroups := $k.GetAllowedGroups}}
+          {{range $currentGroups}}
           <span class="badge-pill-modern badge-group">{{.}}</span>
           {{else}}
           <span class="text-muted small">なし (LLM専用)</span>
           {{end}}
         </td>
         <td class="text-muted small">
-          {{formatTime .CreatedAt}}
+          {{formatTime $k.CreatedAt}}
         </td>
         <td class="text-end">
           <div class="d-inline-flex gap-1">
             <button
+              class="btn-modern-secondary py-1 px-2"
+              style="font-size: 0.82rem;"
+              data-bs-toggle="modal"
+              data-bs-target="#editKeyModal-{{$k.ID}}"
+            >
+              編集
+            </button>
+            <button
               class="btn-modern-danger py-1 px-2"
               style="font-size: 0.82rem;"
-              hx-delete="/api-keys/{{.ID}}"
-              hx-confirm="APIキー「{{.Name}}」を失効・削除しますか？"
-              hx-target="#key-row-{{.ID}}"
+              hx-delete="/api-keys/{{$k.ID}}"
+              hx-confirm="APIキー「{{$k.Name}}」を失効しますか？失効すると元に戻せません。"
+              hx-target="#key-row-{{$k.ID}}"
               hx-swap="outerHTML"
             >
-              削除
+              失効
             </button>
+          </div>
+
+          <!-- 編集モーダル -->
+          <div class="modal fade text-start" id="editKeyModal-{{$k.ID}}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+              <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-md);">
+                <div class="modal-header border-bottom">
+                  <h6 class="modal-title fw-bold">APIキー設定の編集: {{$k.Name}}</h6>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form
+                  hx-post="/api-keys/{{$k.ID}}/edit"
+                  hx-target="#api-keys-container"
+                  hx-swap="innerHTML"
+                  onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editKeyModal-{{$k.ID}}')); if (m) m.hide();"
+                >
+                  <div class="modal-body p-4">
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
+                        <input
+                          type="text"
+                          class="form-control form-control-modern"
+                          name="name"
+                          value="{{$k.Name}}"
+                          required
+                        >
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
+                        <select name="model_id" class="form-select form-control-modern">
+                          <option value="">指定なし (クライアント指定 / 既定モデル)</option>
+                          {{range $m := $.AvailableModels}}
+                          <option value="{{$m.ID}}" {{if eq $k.GetModelID $m.ID}}selected{{end}}>{{$m.Name}}</option>
+                          {{end}}
+                        </select>
+                      </div>
+
+                      {{if $k.RawKey}}
+                      <div class="col-12">
+                        <label class="form-label small fw-semibold text-secondary">シークレット API キー</label>
+                        <div class="d-flex align-items-center gap-2">
+                          <input
+                            type="text"
+                            class="form-control form-control-sm font-monospace text-dark bg-light"
+                            value="{{$k.GetRawKey}}"
+                            readonly
+                          >
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm py-1 px-3 text-nowrap"
+                            onclick="copyApiKeyToClipboard('{{$k.GetRawKey}}')"
+                          >
+                            📋 コピー
+                          </button>
+                        </div>
+                      </div>
+                      {{end}}
+
+                      <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+                          <div class="d-flex align-items-center gap-2">
+                            <label class="form-label small fw-semibold text-secondary mb-0">
+                              検索を許可するナレッジグループ
+                            </label>
+                            <span id="editKeyModeBadge-{{$k.ID}}" class="badge {{if $currentGroups}}bg-success-subtle text-success border border-success-subtle{{else}}bg-secondary-subtle text-secondary border border-secondary-subtle{{end}} px-2 py-1 rounded-pill small" style="font-size: 0.75rem;">
+                              {{if $currentGroups}}🔍 ナレッジ検索有効（組み込みプロンプト自動適用）{{else}}🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）{{end}}
+                            </span>
+                          </div>
+                          <div class="btn-group btn-group-sm" role="group">
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary py-0 px-2"
+                              style="font-size: 0.72rem;"
+                              onclick="document.querySelectorAll('#edit-groups-container-{{$k.ID}} input[type=checkbox]').forEach(cb => cb.checked = true); onEditKeyGroupsChanged('{{$k.ID}}');"
+                            >
+                              全選択
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary py-0 px-2"
+                              style="font-size: 0.72rem;"
+                              onclick="document.querySelectorAll('#edit-groups-container-{{$k.ID}} input[type=checkbox]').forEach(cb => cb.checked = false); onEditKeyGroupsChanged('{{$k.ID}}');"
+                            >
+                              全解除
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          id="edit-groups-container-{{$k.ID}}"
+                          class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-light"
+                          style="min-height: 44px; max-height: 120px; overflow-y: auto;"
+                        >
+                          {{range $grp := $.AvailableGroups}}
+                          <label
+                            class="px-2 py-1 border rounded-2 bg-white d-inline-flex align-items-center gap-2 m-0 user-select-none"
+                            style="cursor: pointer; font-size: 0.85rem;"
+                            for="edit-grp-{{$k.ID}}-{{$grp}}"
+                          >
+                            <input
+                              class="form-check-input m-0"
+                              type="checkbox"
+                              name="allowed_groups"
+                              value="{{$grp}}"
+                              id="edit-grp-{{$k.ID}}-{{$grp}}"
+                              {{if sliceContains $currentGroups $grp}}checked{{end}}
+                              onchange="onEditKeyGroupsChanged('{{$k.ID}}')"
+                              style="cursor: pointer;"
+                            >
+                            <span class="small fw-medium">{{$grp}}</span>
+                          </label>
+                          {{end}}
+                        </div>
+                      </div>
+
+                      <!-- 編集用 組み込みプロンプト可視化アコーディオン -->
+                      <div class="col-12" id="editBuiltinPromptContainer-{{$k.ID}}" {{if not $currentGroups}}style="display: none;"{{end}}>
+                        <div class="border rounded-3 p-2 px-3 bg-light" style="border-color: var(--border-color) !important;">
+                          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.72rem;">システム仕様</span>
+                              <span class="small fw-semibold text-dark">ナレッジ検索時の組み込みプロンプト（自動適用）</span>
+                              <span class="text-muted small" style="font-size: 0.75rem;">※ 重複記述は不要です</span>
+                            </div>
+                            <button
+                              type="button"
+                              class="btn btn-outline-secondary btn-sm py-0 px-2"
+                              style="font-size: 0.72rem;"
+                              data-bs-toggle="collapse"
+                              data-bs-target="#editBuiltinPromptCollapse-{{$k.ID}}"
+                              aria-expanded="false"
+                              aria-controls="editBuiltinPromptCollapse-{{$k.ID}}"
+                            >
+                              内容を確認 ▼
+                            </button>
+                          </div>
+                          <div class="collapse mt-2 pt-2 border-top" id="editBuiltinPromptCollapse-{{$k.ID}}">
+                            <div class="row g-2">
+                              <div class="col-12 col-lg-6">
+                                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                                  <div class="fw-semibold text-secondary mb-1" style="font-size: 0.75rem;">① ツール利用判定ガイドライン (自動合成)</div>
+                                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.75rem; max-height: 120px; overflow-y: auto;">{{$.BuiltinKnowledgePrompt}}</pre>
+                                </div>
+                              </div>
+                              <div class="col-12 col-lg-6">
+                                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                                  <div class="fw-semibold text-secondary mb-1" style="font-size: 0.75rem;">② 回答・根拠提示ルール (自動適用)</div>
+                                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.75rem; max-height: 120px; overflow-y: auto;">{{$.BuiltinGroundingRules}}</pre>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                          <label class="form-label small fw-semibold text-secondary mb-0">
+                            事前定義システムプロンプト (ペルソナ・口調等の追加指示 / 任意)
+                          </label>
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm py-0 px-2"
+                            style="font-size: 0.75rem;"
+                            onclick="insertPromptExample('editSystemPromptInput-{{$k.ID}}', 'business')"
+                          >
+                            💡 丁寧な敬語・箇条書きの指示例を挿入
+                          </button>
+                        </div>
+                        <textarea
+                          id="editSystemPromptInput-{{$k.ID}}"
+                          name="system_prompt"
+                          class="form-control form-control-modern"
+                          rows="4"
+                          placeholder="例: あなたは業務アシスタントです。丁寧な敬語を用い、要点を分かりやすく整理して回答してください。"
+                        >{{$k.GetSystemPrompt}}</textarea>
+                        <div id="editKeyPromptHint-{{$k.ID}}" class="form-text small text-muted mt-1" style="font-size: 0.78rem;">
+                          {{if $currentGroups}}
+                          ※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。
+                          {{else}}
+                          ※ LLM単体モード: ナレッジ検索ツールおよび組み込みプロンプトは適用されません。役割やルールを固定したい場合は本欄に入力してください。
+                          {{end}}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="modal-footer border-top bg-light">
+                    <button type="button" class="btn-modern-secondary py-1 px-3" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" class="btn-modern-primary py-1 px-3">保存</button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         </td>
       </tr>
       {{else}}
       <tr>
         <td colspan="7" class="text-center py-5 text-muted">
-          発行された API キーはありません。上部から新しいキーを発行してください。
+          発行された API キーはありません。上部から新しく発行してください。
         </td>
       </tr>
       {{end}}
@@ -119,4 +322,3 @@
   </table>
 </div>
 {{end}}
-

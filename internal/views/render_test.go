@@ -215,4 +215,143 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+func TestRenderer_RenderAPIKeys(t *testing.T) {
+	r, err := InitRenderer()
+	if err != nil {
+		t.Fatalf("InitRenderer failed: %v", err)
+	}
+
+	u := &models.User{
+		ID:       "admin-123",
+		Username: "admin",
+		Roles:    `["admin"]`,
+	}
+
+	rawKey := "sk-live-test12345678901234567890"
+	modelID := "amazon.nova-lite-v1:0"
+	sysPrompt := "テスト用システムプロンプト"
+	key := models.ApiKey{
+		ID:            "key-uuid-1",
+		Name:          "テストキー",
+		Prefix:        "sk-live-test12...",
+		RawKey:        &rawKey,
+		ModelID:       &modelID,
+		SystemPrompt:  &sysPrompt,
+		AllowedGroups: `["public","sales"]`,
+		CreatedAt:     time.Now(),
+	}
+
+	data := map[string]interface{}{
+		"User":                   u,
+		"IsAdmin":                true,
+		"CurrentPath":            "/api-keys",
+		"Keys":                   []models.ApiKey{key},
+		"AvailableGroups":        []string{"public", "sales", "dev"},
+		"AvailableModels":        []models.LLMModel{{ID: "amazon.nova-lite-v1:0", Name: "Nova Lite"}},
+		"BuiltinKnowledgePrompt": "【利用ガイドライン】retrieve_knowledge",
+		"BuiltinGroundingRules":  "【回答方針・根拠提示ルール】",
+	}
+
+	// 1. Full page render
+	w := httptest.NewRecorder()
+	err = r.Render(w, "api_keys.html", data)
+	if err != nil {
+		t.Fatalf("failed to render api_keys.html: %v", err)
+	}
+	body := w.Body.String()
+	if !bytes.Contains([]byte(body), []byte("AIプロキシ APIキー管理")) {
+		t.Errorf("expected api_keys.html to contain 'AIプロキシ APIキー管理'")
+	}
+	if !bytes.Contains([]byte(body), []byte("editKeyModal-key-uuid-1")) {
+		t.Errorf("expected api_keys.html to contain edit modal id 'editKeyModal-key-uuid-1'")
+	}
+	if !bytes.Contains([]byte(body), []byte("keyBuiltinPromptContainer")) {
+		t.Errorf("expected api_keys.html to contain 'keyBuiltinPromptContainer'")
+	}
+
+	// 2. Partial render
+	wPartial := httptest.NewRecorder()
+	err = r.RenderPartial(wPartial, "api_keys_section.html", data)
+	if err != nil {
+		t.Fatalf("failed to render api_keys_section.html: %v", err)
+	}
+	partialBody := wPartial.Body.String()
+	if !bytes.Contains([]byte(partialBody), []byte("editKeyModal-key-uuid-1")) {
+		t.Errorf("expected partial to contain 'editKeyModal-key-uuid-1'")
+	}
+	if !bytes.Contains([]byte(partialBody), []byte(rawKey)) {
+		t.Errorf("expected partial to contain rawKey in modal")
+	}
+	if !bytes.Contains([]byte(partialBody), []byte("editBuiltinPromptCollapse-key-uuid-1")) {
+		t.Errorf("expected partial to contain builtin prompt accordion")
+	}
+}
+
+func TestRenderer_RenderUsersAndGroupsModals(t *testing.T) {
+	r, err := InitRenderer()
+	if err != nil {
+		t.Fatalf("InitRenderer failed: %v", err)
+	}
+
+	dispName := "山田 太郎"
+	email := "yamada@example.com"
+	testUser := models.User{
+		ID:          "user-uuid-1",
+		AuthType:    "local",
+		Username:    "yamada",
+		DisplayName: &dispName,
+		Email:       &email,
+		Roles:       `["user"]`,
+		Groups:      `["sales"]`,
+		CreatedAt:   time.Now(),
+	}
+
+	desc := "営業部門ナレッジ"
+	testGroup := models.Group{
+		ID:          "grp-uuid-1",
+		Name:        "sales",
+		DisplayName: "営業部",
+		Description: &desc,
+		CreatedAt:   time.Now(),
+	}
+
+	userData := map[string]interface{}{
+		"Users":       []models.User{testUser},
+		"Groups":      []models.Group{testGroup},
+		"CurrentUser": &testUser,
+	}
+
+	// 1. Users table render
+	wUser := httptest.NewRecorder()
+	err = r.RenderPartial(wUser, "users_table.html", userData)
+	if err != nil {
+		t.Fatalf("failed to render users_table.html: %v", err)
+	}
+	userBody := wUser.Body.String()
+	if !bytes.Contains([]byte(userBody), []byte("editUserModal-user-uuid-1")) {
+		t.Errorf("expected users_table to contain 'editUserModal-user-uuid-1'")
+	}
+	if !bytes.Contains([]byte(userBody), []byte("山田 太郎")) {
+		t.Errorf("expected users_table to contain display name '山田 太郎'")
+	}
+
+	// 2. Groups table render
+	groupData := map[string]interface{}{
+		"Groups": []models.Group{testGroup},
+	}
+	wGroup := httptest.NewRecorder()
+	err = r.RenderPartial(wGroup, "groups_table.html", groupData)
+	if err != nil {
+		t.Fatalf("failed to render groups_table.html: %v", err)
+	}
+	groupBody := wGroup.Body.String()
+	if !bytes.Contains([]byte(groupBody), []byte("editGroupModal-grp-uuid-1")) {
+		t.Errorf("expected groups_table to contain 'editGroupModal-grp-uuid-1'")
+	}
+	if !bytes.Contains([]byte(groupBody), []byte("営業部")) {
+		t.Errorf("expected groups_table to contain group display name '営業部'")
+	}
+}
+
+
 

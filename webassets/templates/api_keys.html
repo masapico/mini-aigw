@@ -20,7 +20,7 @@
     hx-target="#api-keys-container"
     hx-swap="innerHTML"
     hx-indicator="#key-spinner"
-    onsubmit="setTimeout(() => { document.getElementById('keyNameInput').value = ''; }, 400)"
+    onsubmit="setTimeout(() => { document.getElementById('keyNameInput').value = ''; document.getElementById('keySystemPromptInput').value = ''; }, 400)"
   >
     <div class="row g-3">
       <div class="col-12 col-md-6">
@@ -36,61 +36,163 @@
       </div>
 
       <div class="col-12 col-md-6">
-        <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (任意)</label>
+        <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
         <select name="model_id" id="keyModelSelect" class="form-select form-control-modern">
           <option value="">指定なし (クライアント指定 / 既定モデル)</option>
           {{range .AvailableModels}}
-          <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+          <option value="{{.ID}}">{{.Name}}</option>
           {{end}}
         </select>
       </div>
 
       <div class="col-12">
-        <label class="form-label small fw-semibold text-secondary mb-1">
-          検索を許可するナレッジグループ
-        </label>
-        <div class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <label class="form-label small fw-semibold text-secondary mb-0">
+              検索を許可するナレッジグループ
+            </label>
+            <span class="badge bg-light text-secondary border px-2 py-0 small" style="font-size: 0.75rem;">
+              {{len .AvailableGroups}} グループ
+            </span>
+            <span id="keyModeBadge" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small" style="font-size: 0.75rem;">
+              🔍 ナレッジ検索有効（組み込みプロンプト自動適用）
+            </span>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <div class="btn-group btn-group-sm" role="group">
+              <button
+                type="button"
+                class="btn btn-outline-secondary py-0 px-2"
+                style="font-size: 0.75rem;"
+                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = true); onKeyGroupsChanged();"
+              >
+                全選択
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary py-0 px-2"
+                style="font-size: 0.75rem;"
+                onclick="document.querySelectorAll('#key-groups-container input[type=checkbox]').forEach(cb => cb.checked = false); onKeyGroupsChanged();"
+              >
+                全解除
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          id="key-groups-container"
+          class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-white"
+          style="min-height: 48px; max-height: 140px; overflow-y: auto; border-color: var(--border-color) !important;"
+        >
           {{range .AvailableGroups}}
-          <label class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
+          <label
+            class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none"
+            style="cursor: pointer; font-size: 0.85rem;"
+            for="grp-check-{{.}}"
+          >
             <input
               class="form-check-input m-0"
               type="checkbox"
               name="allowed_groups"
               value="{{.}}"
+              id="grp-check-{{.}}"
               {{if eq . "public"}}checked{{end}}
+              onchange="onKeyGroupsChanged()"
+              style="cursor: pointer;"
             >
-            <span>{{.}}</span>
+            <span class="small fw-medium">{{.}}</span>
           </label>
           {{end}}
         </div>
       </div>
 
-      <div class="col-12">
-        <label class="form-label small fw-semibold text-secondary mb-1">
-          カスタム基底システムプロンプト (任意)
-        </label>
+      <!-- 組み込みプロンプト可視化アコーディオン -->
+      <div class="col-12" id="keyBuiltinPromptContainer">
+        <div class="border rounded-3 p-2 px-3 bg-light" style="border-color: var(--border-color) !important;">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.75rem;">システム仕様</span>
+              <span class="small fw-semibold text-dark">ナレッジ検索時の組み込みプロンプト（自動適用）</span>
+              <span class="text-muted small" style="font-size: 0.78rem;">
+                ※ ナレッジ検索判定や引用ルールは自動注入されるため、システムプロンプトへの重複記述は不要です
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm py-0 px-2"
+              style="font-size: 0.75rem;"
+              data-bs-toggle="collapse"
+              data-bs-target="#builtinPromptCollapse"
+              aria-expanded="false"
+              aria-controls="builtinPromptCollapse"
+            >
+              内容を確認 ▼
+            </button>
+          </div>
+          <div class="collapse mt-2 pt-2 border-top" id="builtinPromptCollapse">
+            <div class="row g-2">
+              <div class="col-12 col-lg-6">
+                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                  <div class="fw-semibold text-secondary mb-1">① ツール利用判定ガイドライン (システムプロンプト自動合成)</div>
+                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{.BuiltinKnowledgePrompt}}</pre>
+                </div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
+                  <div class="fw-semibold text-secondary mb-1">② 回答・根拠提示ルール (検索ヒット時に自動適用)</div>
+                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{.BuiltinGroundingRules}}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-10">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label small fw-semibold text-secondary mb-0">
+            事前定義システムプロンプト (ペルソナ・口調等の追加指示 / 任意)
+          </label>
+          <button
+            type="button"
+            class="btn btn-outline-primary btn-sm py-0 px-2"
+            style="font-size: 0.75rem;"
+            onclick="insertPromptExample('keySystemPromptInput', 'business')"
+          >
+            💡 丁寧な敬語・箇条書きの指示例を挿入
+          </button>
+        </div>
         <textarea
-          class="form-control form-control-modern font-monospace"
+          id="keySystemPromptInput"
           name="system_prompt"
+          class="form-control form-control-modern"
           rows="2"
-          placeholder="例: あなたは社内専用のITヘルプデスクアシスタントです。丁寧な敬語で回答してください。"
+          placeholder="例: あなたは業務アシスタントです。丁寧な敬語を用い、要点を分かりやすく整理して回答してください。"
         ></textarea>
       </div>
 
-      <div class="col-12 d-flex justify-content-end">
-        <button type="submit" class="btn-modern-primary px-4 py-2">
-          <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="key-spinner" role="status"></span>
-          API キーを発行
+      <div class="col-12 col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
+          <span class="spinner-border spinner-border-sm htmx-indicator" id="key-spinner" role="status"></span>
+          キーを発行
         </button>
       </div>
+
+      <div class="col-12 mt-1">
+        <div id="keyPromptHint" class="text-muted small" style="font-size: 0.78rem;">
+          ※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。
+        </div>
+      </div>
+
     </div>
   </form>
 </div>
 
 <!-- API キー一覧カード -->
 <div class="modern-card p-0 overflow-hidden">
-  <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center">
-    <h5 class="fw-bold mb-0">発行済み API キー一覧</h5>
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+    <h6 class="fw-bold mb-0">有効な API キー一覧</h6>
+    <span class="text-muted small">シークレットキーのコピーやシステムプロンプト等の編集がいつでも可能です</span>
   </div>
   <div id="api-keys-container">
     {{template "api_keys_section.html" .}}
@@ -98,3 +200,103 @@
 </div>
 {{end}}
 
+{{define "scripts"}}
+<script>
+  const PROMPT_EXAMPLES = {
+    business: "あなたは業務アシスタントです。丁寧な敬語を用い、要点を整理して箇条書きで簡潔・明確に回答してください。",
+    general: "あなたは親切で誠実なAIアシスタントです。質問に対して具体的かつ分かりやすく回答してください。"
+  };
+
+  function insertPromptExample(targetId, type) {
+    const el = document.getElementById(targetId);
+    if (el && PROMPT_EXAMPLES[type]) {
+      el.value = PROMPT_EXAMPLES[type];
+      el.focus();
+    }
+  }
+
+  function onKeyGroupsChanged() {
+    const checkboxes = document.querySelectorAll('#key-groups-container input[type=checkbox]');
+    let checkedCount = 0;
+    checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+
+    const badge = document.getElementById('keyModeBadge');
+    const hint = document.getElementById('keyPromptHint');
+    const builtinContainer = document.getElementById('keyBuiltinPromptContainer');
+
+    if (checkedCount > 0) {
+      if (badge) {
+        badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🔍 ナレッジ検索有効（組み込みプロンプト自動適用）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "block";
+      }
+    } else {
+      if (badge) {
+        badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ LLM単体モード: ナレッジ検索ツールおよび組み込みプロンプトは適用されません。役割やルールを固定したい場合は本欄に入力してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "none";
+      }
+    }
+  }
+
+  function onEditKeyGroupsChanged(keyId) {
+    const checkboxes = document.querySelectorAll(`#edit-groups-container-${keyId} input[type=checkbox]`);
+    let checkedCount = 0;
+    checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+
+    const badge = document.getElementById(`editKeyModeBadge-${keyId}`);
+    const hint = document.getElementById(`editKeyPromptHint-${keyId}`);
+    const builtinContainer = document.getElementById(`editBuiltinPromptContainer-${keyId}`);
+
+    if (checkedCount > 0) {
+      if (badge) {
+        badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🔍 ナレッジ検索有効（組み込みプロンプト自動適用）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "block";
+      }
+    } else {
+      if (badge) {
+        badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill small";
+        badge.innerHTML = "🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）";
+      }
+      if (hint) {
+        hint.innerHTML = "※ LLM単体モード: ナレッジ検索ツールおよび組み込みプロンプトは適用されません。役割やルールを固定したい場合は本欄に入力してください。";
+      }
+      if (builtinContainer) {
+        builtinContainer.style.display = "none";
+      }
+    }
+  }
+
+  function copyApiKeyToClipboard(keyText) {
+    if (!keyText) {
+      alert("シークレットキーがありません。");
+      return;
+    }
+    navigator.clipboard.writeText(keyText).then(() => {
+      alert("API キーをクリップボードにコピーしました！");
+    }).catch(() => {
+      prompt("API キーをコピーしてください:", keyText);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    onKeyGroupsChanged();
+  });
+</script>
+{{end}}

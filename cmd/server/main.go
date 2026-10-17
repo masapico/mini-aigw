@@ -208,6 +208,7 @@ func SetupRouter(
 			// API Keys
 			adminRouter.Get("/api-keys", apiKeysHandler.ShowAPIKeys)
 			adminRouter.Post("/api-keys/create", apiKeysHandler.CreateKey)
+			adminRouter.Post("/api-keys/{id}/edit", apiKeysHandler.EditKey)
 			adminRouter.Delete("/api-keys/{id}", apiKeysHandler.DeleteKey)
 
 			// Models
@@ -220,8 +221,10 @@ func SetupRouter(
 			// Users & Groups
 			adminRouter.Get("/users", usersHandler.ShowUsers)
 			adminRouter.Post("/users/create", usersHandler.CreateUser)
+			adminRouter.Post("/users/{id}/edit", usersHandler.EditUser)
 			adminRouter.Delete("/users/{id}", usersHandler.DeleteUser)
 			adminRouter.Post("/groups/create", usersHandler.CreateGroup)
+			adminRouter.Post("/groups/{id}/edit", usersHandler.EditGroup)
 			adminRouter.Delete("/groups/{id}", usersHandler.DeleteGroup)
 		})
 	})
