@@ -26,12 +26,12 @@ mini-aigw/
 │   ├── services/                 # Bedrock, Knowledge (S3), OIDC, Xberg ドキュメント抽出
 │   ├── version/                  # バージョン・ビルド情報
 │   └── views/                    # テンプレートレンダリングエンジン (html/template)
-├── webassets/                    # 内包Webアセット (embed.FS 完全内包)
+├── web/                          # 内包Webアセット (embed.FS 完全内包)
 │   ├── embed.go                  # 静的アセット・テンプレートの埋め込み定義
 │   ├── static/                   # UX配慮モダンデザイン CSS / JS / アイコン
 │   │   └── vendor/               # Bootstrap 5.3, Bootstrap Icons, htmx 2.x
 │   └── templates/                # html/template テンプレート群
-├── script/
+├── scripts/
 │   └── release/                  # マルチプラットフォーム向け配布パッケージ生成スクリプト
 ├── docs/                         # 仕様書・トラブルシューティングガイド
 ├── go.mod
@@ -40,7 +40,7 @@ mini-aigw/
 ```
 
 ### 1.2 閉域環境・依存ライブラリ方針
-- **外部CDNへの依存禁止**: HTMLテンプレート内で `cdn.jsdelivr.net` 等の外部URLを参照してはならない。必ず `webassets` に同梱された `/static/vendor/...` のローカルファイルを指定する。
+- **外部CDNへの依存禁止**: HTMLテンプレート内で `cdn.jsdelivr.net` 等の外部URLを参照してはならない。必ず `web` に同梱された `/static/vendor/...` のローカルファイルを指定する。
 - **UIフレームワーク**:
   - CSS/UI: **Bootstrap 5.3**, **Bootstrap Icons**
   - 動的インタラクション: **htmx 2.x**（静的JS配置）

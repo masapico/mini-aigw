@@ -17,13 +17,13 @@ import (
 
 	"mini-aigw/internal/api/middleware"
 	v1 "mini-aigw/internal/api/v1"
-	"mini-aigw/internal/api/web"
+	webapi "mini-aigw/internal/api/web"
 	"mini-aigw/internal/config"
 	"mini-aigw/internal/db"
 	"mini-aigw/internal/services"
 	"mini-aigw/internal/version"
 	"mini-aigw/internal/views"
-	"mini-aigw/webassets"
+	"mini-aigw/web"
 )
 
 func main() {
@@ -123,13 +123,13 @@ func SetupRouter(
 	modelsHandler := v1.NewModelsHandler(database, cfg)
 	downloadHandler := v1.NewKnowledgeDownloadHandler(knowledgeSvc, database, cfg)
 
-	authHandler := web.NewAuthHandler(database, cfg, oidcSvc, renderer)
-	dashboardHandler := web.NewDashboardHandler(database, cfg, renderer)
-	knowledgeHandler := web.NewKnowledgeHandler(knowledgeSvc, database, cfg, renderer)
-	ragTestHandler := web.NewRAGTestHandler(bedrockSvc, knowledgeSvc, database, cfg, renderer)
-	apiKeysHandler := web.NewAPIKeysHandler(database, cfg, renderer)
-	webModelsHandler := web.NewWebModelsHandler(database, renderer)
-	usersHandler := web.NewUsersHandler(database, renderer)
+	authHandler := webapi.NewAuthHandler(database, cfg, oidcSvc, renderer)
+	dashboardHandler := webapi.NewDashboardHandler(database, cfg, renderer)
+	knowledgeHandler := webapi.NewKnowledgeHandler(knowledgeSvc, database, cfg, renderer)
+	ragTestHandler := webapi.NewRAGTestHandler(bedrockSvc, knowledgeSvc, database, cfg, renderer)
+	apiKeysHandler := webapi.NewAPIKeysHandler(database, cfg, renderer)
+	webModelsHandler := webapi.NewWebModelsHandler(database, renderer)
+	usersHandler := webapi.NewUsersHandler(database, renderer)
 
 	r := chi.NewRouter()
 
@@ -147,10 +147,10 @@ func SetupRouter(
 	})
 
 	// Static files & Favicon via embed.FS
-	staticFS := http.FS(webassets.StaticFS())
+	staticFS := http.FS(web.StaticFS())
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(staticFS)))
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		data, err := webassets.Files.ReadFile("static/favicon.svg")
+		data, err := web.Files.ReadFile("static/favicon.svg")
 		if err != nil {
 			http.NotFound(w, r)
 			return

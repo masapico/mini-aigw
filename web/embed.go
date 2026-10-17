@@ -1,4 +1,4 @@
-package webassets
+package web
 
 import (
 	"embed"

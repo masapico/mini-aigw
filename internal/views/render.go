@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"mini-aigw/internal/models"
-	"mini-aigw/webassets"
+	"mini-aigw/web"
 )
 
 type Renderer struct {
@@ -24,7 +24,7 @@ type Renderer struct {
 var GlobalRenderer *Renderer
 
 func InitRenderer() (*Renderer, error) {
-	tfs := webassets.TemplateFS()
+	tfs := web.TemplateFS()
 
 	funcMap := template.FuncMap{
 		"hasRole": func(u *models.User, role string) bool {

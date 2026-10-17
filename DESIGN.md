@@ -35,7 +35,7 @@
   - Go標準 `html/template`
   - **Bootstrap 5.3** + **Bootstrap Icons** (CSS/JS/フォントを内包配信)
   - **htmx 2.x** (最新安定版 JS を内包配信し、SPAライクな非同期操作を実現)
-  - Go標準 `embed.FS`（`webassets` パッケージ）により、HTML/CSS/JS/画像がすべて単一バイナリに自己完結内包され、外部CDN依存を完全排除
+  - Go標準 `embed.FS`（`web` パッケージ）により、HTML/CSS/JS/画像がすべて単一バイナリに自己完結内包され、外部CDN依存を完全排除
 
 ---
 
@@ -168,8 +168,8 @@ pre-filtering 機構により、ベクトル類似度計算の前に権限外の
 ## 5. 管理画面・閉域 UI 設計
 
 ### 5.1 フロントエンド構成
-- **静的アセット**: `webassets/static/vendor/`（Bootstrap 5.3, Bootstrap Icons, htmx 2.x）
-- **テンプレート**: `webassets/templates/`（Go `html/template`）
+- **静的アセット**: `web/static/vendor/`（Bootstrap 5.3, Bootstrap Icons, htmx 2.x）
+- **テンプレート**: `web/templates/`（Go `html/template`）
 - **UI 機能一覧**:
   1. **ダッシュボード (`/`)**: 統計情報、リージョン、SDK接続サンプル
   2. **ログイン (`/login`)**: ローカル認証 / mini-id SSO 切り替え
@@ -248,6 +248,6 @@ CREATE TABLE sessions (
    - VPC エンドポイント（S3, Bedrock Runtime, Bedrock Agent Runtime, Bedrock Agent, SSM）の設定。
    - mini-id サーバーへのDNS名前解決および通信経路（443ポート）の確保。
 2. **単一バイナリによる配布**:
-   - クロスコンパイルスクリプト（`script/release`）により、ランタイム・依存関係不要のアーカイブを一括生成。
+   - クロスコンパイルスクリプト（`scripts/release`）により、ランタイム・依存関係不要のアーカイブを一括生成。
 3. **IAM ロール**: EC2 インスタンスプロファイルで Bedrock および S3 操作権限を付与（静的キー管理不要）。
 4. **SQLite 並行性**: `PRAGMA journal_mode=WAL;` / `PRAGMA busy_timeout=5000;` を接続時に設定。

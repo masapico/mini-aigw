@@ -94,7 +94,7 @@ go run ./cmd/server
 以下のコマンド一発で全プラットフォーム（Windows, Linux, macOS 各 amd64/arm64）向けの配布パッケージを一括生成できます。
 
 ```bash
-go run ./script/release -version v1.0.0
+go run ./scripts/release -version v1.0.0
 ```
 
 各パッケージには実行バイナリのほか、`README.md` および `.env.sample` が自動同梱されます。
@@ -289,11 +289,11 @@ mini-aigw/
 │   ├── services/                 # Bedrock, Knowledge (S3), OIDC, Xberg ドキュメント抽出
 │   ├── version/                  # バージョン・ビルド情報
 │   └── views/                    # テンプレートレンダリングエンジン
-├── webassets/                    # 内包Webアセット (embed.FS 完全内包)
+├── web/                          # 内包Webアセット (embed.FS 完全内包)
 │   ├── embed.go                  # 静的アセット・テンプレート埋め込み定義
 │   ├── static/                   # UX配慮モダンデザイン CSS / JS / アイコン (Bootstrap 5.3, htmx 2.x)
 │   └── templates/                # html/template テンプレート群
-├── script/
+├── scripts/
 │   └── release/                  # クロスプラットフォーム配布パッケージ生成スクリプト
 ├── docs/                         # 仕様書・運用手順書
 │   ├── BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md

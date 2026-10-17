@@ -9,14 +9,8 @@
 ### 1.1 単一バイナリによる閉域運用のメリット
 `mini-aigw` は Go 言語（CGO フリー / 純Go SQLite）で実装されており、Web UI の HTML テンプレートや静的アセット（Bootstrap 5.3 + htmx 2.x）が実行バイナリ内部に完全内包（Go `embed.FS`）されています。
 
-これにより、従来のスクリプト言語（Python / Node 等）で発生していた以下の課題が根本から解消されています：
-1. **外部パッケージ管理の不要化**: PyPI や npm への接続はもちろん、Wheelhouse（事前ダウンロード済み依存パッケージ群）の持ち込み・ビルド環境の構築が不要。
-2. **ランタイム不在問題の解消**: デプロイ先サーバーに言語ランタイム（Python、Java、Node 等）を事前にインストールする必要がありません。
-3. **C拡張コンパイルエラーの撲滅**: コンパイラ（gcc/clang）や共有ライブラリの欠落によるデプロイ失敗が発生しません。
-4. **即時起動・高信頼性**: 単一バイナリと環境設定ファイル（`.env`）のみで即座にサービスが稼働します。
-
 ### 1.2 持ち込み対象（配布物アーカイブ）の構成
-オンライン作業端末でクロスコンパイルリリーススクリプト（`script/release`）を実行して生成されるアーカイブ（zip / tar.gz）を持ち込みます。
+オンライン作業端末でクロスコンパイルリリーススクリプト（`scripts/release`）を実行して生成されるアーカイブ（zip / tar.gz）を持ち込みます。
 
 ```
 offline_deploy_bundle/
@@ -66,13 +60,13 @@ offline_deploy_bundle/
 
 ```bash
 # 全プラットフォーム向けリリースビルド（dist/ に zip / tar.gz が生成されます）
-go run ./script/release -version v1.0.0
+go run ./scripts/release -version v1.0.0
 
 # 対象 OS を Linux に絞る場合:
-go run ./script/release -version v1.0.0 -os linux -arch amd64
+go run ./scripts/release -version v1.0.0 -os linux -arch amd64
 
 # 対象 OS を Windows に絞る場合:
-go run ./script/release -version v1.0.0 -os windows -arch amd64
+go run ./scripts/release -version v1.0.0 -os windows -arch amd64
 ```
 
 生成されたアーカイブ（例: `mini-aigw_v1.0.0_linux_amd64.tar.gz` や `mini-aigw_v1.0.0_windows_amd64.zip`）およびチェックサムファイル（`SHA256SUMS.txt`）を、USB メディアや踏み台経由で閉域環境サーバーへ転送します。
