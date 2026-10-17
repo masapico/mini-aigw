@@ -13,6 +13,7 @@ import (
 	"mini-aigw/internal/config"
 	"mini-aigw/internal/db"
 	"mini-aigw/internal/services"
+	"mini-aigw/internal/version"
 	"mini-aigw/internal/views"
 )
 
@@ -69,6 +70,9 @@ func TestFullRouterEndpoints(t *testing.T) {
 		}
 		if body["status"] != "healthy" {
 			t.Errorf("expected status 'healthy', got '%v'", body["status"])
+		}
+		if body["version"] != version.Version {
+			t.Errorf("expected version '%s', got '%v'", version.Version, body["version"])
 		}
 	})
 

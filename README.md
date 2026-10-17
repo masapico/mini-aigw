@@ -58,42 +58,71 @@
 
 ## 3. Go 単一バイナリのビルドと起動手順（推奨）
 
-mini-aigw は CGO フリー（`modernc.org/sqlite` 採用）かつ HTML テンプレート・静的 UI アセット（Bootstrap 5.3 + HTMX 2.x）をバイナリ内部に完全内包（Go `embed.FS`）しているため、外部依存なしの単一バイナリとして動作します。
+mini-aigw は CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI アセット（Bootstrap 5.3 + HTMX 2.x）をバイナリ内部に完全内包（Go `embed.FS`）しているため、外部依存なしの単一バイナリとして動作します。
+Windows・macOS・Linux のいずれの開発環境でも、`make` などの外部ツールを一切使わず標準の `go` コマンドだけでビルド・実行・リリースを行えます。
 
 ### 3.1 ローカル環境でのビルド & 実行
 
+#### macOS / Linux
 ```bash
 # ビルド (bin/mini-aigw が生成されます)
-make build
+go build -o bin/mini-aigw ./cmd/server
 
 # 実行
 ./bin/mini-aigw
-# または直接実行:
-make run
+
+# またはビルドを挟まず直接実行:
+go run ./cmd/server
 ```
 
-### 3.2 閉域 Windows 向けクロスコンパイル (`.exe` 生成)
+#### Windows (PowerShell / コマンドプロンプト)
+```powershell
+# ビルド (bin/mini-aigw.exe が生成されます)
+go build -o bin/mini-aigw.exe ./cmd/server
 
-macOS や Linux 開発環境から、CGO 不要で閉域 Windows 用の実行可能ファイル（約 28MB）を一発で生成できます。
+# 実行
+.\bin\mini-aigw.exe
 
-```bash
-make build-windows
-# -> dist/mini-aigw.exe が出力されます
+# またはビルドを挟まず直接実行:
+go run ./cmd/server
 ```
 
-生成された `dist/mini-aigw.exe` と `.env`（必要に応じて）を対象の Windows サーバーへコピーし、ダブルクリックまたはコマンドプロンプト／PowerShell からそのまま実行するだけで即座に稼働します（Python や Node.js 等のインストールは一切不要です）。
-
-### 3.3 Linux サーバー向けクロスコンパイル
-
+※ バージョン情報の確認:
 ```bash
-make build-linux
-# -> dist/mini-aigw が出力されます
+./bin/mini-aigw -v
+# または Windows: .\bin\mini-aigw.exe -v
 ```
 
-### 3.4 テスト実行
+### 3.2 マルチプラットフォーム向けリリースビルド (GitHub Releases 形式)
+
+Windows / Linux / macOS を問わず、以下のコマンド一発で全プラットフォーム（Windows, Linux, macOS 各 amd64/arm64）向けの配布パッケージを一括生成できます。
 
 ```bash
-make test
+go run ./script/release -version v1.0.0
+```
+
+各パッケージには実行バイナリのほか、`README.md` および `.env.sample` が自動同梱されます。そのまま GitHub Releases にアップロードして公開・配布できます。
+
+**生成される成果物 (`dist/` 配下):**
+- `mini-aigw_v1.0.0_windows_amd64.zip` (Windows 64-bit x64)
+- `mini-aigw_v1.0.0_windows_arm64.zip` (Windows arm64)
+- `mini-aigw_v1.0.0_darwin_arm64.tar.gz` (macOS Apple Silicon Mシリーズ)
+- `mini-aigw_v1.0.0_darwin_amd64.tar.gz` (macOS Intel)
+- `mini-aigw_v1.0.0_linux_amd64.tar.gz` (Linux 64-bit x86_64)
+- `mini-aigw_v1.0.0_linux_arm64.tar.gz` (Linux arm64 / AWS Graviton)
+- `SHA256SUMS.txt` (全アーカイブの SHA-256 チェックサム一覧)
+
+**主要オプション:**
+- `-version <str>`: リリースバージョン指定（未指定時は git タグまたは `v0.2.0-dev`）
+- `-os <list>`: 対象 OS の絞り込み（例: `-os windows,linux`）
+- `-arch <list>`: 対象アーキテクチャの絞り込み（例: `-arch amd64`）
+- `-dist <dir>`: 出力先ディレクトリ（デフォルト: `dist`）
+- `-dry-run`: 実際にはビルドせず、計画される成果物一覧をプレビュー表示
+
+### 3.3 テスト実行
+
+```bash
+go test -v ./...
 ```
 
 ---

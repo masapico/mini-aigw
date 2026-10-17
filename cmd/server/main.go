@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,14 +21,23 @@ import (
 	"mini-aigw/internal/config"
 	"mini-aigw/internal/db"
 	"mini-aigw/internal/services"
+	"mini-aigw/internal/version"
 	"mini-aigw/internal/views"
 	"mini-aigw/webassets"
 )
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print version information and exit")
+	vFlag := flag.Bool("v", false, "Print version information and exit (shorthand)")
+	flag.Parse()
+	if *versionFlag || *vFlag {
+		fmt.Printf("mini-aigw %s (commit: %s, built: %s)\n", version.Version, version.GitCommit, version.BuildTime)
+		return
+	}
+
 	cfg := config.LoadConfig()
 
-	log.Printf("Starting %s in environment (Debug=%v)...", cfg.ProjectName, cfg.Debug)
+	log.Printf("Starting %s %s in environment (Debug=%v)...", cfg.ProjectName, version.Version, cfg.Debug)
 
 	// 1. Initialize SQLite with WAL mode
 	database, err := db.InitDB(cfg)
@@ -132,7 +142,8 @@ func SetupRouter(
 	// Health check (ALB / EC2 AutoRecovery)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"healthy","database":"ok","version":"0.2.0"}`))
+		resp := fmt.Sprintf(`{"status":"healthy","database":"ok","version":"%s"}`, version.Version)
+		_, _ = w.Write([]byte(resp))
 	})
 
 	// Static files & Favicon via embed.FS
