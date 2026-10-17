@@ -47,9 +47,9 @@ Amazon Bedrock の `MANAGED` 型 Knowledge Base（`managedSearchConfiguration`�
 #### 教訓と対策
 1. **Tool Use で検索クエリをキーワード分解させない**:
    - 一般的な全文検索エンジンの感覚で、LLM に「ユーザーの質問から検索キーワードを抽出・組み立てよ（例：`統計検定 出題範囲`）」と指示すると、Managed KB では逆にヒットしなくなります。
-   - **ユーザーの入力文（自然な質問文）をそのまま投げる** 方が圧倒的に高い精度でヒットします（`app/core/prompts.py` にて自然文をそのまま渡すよう規定）。
+   - **ユーザーの入力文（自然な質問文）をそのまま投げる** 方が圧倒的に高い精度でヒットします（`internal/prompts/prompts.go` にて自然文をそのまま渡すよう規定）。
 2. **短文・単語単体クエリの自動フォールバック補完**:
-   - ユーザーが検索ボックス等に単語単体（例：`統計検定`）を入力して 1 回目の Retrieve が 0 件だった場合、`mini-aigw` は自動的に `"{query}について"`（例：`統計検定について`）へ補完して再検索を実行します（`app/services/bedrock_service.py` の `build_fallback_natural_query`）。
+   - ユーザーが検索ボックス等に単語単体（例：`統計検定`）を入力して 1 回目の Retrieve が 0 件だった場合、`mini-aigw` は自動的に `"{query}について"`（例：`統計検定について`）へ補完して再検索を実行します（`internal/services/bedrock_service.go` の `BuildFallbackNaturalQuery`）。
 
 ---
 

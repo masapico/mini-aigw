@@ -1,6 +1,6 @@
 # 開発ガイドライン・実装指示書 (AGENTS.md)
 
-本ドキュメントは、AI実装エージェントおよび開発者が本システム（FastAPI + SQLite + Bedrock + mini-id + S3 Vectors）を実装・保守するための指示書である。
+本ドキュメントは、AI実装エージェントおよび開発者が本システム（Go + Pure-Go SQLite + AWS SDK for Go v2 + Bedrock + mini-id + S3 Vectors）を実装・保守するための指示書である。
 
 ---
 
@@ -9,118 +9,93 @@
 ### 1.1 ディレクトリ構成
 ```
 mini-aigw/
-├── app/
+├── cmd/
+│   └── server/
+│       ├── main.go               # アプリケーションエントリポイント
+│       └── server_test.go        # サーバー起動・HTTPルーティング結合テスト
+├── internal/
 │   ├── api/
-│   │   ├── v1/
-│   │   │   ├── chat.py           # OpenAI互換 /v1/chat/completions
-│   │   │   └── models.py         # /v1/models
-│   │   └── web/
-│   │       ├── auth.py           # mini-id OIDC & ローカル認証
-│   │       ├── knowledge.py      # ナレッジアップロード/削除/一覧
-│   │       └── rag_test.py       # RAGテスト画面・HTMXエンドポイント
-│   ├── core/
-│   │   ├── config.py             # 環境変数・設定 (pydantic-settings)
-│   │   ├── database.py           # SQLite (WAL設定付きエンジン)
-│   │   └── security.py           # パスワードハッシュ(Argon2id), セッション
-│   ├── models/                   # SQLModel 定義
-│   ├── services/
-│   │   ├── bedrock_service.py    # Converse API & ConverseStream
-│   │   ├── knowledge_service.py  # S3 Vectors & Metadata JSON, Ingestion
-│   │   ├── markitdown_service.py # ファイルテキスト抽出・正規化
-│   │   └── oidc_service.py       # mini-id OIDCクライアント (Authlib)
-│   ├── static/
-│   │   └── vendor/
-│   │       ├── bootstrap/        # bootstrap.min.css, bootstrap.bundle.min.js (同梱)
-│   │       └── htmx/             # htmx.min.js (v2.x 同梱)
-│   └── templates/                # Jinja2 テンプレート (Bootstrap 5 + htmx)
-├── tests/
-├── pyproject.toml
+│   │   ├── middleware/           # 認証・セッション・ロギングミドルウェア
+│   │   ├── v1/                   # OpenAI互換 API (/v1/chat/completions, /v1/models)
+│   │   └── web/                  # Web管理画面ハンドラー (HTMX / SSR)
+│   ├── auth/                     # パスワードハッシュ (Argon2id), セッション, PKCE
+│   ├── config/                   # 環境変数・設定ロード (godotenv)
+│   ├── db/                       # SQLite 初期化 (WAL設定, GORM AutoMigrate)
+│   ├── models/                   # GORM エンティティ定義 (User, ApiKey, Knowledge 等)
+│   ├── prompts/                  # 前提システムプロンプト定数
+│   ├── services/                 # Bedrock, Knowledge (S3), OIDC, Xberg ドキュメント抽出
+│   ├── version/                  # バージョン・ビルド情報
+│   └── views/                    # テンプレートレンダリングエンジン (html/template)
+├── webassets/                    # 内包Webアセット (embed.FS 完全内包)
+│   ├── embed.go                  # 静的アセット・テンプレートの埋め込み定義
+│   ├── static/                   # UX配慮モダンデザイン CSS / JS / アイコン
+│   │   └── vendor/               # Bootstrap 5.3, Bootstrap Icons, htmx 2.x
+│   └── templates/                # html/template テンプレート群
+├── script/
+│   └── release/                  # マルチプラットフォーム向け配布パッケージ生成スクリプト
+├── docs/                         # 仕様書・トラブルシューティングガイド
+├── go.mod
+├── go.sum
 └── README.md
 ```
 
 ### 1.2 閉域環境・依存ライブラリ方針
-- **外部CDNへの依存禁止**: HTMLテンプレート内で `cdn.jsdelivr.net` 等の外部URLを参照してはならない。必ず `/static/vendor/...` のローカルファイルを指定する。
+- **外部CDNへの依存禁止**: HTMLテンプレート内で `cdn.jsdelivr.net` 等の外部URLを参照してはならない。必ず `webassets` に同梱された `/static/vendor/...` のローカルファイルを指定する。
 - **UIフレームワーク**:
-  - CSS/UI: **Bootstrap 5.3**
+  - CSS/UI: **Bootstrap 5.3**, **Bootstrap Icons**
   - 動的インタラクション: **htmx 2.x**（静的JS配置）
-- **ファイル解析**: `markitdown` を用いてドキュメント（PDF, Office文書, CSV等）を統一的にMarkdown文字列化する。
+  - Go標準の `embed.FS` により、全アセットが単一バイナリに自己完結内包される。
+- **ファイル解析**: `xberg CLI` を用いてドキュメント（PDF, Office文書, CSV等）をMarkdownテキスト化する（未配置時は自動的にセキュアなUTF-8平文フォールバックが稼働）。
 
 ---
 
 ## 2. 実装詳細とコーディング規約
 
-### 2.1 添付ファイル処理（`markitdown` 連携）
+### 2.1 添付ファイル処理（`XbergService` 連携）
 OpenAI互換リクエストで届いたBase64添付ファイルは、モデルの種類（マルチモーダル対応・非対応）に関わらず安全に扱えるよう処理する。
 
-```python
-# app/services/markitdown_service.py
-import io
-import base64
-from markitdown import MarkItDown
-
-md_converter = MarkItDown()
-
-def extract_content_from_base64(b64_string: str, filename: str) -> str:
-    """Base64文字列からバイナリを復元し、markitdownでMarkdownテキストを抽出する"""
-    file_bytes = base64.b64decode(b64_string)
-    file_io = io.BytesIO(file_bytes)
-    file_io.name = filename
-    result = md_converter.convert_stream(file_io)
-    return result.text_content
+```go
+// internal/services/xberg_service.go
+type DocumentExtractor interface {
+    ExtractContentFromBytes(ctx context.Context, fileBytes []byte, filename string) string
+    ExtractContentFromBase64(ctx context.Context, b64String string, filename string) string
+}
 ```
+- 画像ファイル（PNG, JPEG等）: Bedrock `ImageBlock` へ自動マッピング。
+- ドキュメント（PDF, DOCX, XLSX, CSV等）: `XbergService` により Markdown テキストに自動抽出・正規化してプロンプトまたは `DocumentBlock` へ注入。
 
 ### 2.2 S3 Vectors サイドカーメタデータ管理
 S3 アップロード時には、必ず同一ディレクトリに `.metadata.json` を付与し、プレフィックスと属性を整合させる。
 
-```python
-# app/services/knowledge_service.py
-import json
-import boto3
+```go
+// internal/services/knowledge_service.go
+func (s *KnowledgeService) UploadDocumentWithMetadata(ctx context.Context, doc *models.KnowledgeDocument, content []byte) error {
+    objKey := doc.S3Key
+    metaKey := objKey + ".metadata.json"
 
-async def upload_document_with_metadata(s3_client, bucket: str, prefix: str, filename: str, content: bytes, group: str):
-    obj_key = f"{prefix}/{filename}"
-    meta_key = f"{obj_key}.metadata.json"
-    
-    metadata_content = {
-        "metadataAttributes": {
-            "group": group,
-            "filename": filename
-        }
+    metadata := map[string]interface{}{
+        "metadataAttributes": map[string]interface{}{
+            "group":       doc.GroupName,
+            "filename":    doc.Filename,
+            "document_id": doc.ID,
+        },
     }
-    
-    # 1. ファイル本体アップロード
-    s3_client.put_object(Bucket=bucket, Key=obj_key, Body=content)
-    # 2. サイドカーメタデータ JSON アップロード
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=meta_key,
-        Body=json.dumps(metadata_content).encode("utf-8"),
-        ContentType="application/json"
-    )
+    // 1. ファイル本体アップロード (s3Client.PutObject)
+    // 2. サイドカーメタデータ JSON アップロード (s3Client.PutObject)
+}
 ```
 
 ### 2.3 削除処理（整合性保証）
-ドキュメント削除時は、DB上のステータス更新 ➔ S3実体およびメタデータの削除 ➔ Bedrock KB同期実行 の順で安全に処理する。
+ドキュメント削除時は、DB上のステータス更新 ➔ S3実体およびメタデータの削除 ➔ Bedrock KB同期実行 ➔ DB物理削除 の順で安全に処理する。
 
-```python
-async def delete_knowledge_document(db, s3_client, bedrock_agent, kb_id: str, doc_id: str):
-    doc = db.get(KnowledgeDocument, doc_id)
-    doc.sync_status = "DELETING"
-    db.commit()
-
-    # S3 削除 (本体 & メタデータ)
-    s3_client.delete_object(Bucket=doc.s3_bucket, Key=doc.s3_key)
-    s3_client.delete_object(Bucket=doc.s3_bucket, Key=f"{doc.s3_key}.metadata.json")
-
-    # KB Ingestion ジョブのトリガー
-    bedrock_agent.start_ingestion_job(
-        knowledgeBaseId=kb_id,
-        dataSourceId=doc.data_source_id
-    )
-
-    # 完了後レコード削除
-    db.delete(doc)
-    db.commit()
+```go
+// internal/services/knowledge_service.go
+func (s *KnowledgeService) DeleteKnowledgeDocument(ctx context.Context, docID string) error {
+    // 1. ステータスを "DELETING" に更新
+    // 2. S3 からファイル実体および .metadata.json を削除
+    // 3. Bedrock KB Ingestion ジョブのトリガー (StartIngestionJob)
+    // 4. DB レコードの削除
+}
 ```
 
 ### 2.4 mini-id (OIDC) 規約チェックリスト
@@ -132,32 +107,37 @@ async def delete_knowledge_document(db, s3_client, bedrock_agent, kb_id: str, do
 - [ ] ログアウト時はアプリセッション破棄後に RP-Initiated Logout へ遷移可能にする。
 
 ### 2.5 SQLite 接続設定（高並行性対策）
-```python
-# app/core/database.py
-from sqlmodel import create_engine
-from sqlalchemy import event
+CGO を使わない純 Go SQLite ドライバー（`glebarez/sqlite`）と GORM を使用し、接続時に WAL モードおよび適切な PRAGMA を確実に適用する。
 
-engine = create_engine(
-    "sqlite:///data/gateway.db",
-    connect_args={"check_same_thread": False, "timeout": 15}
-)
-
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+```go
+// internal/db/db.go
+func applyPragmas(sqlDB *sql.DB) error {
+    pragmas := []string{
+        "PRAGMA journal_mode=WAL;",
+        "PRAGMA busy_timeout=5000;",
+        "PRAGMA synchronous=NORMAL;",
+        "PRAGMA foreign_keys=ON;",
+    }
+    for _, pragma := range pragmas {
+        if _, err := sqlDB.Exec(pragma); err != nil {
+            return fmt.Errorf("executing '%s': %w", pragma, err)
+        }
+    }
+    return nil
+}
 ```
+- コネクションプール設定: `SetMaxOpenConns(25)`, `SetMaxIdleConns(10)`
+- スキーマ初期化: GORM の `db.AutoMigrate(...)` により、起動時に全モデルが自動同期される。
 
 ---
 
 ## 3. テストと動作検証
 
-1. **OpenAI 互換性テスト**:
-   - 公式の `openai` Python SDK クライアントを用いて、`base_url="http://localhost:8000/v1"` 経由でテキストおよび添付ファイル付きリクエストが Bedrock Converse API に正常に転送され、回答が得られるか検証。
-2. **閉域UI表示テスト**:
-   - ブラウザの開発者ツールで外部ドメイン（CDN等）への通信が一切発生せず、Bootstrap 5.3 と htmx 2.x がローカルから 200 OK でロードされていることを確認。
-3. **RAG 権限分離テスト**:
-   - `group: "sales"` のユーザーで RAG 検索を実行した際、S3 Vectors フィルタにより `dev` 専用のドキュメントが取得チャンクに含まれないことを検証。
+1. **Go ユニット & 結合テスト**:
+   - `go test -v ./...` により、API、ハンドラー、DB、Bedrock/Knowledge 連携テストがすべて PASS することを確認。
+2. **OpenAI 互換性テスト**:
+   - 公式の `openai` SDK または `curl` を用いて、`base_url="http://localhost:8000/v1"` 経由でテキストおよび添付ファイル付きリクエストが正常に推論・ストリーミングされるか検証。
+3. **閉域UI表示テスト**:
+   - ブラウザの開発者ツールで外部ドメイン（CDN等）への通信が一切発生せず、内包アセット（Bootstrap 5.3 + htmx 2.x）が 200 OK でロードされていることを確認。
+4. **RAG 権限分離テスト**:
+   - `group: "sales"` のユーザー/APIキーで RAG 検索を実行した際、S3 Vectors プリフィルタにより他グループ専用のドキュメントが取得チャンクに含まれないことを検証。
