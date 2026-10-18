@@ -241,8 +241,8 @@ CREATE TABLE sessions (
 
 -- LLM基盤モデル管理 (models.LLMModel)
 CREATE TABLE llm_models (
-    id TEXT PRIMARY KEY,            -- Bedrock profileId または modelId (例: 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0')
-    name TEXT NOT NULL,             -- 表示名 (例: 'Claude 3.5 Sonnet v2')
+    id TEXT PRIMARY KEY,            -- Bedrock profileId または modelId (例: 'jp.anthropic.claude-haiku-5-5')
+    name TEXT NOT NULL,             -- 表示名 (例: 'Claude 5.5 Haiku1')
     description TEXT,               -- 説明・用途メモ
     provider TEXT NOT NULL,         -- 'bedrock'
     is_active INTEGER NOT NULL,     -- 有効フラグ (0 or 1)

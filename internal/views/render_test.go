@@ -31,7 +31,7 @@ func TestInitRenderer_AllTemplatesValid(t *testing.T) {
 		"DocCount":          10,
 		"KeyCount":          3,
 		"ActiveModelsCount": 2,
-		"DefaultModelName":  "GPT-OSS 20B",
+		"DefaultModelName":  "Amazon Nova 2 Lite",
 		"Config":            &config.Config{KnowledgeS3Bucket: "test-bucket", AWSRegion: "ap-northeast-1"},
 		"RecentDocs":        []models.KnowledgeDocument{},
 		"TotalRequests":     100,
@@ -352,6 +352,3 @@ func TestRenderer_RenderUsersAndGroupsModals(t *testing.T) {
 		t.Errorf("expected groups_table to contain group display name '営業部'")
 	}
 }
-
-
-

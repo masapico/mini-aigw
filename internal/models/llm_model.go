@@ -5,7 +5,7 @@ import (
 )
 
 type LLMModel struct {
-	ID          string    `gorm:"primaryKey;size:100" json:"id"` // e.g. 'openai.gpt-oss-20b-1:0'
+	ID          string    `gorm:"primaryKey;size:100" json:"id"`
 	Name        string    `gorm:"size:100;not null" json:"name"`
 	Description *string   `gorm:"size:255" json:"description"`
 	Provider    string    `gorm:"size:50;not null;default:'bedrock'" json:"provider"`
@@ -17,4 +17,3 @@ type LLMModel struct {
 func (LLMModel) TableName() string {
 	return "llm_models"
 }
-

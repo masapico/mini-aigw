@@ -51,8 +51,8 @@ func TestModelsHandler_ListModels(t *testing.T) {
 
 	// 2. Add an active model in DB
 	m := models.LLMModel{
-		ID:        "anthropic.claude-3-haiku-20240307-v1:0",
-		Name:      "Claude 3 Haiku",
+		ID:        "jp.amazon.nova-2-lite-v1:0",
+		Name:      "Amazon Nova 2 Lite",
 		Provider:  "bedrock",
 		IsActive:  true,
 		IsDefault: true,
@@ -71,4 +71,3 @@ func TestModelsHandler_ListModels(t *testing.T) {
 		t.Errorf("expected active model from DB, got %+v", res.Data)
 	}
 }
-

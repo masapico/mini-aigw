@@ -31,7 +31,7 @@ CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI 
   - セッション固定攻撃対策（ログイン時セッション ID 再生成）、Cookie 属性 (`HttpOnly`, `SameSite=Lax`, HTTPS時 `Secure`)。
 - **業務チャット向け API キー管理 & プロンプト/モデル紐付け**:
   - 権限グループを指定した `sk-live-...` トークンの発行・失効（SHA-256 で安全に保存）。
-  - **固定モデル指定**: キーごとに特定の Bedrock モデル（Claude 3.5, Nova Lite 等）を固定化可能（用途制限・コスト統制）。
+  - **固定モデル指定**: キーごとに特定の Bedrock モデル（Claude5.5Haiku, AmazonNovaLite2 等）を固定化可能（用途制限・コスト統制）。
   - **事前定義システムプロンプト**: キーごとに前提ポリシー・ペルソナプロンプトを設定し、リクエストに基底注入・合成。
 - **LLM モデル動的 DB 管理 (`/models`)**:
   - Bedrock 基底モデルの追加、有効/無効の切り替え、既定モデル設定を Web 管理画面から動的に管理。
@@ -137,7 +137,7 @@ AWS_REGION=ap-northeast-1
 BEDROCK_KB_ID=your-bedrock-knowledge-base-id
 BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
 KNOWLEDGE_S3_BUCKET=your-s3-knowledge-bucket
-DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0 # 既定モデルID (取得方法は docs/GET_FOUNDATION_MODELS.md 参照)
+DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は docs/GET_FOUNDATION_MODELS.md 参照)
 
 # ドキュメント抽出 CLI パス (任意: 未指定時は PATH 上の "xberg" を探索、見つからない場合は平文フォールバック)
 # XBERG_PATH=/usr/local/bin/xberg
@@ -193,7 +193,7 @@ client = OpenAI(
 
 # 1. 通常チャット補完
 response = client.chat.completions.create(
-    model="openai.gpt-oss-20b-1:0",
+    model="jp.amazon.nova-2-lite-v1:0",
     messages=[
         {"role": "system", "content": "あなたは優秀な業務アシスタントです。"},
         {"role": "user", "content": "こんにちは！"},
@@ -204,7 +204,7 @@ print(response.choices[0].message.content)
 
 # 2. ストリーミング応答 (SSE)
 stream = client.chat.completions.create(
-    model="openai.gpt-oss-20b-1:0",
+    model="jp.amazon.nova-2-lite-v1:0",
     messages=[
         {"role": "user", "content": "AI Gateway のアーキテクチャについて簡潔に説明してください。"},
     ],
@@ -223,7 +223,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-live-..." \
   -d '{
-    "model": "openai.gpt-oss-20b-1:0",
+    "model": "jp.amazon.nova-2-lite-v1:0",
     "messages": [
       {"role": "user", "content": "Hello Bedrock!"}
     ],
@@ -245,7 +245,7 @@ with open("spec.pdf", "rb") as f:
     pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
 
 response = client.chat.completions.create(
-    model="openai.gpt-oss-20b-1:0",
+    model="jp.amazon.nova-2-lite-v1:0",
     messages=[
         {
             "role": "user",

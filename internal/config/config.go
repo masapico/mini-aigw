@@ -41,7 +41,7 @@ type Config struct {
 	AvailableModels       []string
 
 	// RAG Configuration
-	RAGScoreThreshold float64
+	RAGScoreThreshold  float64
 	RAGNumberOfResults int
 
 	// Inference Parameters
@@ -50,12 +50,12 @@ type Config struct {
 	MaxAllowedTokens   int
 
 	// mini-id OIDC
-	OIDCIssuer              string
-	OIDCClientID            string
-	OIDCClientSecret        string
-	OIDCRedirectURI         string
-	OIDCScopes              string
-	OIDCEndSessionEndpoint  string
+	OIDCIssuer             string
+	OIDCClientID           string
+	OIDCClientSecret       string
+	OIDCRedirectURI        string
+	OIDCScopes             string
+	OIDCEndSessionEndpoint string
 
 	// Document Extraction (xberg)
 	XbergPath string
@@ -91,8 +91,8 @@ func LoadConfig() *Config {
 		BedrockDataSourceID:   getEnv("BEDROCK_DATA_SOURCE_ID", "SAMPLE_DS_ID"),
 		KnowledgeS3Bucket:     getEnv("KNOWLEDGE_S3_BUCKET", "sample-knowledge-bucket"),
 		MaxUploadFileSizeMB:   getEnvAsInt("MAX_UPLOAD_FILE_SIZE_MB", 50),
-		DefaultModelID:        getEnv("DEFAULT_MODEL_ID", "openai.gpt-oss-20b-1:0"),
-		AvailableModels:       getEnvAsSlice("AVAILABLE_MODELS", []string{"openai.gpt-oss-20b-1:0", "amazon.nova-lite-v1:0"}),
+		DefaultModelID:        getEnv("DEFAULT_MODEL_ID", "jp.amazon.nova-2-lite-v1:0"),
+		AvailableModels:       getEnvAsSlice("AVAILABLE_MODELS", []string{"jp.amazon.nova-2-lite-v1:0", "jp.anthropic.claude-haiku-5-5"}),
 
 		RAGScoreThreshold:  getEnvAsFloat("RAG_SCORE_THRESHOLD", 0.30),
 		RAGNumberOfResults: getEnvAsInt("RAG_NUMBER_OF_RESULTS", 5),
@@ -167,4 +167,3 @@ func getEnvAsSlice(key string, defaultVal []string) []string {
 	}
 	return result
 }
-

@@ -60,8 +60,8 @@ func SeedInitialData(db *gorm.DB, cfg *config.Config) error {
 	if modelCount == 0 {
 		modelsList := []models.LLMModel{
 			{
-				ID:        "openai.gpt-oss-20b-1:0",
-				Name:      "GPT-OSS 20B",
+				ID:        "jp.amazon.nova-2-lite-v1:0",
+				Name:      "Amazon Nova 2 Lite",
 				Provider:  "bedrock",
 				IsActive:  true,
 				IsDefault: true,
@@ -84,4 +84,3 @@ func SeedInitialData(db *gorm.DB, cfg *config.Config) error {
 
 	return nil
 }
-

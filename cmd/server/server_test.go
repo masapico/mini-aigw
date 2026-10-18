@@ -29,8 +29,8 @@ func TestFullRouterEndpoints(t *testing.T) {
 		DatabaseURL:       "sqlite:///" + dbPath,
 		ProjectName:       "mini-aigw-test",
 		SessionCookieName: "test_session",
-		AvailableModels:   []string{"openai.gpt-oss-20b-1:0"},
-		DefaultModelID:    "openai.gpt-oss-20b-1:0",
+		AvailableModels:   []string{"jp.amazon.nova-2-lite-v1:0"},
+		DefaultModelID:    "jp.amazon.nova-2-lite-v1:0",
 	}
 
 	database, err := db.InitDB(cfg)
