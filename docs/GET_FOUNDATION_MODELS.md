@@ -150,7 +150,7 @@ aws bedrock list-foundation-models --region ap-northeast-1 \
 
 1. ブラウザで `mini-aigw` 管理画面（`http://localhost:8000/models`）にアクセスします。
 2. **「新規モデルの登録」** フォームに以下を入力します：
-   - **Bedrock モデル ID / ARN**: 取得した `profileId` を入力（例: `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`）
+   - **Bedrock モデル ID / ARN**: 取得した `profileId` を入力（例: `jp.anthropic.claude-haiku-5-5`）
    - **表示名**: 利用者にわかりやすい名前（例: `Claude 3.5 Sonnet v2`）
    - **プロバイダ**: `bedrock`（既定値）
    - **説明・用途メモ (任意)**: モデルの特徴や用途（例: `高性能推論・コード生成用フラグシップモデル`）
@@ -198,7 +198,7 @@ curl -X GET http://localhost:8000/v1/models \
   "object": "list",
   "data": [
     {
-      "id": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
+      "id": "jp.anthropic.claude-haiku-5-5",
       "object": "model",
       "created": 1729219200,
       "owned_by": "bedrock"
@@ -216,7 +216,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-live-..." \
   -d '{
-    "model": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "model": "jp.anthropic.claude-haiku-5-5",
     "messages": [
       {"role": "user", "content": "こんにちは！"}
     ]
@@ -275,8 +275,8 @@ aws bedrock list-foundation-models --region ap-northeast-1 \
 
 1. ブラウザで `mini-aigw` 管理画面（`http://localhost:8000/models`）にアクセスします。
 2. **「新規モデルの登録」** フォームに以下を入力します：
-   - **Bedrock モデル ID / ARN**: 取得した `profileId` を入力（例: `apac.anthropic.claude-3-5-sonnet-20241022-v2:0`）
-   - **表示名**: 利用者にわかりやすい名前（例: `Claude 3.5 Sonnet v2`）
+   - **Bedrock モデル ID / ARN**: 取得した `profileId` を入力（例: `jp.anthropic.claude-haiku-5-5`）
+   - **表示名**: 利用者にわかりやすい名前（例: `Claude 5.5 Haiku`）
    - **プロバイダ**: `bedrock`（既定値）
    - **説明・用途メモ (任意)**: モデルの特徴や用途（例: `高性能推論・コード生成用フラグシップモデル`）
 3. **「モデルを登録」** をクリックします。
@@ -297,7 +297,7 @@ flowchart LR
 
 ```env
 # サーバー起動時のデフォルトモデル ID (推論プロファイル ID または 基盤モデル ID)
-DEFAULT_MODEL_ID=apac.anthropic.claude-3-5-sonnet-20241022-v2:0
+DEFAULT_MODEL_ID=jp.anthropic.claude-haiku-5-5
 ```
 
 ### 4.3 業務チャット用 API キーへのモデル紐付け (`/api-keys`)
@@ -323,7 +323,7 @@ curl -X GET http://localhost:8000/v1/models \
   "object": "list",
   "data": [
     {
-      "id": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
+      "id": "jp.anthropic.claude-haiku-5-5",
       "object": "model",
       "created": 1729219200,
       "owned_by": "bedrock"
@@ -341,7 +341,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk-live-..." \
   -d '{
-    "model": "apac.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "model": "jp.anthropic.claude-haiku-5-5",
     "messages": [
       {"role": "user", "content": "こんにちは！"}
     ]
