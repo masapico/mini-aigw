@@ -68,28 +68,22 @@
   <!-- フィルタ & 検索バー -->
   <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-3 pb-3 border-bottom">
     <!-- ステータス切替タブ -->
-    <div class="d-flex align-items-center gap-1 bg-light p-1 rounded-pill border">
+    <div class="d-flex align-items-center flex-nowrap gap-1 bg-light p-1 rounded-pill border">
       <a
         href="/zero-hit-queries?status=unresolved"
-        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "unresolved"}}active{{end}}"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small text-nowrap {{if eq .StatusFilter "unresolved"}}active{{end}}"
       >
         未解決 <span class="badge bg-danger rounded-pill ms-1">{{.UnresolvedCount}}</span>
       </a>
       <a
         href="/zero-hit-queries?status=resolved"
-        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "resolved"}}active{{end}}"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small text-nowrap {{if eq .StatusFilter "resolved"}}active{{end}}"
       >
         解決済
       </a>
       <a
-        href="/zero-hit-queries?status=ignored"
-        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "ignored"}}active{{end}}"
-      >
-        対象外
-      </a>
-      <a
         href="/zero-hit-queries?status=all"
-        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "all"}}active{{end}}"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small text-nowrap {{if eq .StatusFilter "all"}}active{{end}}"
       >
         すべて
       </a>

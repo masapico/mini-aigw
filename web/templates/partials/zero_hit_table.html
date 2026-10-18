@@ -9,7 +9,7 @@
         <th style="min-width: 100px;">検知理由</th>
         <th style="min-width: 130px;">最終発生日時</th>
         <th style="min-width: 90px;">状態</th>
-        <th style="min-width: 180px;" class="text-end">アクション</th>
+        <th style="min-width: 170px;" class="text-end text-nowrap">アクション</th>
       </tr>
     </thead>
     <tbody>
@@ -55,12 +55,12 @@
           <span class="badge bg-danger-subtle text-danger border border-danger-subtle">未解決</span>
           {{end}}
         </td>
-        <td class="text-end">
-          <div class="d-inline-flex align-items-center gap-1">
+        <td class="text-end text-nowrap">
+          <div class="d-inline-flex flex-nowrap align-items-center gap-1">
             <!-- 🔍 RAGテストで確認 -->
             <a
               href="/rag-test?query={{.Query}}&group={{.GroupName}}"
-              class="btn btn-sm btn-outline-primary py-1 px-2 d-inline-flex align-items-center gap-1"
+              class="btn btn-sm btn-outline-primary py-1 px-2 d-inline-flex align-items-center gap-1 text-nowrap"
               title="RAGテスト画面でこのクエリを事前入力して検索確認"
               style="font-size: 0.78rem;"
             >
@@ -70,7 +70,7 @@
             {{if eq .Status "unresolved"}}
             <!-- ✔️ 解決ボタン -->
             <button
-              class="btn btn-sm btn-outline-success py-1 px-2 d-inline-flex align-items-center gap-1"
+              class="btn btn-sm btn-outline-success py-1 px-2 d-inline-flex align-items-center gap-1 text-nowrap"
               title="ナレッジ追加完了・解決済みに変更"
               style="font-size: 0.78rem;"
               hx-post="/zero-hit-queries/{{.ID}}/status"
@@ -80,22 +80,10 @@
             >
               <i class="bi bi-check-lg"></i> 解決
             </button>
-            <!-- 🚫 対象外ボタン -->
-            <button
-              class="btn btn-sm btn-outline-secondary py-1 px-2 d-inline-flex align-items-center gap-1"
-              title="ナレッジ化不要・業務外として対象外に変更"
-              style="font-size: 0.78rem;"
-              hx-post="/zero-hit-queries/{{.ID}}/status"
-              hx-vals='{"status": "ignored", "current_filter": "{{$.StatusFilter}}"}'
-              hx-target="#query-row-{{.ID}}"
-              hx-swap="outerHTML"
-            >
-              <i class="bi bi-slash-circle"></i> 対象外
-            </button>
             {{else}}
             <!-- ↩️ 未解決に戻す -->
             <button
-              class="btn btn-sm btn-outline-warning py-1 px-2 d-inline-flex align-items-center gap-1"
+              class="btn btn-sm btn-outline-warning py-1 px-2 d-inline-flex align-items-center gap-1 text-nowrap"
               title="未解決ステータスに戻す"
               style="font-size: 0.78rem;"
               hx-post="/zero-hit-queries/{{.ID}}/status"
@@ -109,7 +97,7 @@
 
             <!-- 🗑️ 削除ボタン -->
             <button
-              class="btn btn-sm btn-outline-danger py-1 px-2"
+              class="btn btn-sm btn-outline-danger py-1 px-2 text-nowrap"
               title="誤入力等の記録を削除"
               style="font-size: 0.78rem;"
               hx-delete="/zero-hit-queries/{{.ID}}"
