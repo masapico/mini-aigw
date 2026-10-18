@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -55,12 +57,28 @@ func (h *ChatHandler) HandleChatCompletions(w http.ResponseWriter, r *http.Reque
 	startTime := time.Now()
 	apiKey := middleware.GetAPIKeyFromContext(r.Context())
 	if apiKey == nil {
+		if h.cfg.Debug {
+			log.Printf("[DEBUG] [AUTH] Unauthorized chat request: missing or invalid API key")
+		}
 		http.Error(w, `{"error":{"message":"Unauthorized","type":"invalid_request_error"}}`, http.StatusUnauthorized)
 		return
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		if h.cfg.Debug {
+			log.Printf("[DEBUG] [ERROR] Failed to read request body: %v", err)
+		}
+		http.Error(w, `{"error":{"message":"Failed to read request body","type":"invalid_request_error"}}`, http.StatusBadRequest)
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
 	var req ChatCompletionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		if h.cfg.Debug {
+			log.Printf("[DEBUG] [ERROR] Invalid JSON request body: %v\nBody: %s", err, string(bodyBytes))
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -98,6 +116,26 @@ func (h *ChatHandler) HandleChatCompletions(w http.ResponseWriter, r *http.Reque
 
 	allowedGroups := apiKey.GetAllowedGroups()
 	ragEnabled := len(allowedGroups) > 0 && h.cfg.BedrockKBID != ""
+
+	if h.cfg.Debug {
+		var prettyReq bytes.Buffer
+		_ = json.Indent(&prettyReq, bodyBytes, "", "  ")
+		log.Printf("\n========== [DEBUG: CHAT REQUEST START] ==========\n"+
+			"Endpoint        : %s %s\n"+
+			"API Key         : %s (ID: %s, Groups: %v)\n"+
+			"Effective Model : %s (Requested: %v)\n"+
+			"Stream          : %v | RAG Enabled: %v\n"+
+			"MaxTokens       : %v | Temp: %v | TopP: %v\n"+
+			"Request Payload :\n%s\n"+
+			"=================================================",
+			r.Method, r.URL.Path,
+			apiKey.Name, apiKey.ID, allowedGroups,
+			effectiveModelID, req.Model,
+			req.Stream, ragEnabled,
+			maxTokens, req.Temperature, req.TopP,
+			prettyReq.String(),
+		)
+	}
 
 	// Check if flusher is supported when stream=true
 	var flusher http.Flusher
@@ -142,24 +180,80 @@ func (h *ChatHandler) handleDirectConverse(
 	sysBlocks, bedrockMsgs := h.bedrockService.ConvertOpenAIMessagesToBedrock(ctx, rawMessages)
 
 	if isStream {
-		err := h.bedrockService.CallConverseStream(ctx, w, flusher, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, nil, nil, func(usage services.ChatCompletionUsage) {
+		if h.cfg.Debug {
+			log.Printf("[DEBUG] [DIRECT] Starting stream with model=%s...", modelID)
+		}
+		err := h.bedrockService.CallConverseStream(ctx, w, flusher, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, nil, nil, nil, func(usage services.ChatCompletionUsage, _ []interface{}, fullAnswer string) {
+			if h.cfg.Debug {
+				log.Printf("\n========== [DEBUG: DIRECT STREAM SUCCESS] ==========\n"+
+					"Status  : 200 OK (Streamed)\n"+
+					"Model   : %s\n"+
+					"Duration: %v\n"+
+					"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+					"Answer  :\n%s\n"+
+					"====================================================",
+					modelID, time.Since(startTime),
+					usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
+					fullAnswer,
+				)
+			}
 			h.recordUsageLog(apiKey, modelID, true, false, nil, nil, &usage, startTime, "success", nil)
 		})
 		if err != nil {
-			log.Printf("ConverseStream error: %v", err)
+			log.Printf("[ERROR] ConverseStream error: %v", err)
+			if h.cfg.Debug {
+				log.Printf("\n========== [DEBUG: DIRECT STREAM ERROR] ==========\n"+
+					"Error   : %v\n"+
+					"Duration: %v\n"+
+					"==================================================",
+					err, time.Since(startTime),
+				)
+			}
 			h.recordUsageLog(apiKey, modelID, true, false, nil, nil, nil, startTime, "error", awsStr(err.Error()))
 		}
 		return
 	}
 
+	if h.cfg.Debug {
+		log.Printf("[DEBUG] [DIRECT] Calling Converse with model=%s...", modelID)
+	}
 	resp, err := h.bedrockService.CallConverse(ctx, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, nil)
 	if err != nil {
+		log.Printf("[ERROR] Direct Converse error: %v", err)
+		if h.cfg.Debug {
+			log.Printf("\n========== [DEBUG: DIRECT ERROR] ==========\n"+
+				"Error   : %v\n"+
+				"Duration: %v\n"+
+				"===========================================",
+				err, time.Since(startTime),
+			)
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"error": map[string]interface{}{"message": err.Error(), "type": "api_error"},
 		})
 		h.recordUsageLog(apiKey, modelID, false, false, nil, nil, nil, startTime, "error", awsStr(err.Error()))
 		return
+	}
+
+	answerText := ""
+	if len(resp.Choices) > 0 {
+		if content, ok := resp.Choices[0].Message["content"].(string); ok {
+			answerText = content
+		}
+	}
+	if h.cfg.Debug {
+		log.Printf("\n========== [DEBUG: DIRECT RESPONSE SUCCESS] ==========\n"+
+			"Status  : 200 OK\n"+
+			"Model   : %s\n"+
+			"Duration: %v\n"+
+			"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+			"Answer  :\n%s\n"+
+			"======================================================",
+			modelID, time.Since(startTime),
+			resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens,
+			answerText,
+		)
 	}
 
 	_ = json.NewEncoder(w).Encode(resp)
@@ -190,10 +284,22 @@ func (h *ChatHandler) handleRAGConverse(
 
 	toolConfig := prompts.GetKnowledgeToolConfig()
 
+	if h.cfg.Debug {
+		log.Printf("[DEBUG] [RAG] Turn 1: Calling Converse with model=%s (checking tool invocation)...", modelID)
+	}
+
 	// Turn 1: Check if tool is invoked
 	turn1Resp, err := h.bedrockService.CallConverse(ctx, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, toolConfig)
 	if err != nil {
-		log.Printf("Turn 1 Converse error: %v", err)
+		log.Printf("[ERROR] Turn 1 Converse error: %v", err)
+		if h.cfg.Debug {
+			log.Printf("\n========== [DEBUG: RAG TURN 1 ERROR] ==========\n"+
+				"Error   : %v\n"+
+				"Duration: %v\n"+
+				"===============================================",
+				err, time.Since(startTime),
+			)
+		}
 		if isStream {
 			h.bedrockService.StreamPrebuiltTextAsSSE(w, flusher, modelID, "推論処理中にエラーが発生しました。", "stop", nil, nil, nil)
 		} else {
@@ -221,6 +327,9 @@ func (h *ChatHandler) handleRAGConverse(
 
 	if toolUseCall == nil {
 		// Tool not called: Turn 1 text is the final answer
+		if h.cfg.Debug {
+			log.Printf("[DEBUG] [RAG] Tool was NOT invoked in Turn 1. Model provided direct answer.")
+		}
 		responseText := ""
 		if len(turn1Resp.Choices) > 0 {
 			if content, ok := turn1Resp.Choices[0].Message["content"].(string); ok {
@@ -230,9 +339,35 @@ func (h *ChatHandler) handleRAGConverse(
 
 		if isStream {
 			h.bedrockService.StreamPrebuiltTextAsSSE(w, flusher, modelID, responseText, turn1Resp.StopReason, &turn1Resp.Usage, nil, func(usage services.ChatCompletionUsage) {
+				if h.cfg.Debug {
+					log.Printf("\n========== [DEBUG: RAG DIRECT STREAM SUCCESS] ==========\n"+
+						"Status  : 200 OK (Streamed)\n"+
+						"Model   : %s\n"+
+						"Duration: %v\n"+
+						"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+						"Answer  :\n%s\n"+
+						"========================================================",
+						modelID, time.Since(startTime),
+						usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
+						responseText,
+					)
+				}
 				h.recordUsageLog(apiKey, modelID, true, false, nil, nil, &usage, startTime, "success", nil)
 			})
 		} else {
+			if h.cfg.Debug {
+				log.Printf("\n========== [DEBUG: RAG DIRECT RESPONSE SUCCESS] ==========\n"+
+					"Status  : 200 OK\n"+
+					"Model   : %s\n"+
+					"Duration: %v\n"+
+					"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+					"Answer  :\n%s\n"+
+					"==========================================================\n",
+					modelID, time.Since(startTime),
+					turn1Resp.Usage.PromptTokens, turn1Resp.Usage.CompletionTokens, turn1Resp.Usage.TotalTokens,
+					responseText,
+				)
+			}
 			_ = json.NewEncoder(w).Encode(turn1Resp)
 			h.recordUsageLog(apiKey, modelID, false, false, nil, nil, &turn1Resp.Usage, startTime, "success", nil)
 		}
@@ -254,6 +389,10 @@ func (h *ChatHandler) handleRAGConverse(
 	// Find matched tags or doc IDs in query
 	matchedTags, matchedDocIDs := h.knowledgeService.FindMatchingMetadataFromQuery(searchQuery)
 
+	if h.cfg.Debug {
+		log.Printf("[DEBUG] [RAG] Tool invoked: %s (searchQuery: %q, matchedTags: %v, matchedDocs: %v)", *toolUseCall.Name, searchQuery, matchedTags, matchedDocIDs)
+	}
+
 	// Execute Retrieve API
 	retrievedChunks, err := h.bedrockService.RetrieveKnowledge(
 		ctx,
@@ -266,11 +405,19 @@ func (h *ChatHandler) handleRAGConverse(
 		matchedDocIDs,
 	)
 	if err != nil {
-		log.Printf("Retrieve knowledge failed: %v", err)
+		log.Printf("[ERROR] Retrieve knowledge failed: %v", err)
 	}
 
 	// Filter by score threshold
 	filteredChunks := services.FilterKnowledgeResultsByScore(retrievedChunks, h.cfg.RAGScoreThreshold)
+
+	if h.cfg.Debug {
+		log.Printf("[DEBUG] [RAG] Retrieved %d chunks from KB (score threshold: %.2f)", len(retrievedChunks), h.cfg.RAGScoreThreshold)
+		for i, c := range retrievedChunks {
+			log.Printf("[DEBUG]   [%d] Score: %.4f | Loc: %v", i+1, c.Score, c.Location)
+		}
+		log.Printf("[DEBUG] [RAG] Chunks passing threshold: %d", len(filteredChunks))
+	}
 
 	baseURL := h.cfg.PublicBaseURL
 	if baseURL == "" {
@@ -368,29 +515,105 @@ func (h *ChatHandler) handleRAGConverse(
 
 	searchQueries := []string{searchQuery}
 
+	primaryGroup := "public"
+	for _, g := range allowedGroups {
+		if g != "public" {
+			primaryGroup = g
+			break
+		}
+	}
+	apiKeyName := "unknown"
+	if apiKey != nil {
+		apiKeyName = apiKey.Name
+	}
+
+	maxScore := 0.0
+	for _, c := range retrievedChunks {
+		if c.Score > maxScore {
+			maxScore = c.Score
+		}
+	}
+
+	if h.cfg.Debug {
+		log.Printf("[DEBUG] [RAG] Starting Turn 2 with model=%s (stream=%v, formattedContext chunks: %d)...", modelID, isStream, len(formattedContext))
+	}
+
 	if isStream {
 		err := h.bedrockService.CallConverseStream(
 			ctx, w, flusher, modelID, sysBlocks, turn2Messages, temperature, topP, maxTokens,
+			toolConfig,
 			citations, &turn1Resp.Usage,
-			func(combinedUsage services.ChatCompletionUsage) {
-				h.recordUsageLog(apiKey, modelID, true, true, searchQueries, citations, &combinedUsage, startTime, "success", nil)
+			func(combinedUsage services.ChatCompletionUsage, actualCitations []interface{}, answerText string) {
+				wasCited := len(actualCitations) > 0
+				if !wasCited && len(formattedContext) > 0 {
+					// チャンクは存在したがLLMが引用しなかった / ナレッジ記載なしの場合も未解決クエリとして集約！
+					reason := "ナレッジ記載なし"
+					h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
+				}
+				if h.cfg.Debug {
+					log.Printf("\n========== [DEBUG: RAG STREAM RESPONSE SUCCESS] ==========\n"+
+						"Status   : 200 OK (Streamed)\n"+
+						"Model    : %s\n"+
+						"Duration : %v\n"+
+						"Tokens   : prompt=%d, completion=%d, total=%d\n"+
+						"Citations: %d items (wasCited=%v)\n"+
+						"Answer   :\n%s\n"+
+						"==========================================================",
+						modelID, time.Since(startTime),
+						combinedUsage.PromptTokens, combinedUsage.CompletionTokens, combinedUsage.TotalTokens,
+						len(actualCitations), wasCited,
+						answerText,
+					)
+				}
+				h.recordUsageLog(apiKey, modelID, true, true, searchQueries, actualCitations, &combinedUsage, startTime, "success", nil)
 			},
 		)
 		if err != nil {
-			log.Printf("Turn 2 ConverseStream error: %v", err)
+			log.Printf("[ERROR] Turn 2 ConverseStream error: %v", err)
+			if h.cfg.Debug {
+				log.Printf("\n========== [DEBUG: RAG TURN 2 STREAM ERROR] ==========\n"+
+					"Error   : %v\n"+
+					"Duration: %v\n"+
+					"======================================================",
+					err, time.Since(startTime),
+				)
+			}
 			h.recordUsageLog(apiKey, modelID, true, true, searchQueries, citations, &turn1Resp.Usage, startTime, "error", awsStr(err.Error()))
 		}
 		return
 	}
 
-	turn2Resp, err := h.bedrockService.CallConverse(ctx, modelID, sysBlocks, turn2Messages, temperature, topP, maxTokens, nil)
+	turn2Resp, err := h.bedrockService.CallConverse(ctx, modelID, sysBlocks, turn2Messages, temperature, topP, maxTokens, toolConfig)
 	if err != nil {
+		log.Printf("[ERROR] Turn 2 Converse error: %v", err)
+		if h.cfg.Debug {
+			log.Printf("\n========== [DEBUG: RAG TURN 2 ERROR] ==========\n"+
+				"Error   : %v\n"+
+				"Duration: %v\n"+
+				"===============================================",
+				err, time.Since(startTime),
+			)
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"error": map[string]interface{}{"message": err.Error(), "type": "api_error"},
 		})
 		h.recordUsageLog(apiKey, modelID, false, true, searchQueries, citations, &turn1Resp.Usage, startTime, "error", awsStr(err.Error()))
 		return
+	}
+
+	answerText := ""
+	if len(turn2Resp.Choices) > 0 {
+		if content, ok := turn2Resp.Choices[0].Message["content"].(string); ok {
+			answerText = content
+		}
+	}
+
+	actualCitations, wasCited := services.FilterInterfaceCitations(answerText, citations)
+	if !wasCited && len(formattedContext) > 0 {
+		actualCitations = nil
+		reason := "ナレッジ記載なし"
+		h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
 	}
 
 	// Combine Turn 1 and Turn 2 usage
@@ -400,10 +623,26 @@ func (h *ChatHandler) handleRAGConverse(
 		TotalTokens:      turn1Resp.Usage.TotalTokens + turn2Resp.Usage.TotalTokens,
 	}
 	turn2Resp.Usage = combinedUsage
-	turn2Resp.Citations = citations
+	turn2Resp.Citations = actualCitations
+
+	if h.cfg.Debug {
+		log.Printf("\n========== [DEBUG: RAG RESPONSE SUCCESS] ==========\n"+
+			"Status   : 200 OK\n"+
+			"Model    : %s\n"+
+			"Duration : %v\n"+
+			"Tokens   : prompt=%d, completion=%d, total=%d\n"+
+			"Citations: %d items (wasCited=%v)\n"+
+			"Answer   :\n%s\n"+
+			"===================================================",
+			modelID, time.Since(startTime),
+			combinedUsage.PromptTokens, combinedUsage.CompletionTokens, combinedUsage.TotalTokens,
+			len(actualCitations), wasCited,
+			answerText,
+		)
+	}
 
 	_ = json.NewEncoder(w).Encode(turn2Resp)
-	h.recordUsageLog(apiKey, modelID, false, true, searchQueries, citations, &combinedUsage, startTime, "success", nil)
+	h.recordUsageLog(apiKey, modelID, false, true, searchQueries, actualCitations, &combinedUsage, startTime, "success", nil)
 }
 
 func extractLastUserQuery(messages []map[string]interface{}) string {

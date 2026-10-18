@@ -325,6 +325,9 @@ func (s *BedrockService) CallConverse(
 
 	res, err := s.awsBundle.BedrockRuntime.Converse(ctx, input)
 	if err != nil {
+		if s.cfg != nil && s.cfg.Debug {
+			log.Printf("[DEBUG] Bedrock Converse failed for model %s: %v", modelID, err)
+		}
 		return nil, fmt.Errorf("bedrock converse failed: %w", err)
 	}
 
@@ -426,9 +429,10 @@ func (s *BedrockService) CallConverseStream(
 	temperature *float64,
 	topP *float64,
 	maxTokens *int,
+	toolConfig *bedrockTypes.ToolConfiguration,
 	citations []interface{},
 	priorUsage *ChatCompletionUsage,
-	onComplete func(usage ChatCompletionUsage),
+	onComplete func(usage ChatCompletionUsage, actualCitations []interface{}, fullAnswer string),
 ) error {
 	infConfig := s.BuildInferenceConfig(temperature, topP, maxTokens)
 
@@ -440,9 +444,15 @@ func (s *BedrockService) CallConverseStream(
 	if len(systemPrompts) > 0 {
 		input.System = systemPrompts
 	}
+	if toolConfig != nil {
+		input.ToolConfig = toolConfig
+	}
 
 	res, err := s.awsBundle.BedrockRuntime.ConverseStream(ctx, input)
 	if err != nil {
+		if s.cfg != nil && s.cfg.Debug {
+			log.Printf("[DEBUG] Bedrock ConverseStream failed for model %s: %v", modelID, err)
+		}
 		return fmt.Errorf("bedrock converse_stream error: %w", err)
 	}
 	stream := res.GetStream()
@@ -468,11 +478,13 @@ func (s *BedrockService) CallConverseStream(
 
 	var streamInputTokens, streamOutputTokens int
 	finalStopReason := "end_turn"
+	var fullAnswer strings.Builder
 
 	for event := range stream.Events() {
 		switch e := event.(type) {
 		case *bedrockTypes.ConverseStreamOutputMemberContentBlockDelta:
 			if deltaText, ok := e.Value.Delta.(*bedrockTypes.ContentBlockDeltaMemberText); ok {
+				fullAnswer.WriteString(deltaText.Value)
 				chunk := StreamChunk{
 					ID:      completionID,
 					Object:  "chat.completion.chunk",
@@ -521,6 +533,8 @@ func (s *BedrockService) CallConverseStream(
 		finishReasonStr = finalStopReason
 	}
 
+	actualCitations, _ := FilterInterfaceCitations(fullAnswer.String(), citations)
+
 	endChunk := StreamChunk{
 		ID:      completionID,
 		Object:  "chat.completion.chunk",
@@ -534,12 +548,12 @@ func (s *BedrockService) CallConverseStream(
 			},
 		},
 		Usage:     &combinedUsage,
-		Citations: citations,
+		Citations: actualCitations,
 	}
 	sendSSEChunk(w, flusher, endChunk)
 
 	if onComplete != nil {
-		onComplete(combinedUsage)
+		onComplete(combinedUsage, actualCitations, fullAnswer.String())
 	}
 
 	_, _ = io.WriteString(w, "data: [DONE]\n\n")

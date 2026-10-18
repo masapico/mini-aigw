@@ -45,8 +45,8 @@
     </div>
     {{else}}
     <div class="pt-2 border-top">
-      <div class="badge bg-light text-muted border py-2 px-3 fw-normal text-wrap text-start" style="font-size: 0.8rem;">
-        ℹ️ ナレッジベースから該当チャンクは取得されませんでした（LLMの事前学習知識からの回答）
+      <div class="badge bg-warning-subtle text-dark border border-warning-subtle py-2 px-3 fw-normal text-wrap text-start" style="font-size: 0.8rem;">
+        <i class="bi bi-info-circle text-warning me-1"></i>提供されたナレッジは回答に利用されませんでした（文書に該当記述なし / 未解決クエリとして集約）
       </div>
     </div>
     {{end}}

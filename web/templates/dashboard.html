@@ -269,6 +269,8 @@ for chunk in response:
               <td>
                 {{if eq .Reason "0件ヒット"}}
                 <span class="badge bg-light text-danger border border-danger-subtle">0件ヒット</span>
+                {{else if eq .Reason "ナレッジ記載なし"}}
+                <span class="badge bg-light text-info text-dark border border-info-subtle">ナレッジ記載なし</span>
                 {{else}}
                 <span class="badge bg-light text-warning text-dark border border-warning-subtle">スコア不足</span>
                 {{end}}

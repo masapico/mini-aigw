@@ -20,6 +20,7 @@ import (
 type RAGTestHandler struct {
 	bedrockService   *services.BedrockService
 	knowledgeService *services.KnowledgeService
+	zeroHitService   *services.ZeroHitService
 	db               *gorm.DB
 	cfg              *config.Config
 	renderer         *views.Renderer
@@ -35,6 +36,7 @@ func NewRAGTestHandler(
 	return &RAGTestHandler{
 		bedrockService:   bedrockService,
 		knowledgeService: knowledgeService,
+		zeroHitService:   services.NewZeroHitService(db),
 		db:               db,
 		cfg:              cfg,
 		renderer:         renderer,
@@ -200,13 +202,7 @@ func (h *RAGTestHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var formattedContext []string
-	type CitationItem struct {
-		Index       int
-		Filename    string
-		Group       string
-		DownloadURL string
-	}
-	var citations []CitationItem
+	var citations []services.CitationItem
 	idx := 1
 
 	for _, chunk := range filtered {
@@ -221,7 +217,7 @@ func (h *RAGTestHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			idx, filename, grp, chunk.Content, downloadURL,
 		))
 
-		citations = append(citations, CitationItem{
+		citations = append(citations, services.CitationItem{
 			Index:       idx,
 			Filename:    filename,
 			Group:       grp,
@@ -259,11 +255,28 @@ func (h *RAGTestHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		answer = fmt.Sprintf("エラーが発生しました: %v", err)
 	}
 
+	filteredCitations, wasCited := services.FilterCitationItems(answer, citations)
+	if !wasCited {
+		filteredCitations = nil
+		maxScore := 0.0
+		for _, c := range results {
+			if c.Score > maxScore {
+				maxScore = c.Score
+			}
+		}
+		reason := "ナレッジ記載なし"
+		if len(filtered) == 0 {
+			reason = "0件ヒット"
+		}
+		h.zeroHitService.RecordZeroHitAsync(query, group, maxScore, reason, "web-test")
+	}
+
 	data := map[string]interface{}{
 		"Query":     query,
 		"ModelID":   modelID,
 		"Answer":    answer,
-		"Citations": citations,
+		"Citations": filteredCitations,
+		"WasCited":  wasCited,
 	}
 
 	_ = h.renderer.RenderPartial(w, "rag_chat_response.html", data)
