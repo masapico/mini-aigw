@@ -107,3 +107,11 @@ Bedrock Knowledge Base のデータソース設定において、解析戦略（
 - テキスト層を持つ一般的な PDF や日本語の細かい表組みドキュメントを扱う場合、Bedrock Data Source の `SMART_PARSING`（および不要な画像OCR抽出）は **無効化（デフォルトの標準テキストパーサーを使用）** することを強く推奨します。
 - もしスキャン画像 PDF（テキスト層を持たない PDF）を扱う必要がある場合は、事前にテキスト化または高解像度化を行うか、RAG 単体テスト画面（`/rag-test`）でインデックス後のチャンク本文に文字化け（「ドドド」等）が発生していないかを必ず確認してください。
 
+---
+
+## 3. 関連ドキュメント
+
+- [README.md - mini-aigw 全体仕様・起動手順](../README.md)
+- [docs/GET_FOUNDATION_MODELS.md - Bedrock モデル情報取得・登録ガイド](GET_FOUNDATION_MODELS.md)
+- [docs/OFFLINE_DEPLOYMENT_GUIDE.md - 閉域・オフライン環境向けデプロイ・運用手順書](OFFLINE_DEPLOYMENT_GUIDE.md)
+

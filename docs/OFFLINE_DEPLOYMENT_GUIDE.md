@@ -110,7 +110,7 @@ AWS_REGION=ap-northeast-1
 BEDROCK_KB_ID=your-bedrock-knowledge-base-id
 BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
 KNOWLEDGE_S3_BUCKET=your-s3-knowledge-bucket
-DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0
+DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0 # 既定モデルID (取得方法は GET_FOUNDATION_MODELS.md 参照)
 
 # ドキュメント抽出 CLI パス (任意: xberg を配置した場合)
 # XBERG_PATH=/usr/local/bin/xberg
@@ -203,6 +203,17 @@ nssm status mini-aigw
 2. **Bedrock / S3 導通**:
    - ナレッジ管理画面（`/knowledge`）でドキュメントのアップロードと Bedrock KB 同期ジョブの開始を確認。
    - RAG テスト画面（`/rag-test`）で検索クエリの Retrieve が正常に結果を返すことを確認。
-3. **OpenAI 互換 API 呼び出し**:
-   - `curl` コマンドで `/v1/chat/completions` にリクエストを送信し、正常な推論応答が得られることを確認。
+3. **LLM 基盤モデルの登録と有効化**:
+   - Web 管理画面の「モデル管理 (`/models`)」にて、運用で利用する Bedrock モデル ID / 推論プロファイル ID（例: `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` 等）を登録・有効化・既定設定。
+   - 登録可能なモデル情報の確認方法や Model access の前提条件については、[Bedrock モデル情報取得・登録ガイド (GET_FOUNDATION_MODELS.md)](GET_FOUNDATION_MODELS.md) を参照。
+4. **OpenAI 互換 API 呼び出し**:
+   - `curl` コマンドで `/v1/chat/completions` にリクエストを送信し、登録したモデルでの正常な推論応答が得られることを確認。
+
+---
+
+## 7. 関連ドキュメント
+
+- [README.md - mini-aigw 全体仕様・起動手順](../README.md)
+- [docs/GET_FOUNDATION_MODELS.md - Bedrock モデル情報取得・登録ガイド](GET_FOUNDATION_MODELS.md)
+- [docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md - Bedrock Managed Knowledge Base 検索仕様・トラブルシューティング](BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md)
 

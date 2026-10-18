@@ -36,6 +36,7 @@ CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI 
 - **LLM モデル動的 DB 管理 (`/models`)**:
   - Bedrock 基底モデルの追加、有効/無効の切り替え、既定モデル設定を Web 管理画面から動的に管理。
   - `/v1/models` や APIキー発行画面のモデル候補に即時反映。
+  - ※ 利用可能な Bedrock 基底モデル・推論プロファイル ID の取得・登録手順は [Bedrock モデル情報取得・登録ガイド (docs/GET_FOUNDATION_MODELS.md)](docs/GET_FOUNDATION_MODELS.md) を参照。
 - **データベース自動マイグレーション & 高並行性 (GORM + SQLite WAL)**:
   - サーバー起動時に GORM の `AutoMigrate` によりテーブル定義を自動初期化・同期。
   - 純Go SQLite ドライバー（`glebarez/sqlite`）による WAL モード強制適用で高並行アクセスに対応。
@@ -136,7 +137,7 @@ AWS_REGION=ap-northeast-1
 BEDROCK_KB_ID=your-bedrock-knowledge-base-id
 BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
 KNOWLEDGE_S3_BUCKET=your-s3-knowledge-bucket
-DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0
+DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0 # 既定モデルID (取得方法は docs/GET_FOUNDATION_MODELS.md 参照)
 
 # ドキュメント抽出 CLI パス (任意: 未指定時は PATH 上の "xberg" を探索、見つからない場合は平文フォールバック)
 # XBERG_PATH=/usr/local/bin/xberg
@@ -174,7 +175,7 @@ DEFAULT_MODEL_ID=openai.gpt-oss-20b-1:0
 4. **API キー管理 (`/api-keys`)**:
    - 業務チャットボット用にアクセス可能なナレッジグループ、固定LLMモデル、事前定義システムプロンプトを指定して API キー（`sk-live-...`）を発行・失効。
 5. **モデル管理 (`/models`)**:
-   - Bedrock 基底モデルの新規登録、有効/無効の切り替え、既定モデルの設定、削除をブラウザ上で実行。
+   - Bedrock 基底モデルの新規登録、有効/無効の切り替え、既定モデルの設定、削除をブラウザ上で実行。登録するモデル ID / 推論プロファイル ID の確認方法は [Bedrock モデル情報取得・登録ガイド (docs/GET_FOUNDATION_MODELS.md)](docs/GET_FOUNDATION_MODELS.md) を参照。
 
 ---
 
@@ -297,6 +298,7 @@ mini-aigw/
 │   └── release/                  # クロスプラットフォーム配布パッケージ生成スクリプト
 ├── docs/                         # 仕様書・運用手順書
 │   ├── BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md
+│   ├── GET_FOUNDATION_MODELS.md  # Bedrock モデル情報取得・登録ガイド
 │   └── OFFLINE_DEPLOYMENT_GUIDE.md
 ├── go.mod                        # Go モジュール定義
 ├── go.sum                        # Go 依存関係チェックサム

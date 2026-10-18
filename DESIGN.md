@@ -178,7 +178,7 @@ pre-filtering 機構により、ベクトル類似度計算の前に権限外の
      - 検索単体テスト（Retrieve）: 取得チャンク、スコア、メタデータのリアルタイム一覧表示
      - 対話テスト（Converse + RAG）: 引用元（Citations）付きチャットシミュレータ
   5. **APIキー管理 (`/api-keys`)**: 業務チャット用APIキーの発行・失効・権限グループ・固定モデル・事前定義プロンプト設定
-  6. **モデル管理 (`/models`)**: Bedrock 基底モデルの動的登録・有効無効切り替え・既定モデル設定
+  6. **モデル管理 (`/models`)**: Bedrock 基底モデル・推論プロファイル ID の動的登録・有効無効切り替え・既定モデル設定（取得・登録手順は [docs/GET_FOUNDATION_MODELS.md](docs/GET_FOUNDATION_MODELS.md) を参照）
 
 ---
 
@@ -238,6 +238,17 @@ CREATE TABLE sessions (
     expires_at DATETIME NOT NULL,
     created_at DATETIME
 );
+
+-- LLM基盤モデル管理 (models.LLMModel)
+CREATE TABLE llm_models (
+    id TEXT PRIMARY KEY,            -- Bedrock profileId または modelId (例: 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0')
+    name TEXT NOT NULL,             -- 表示名 (例: 'Claude 3.5 Sonnet v2')
+    description TEXT,               -- 説明・用途メモ
+    provider TEXT NOT NULL,         -- 'bedrock'
+    is_active INTEGER NOT NULL,     -- 有効フラグ (0 or 1)
+    is_default INTEGER NOT NULL,    -- 既定モデルフラグ (0 or 1)
+    created_at DATETIME
+);
 ```
 
 ---
@@ -251,3 +262,12 @@ CREATE TABLE sessions (
    - クロスコンパイルスクリプト（`scripts/release`）により、ランタイム・依存関係不要のアーカイブを一括生成。
 3. **IAM ロール**: EC2 インスタンスプロファイルで Bedrock および S3 操作権限を付与（静的キー管理不要）。
 4. **SQLite 並行性**: `PRAGMA journal_mode=WAL;` / `PRAGMA busy_timeout=5000;` を接続時に設定。
+
+---
+
+## 8. 仕様書・関連技術ドキュメント
+
+- [README.md - mini-aigw 全体仕様・起動手順](README.md)
+- [docs/GET_FOUNDATION_MODELS.md - Bedrock モデル情報取得・登録ガイド](docs/GET_FOUNDATION_MODELS.md)
+- [docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md - Bedrock Managed Knowledge Base 検索仕様・トラブルシューティング](docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md)
+- [docs/OFFLINE_DEPLOYMENT_GUIDE.md - 閉域・オフライン環境向けデプロイ・運用手順書](docs/OFFLINE_DEPLOYMENT_GUIDE.md)

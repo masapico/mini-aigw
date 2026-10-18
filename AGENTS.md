@@ -33,7 +33,7 @@ mini-aigw/
 │   └── templates/                # html/template テンプレート群
 ├── scripts/
 │   └── release/                  # マルチプラットフォーム向け配布パッケージ生成スクリプト
-├── docs/                         # 仕様書・トラブルシューティングガイド
+├── docs/                         # 仕様書・モデル取得・トラブルシューティングガイド
 ├── go.mod
 ├── go.sum
 └── README.md
