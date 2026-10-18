@@ -16,9 +16,11 @@ type ApiKey struct {
 	Prefix        string    `gorm:"size:32;not null" json:"prefix"`
 	RawKey        *string   `gorm:"size:128" json:"raw_key,omitempty"` // 作成時・再コピー用
 	AllowedGroups string    `gorm:"type:text;not null;default:'[\"public\"]'" json:"allowed_groups"`
-	ModelID       *string   `gorm:"size:100" json:"model_id"`
-	SystemPrompt  *string   `gorm:"type:text" json:"system_prompt"`
-	CreatedAt     time.Time `json:"created_at"`
+	ModelID       *string    `gorm:"size:100" json:"model_id"`
+	SystemPrompt  *string    `gorm:"type:text" json:"system_prompt"`
+	RateLimitRPM  int        `gorm:"column:rate_limit_rpm;not null;default:0" json:"rate_limit_rpm"` // 0: unmetered
+	LastUsedAt    *time.Time `gorm:"column:last_used_at" json:"last_used_at"`
+	CreatedAt     time.Time  `json:"created_at"`
 
 	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }

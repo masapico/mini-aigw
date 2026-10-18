@@ -58,7 +58,37 @@
         >
       </div>
 
-      <div class="col-12 col-md-9">
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-secondary">入力単価 (USD / 1M tokens)</label>
+        <div class="input-group">
+          <span class="input-group-text bg-light text-muted small">$</span>
+          <input
+            type="number"
+            step="0.0001"
+            class="form-control form-control-modern"
+            name="input_price_per_1m"
+            placeholder="0.06"
+            value="0.06"
+          >
+        </div>
+      </div>
+
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-secondary">出力単価 (USD / 1M tokens)</label>
+        <div class="input-group">
+          <span class="input-group-text bg-light text-muted small">$</span>
+          <input
+            type="number"
+            step="0.0001"
+            class="form-control form-control-modern"
+            name="output_price_per_1m"
+            placeholder="0.24"
+            value="0.24"
+          >
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6">
         <label class="form-label small fw-semibold text-secondary">説明・用途メモ (任意)</label>
         <input
           type="text"
@@ -68,7 +98,7 @@
         >
       </div>
 
-      <div class="col-12 col-md-3 d-flex align-items-end">
+      <div class="col-12 col-md-3 ms-auto d-flex align-items-end">
         <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
           <span class="spinner-border spinner-border-sm htmx-indicator" id="model-spinner" role="status"></span>
           モデルを登録

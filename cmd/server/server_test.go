@@ -185,4 +185,29 @@ func TestFullRouterEndpoints(t *testing.T) {
 			t.Errorf("expected 401 unauthorized, got %d", rec.Code)
 		}
 	})
+
+	// 9. Test embedded Chart.js asset
+	t.Run("GET /static/vendor/chartjs/chart.umd.min.js", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/static/vendor/chartjs/chart.umd.min.js", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected 200, got %d", rec.Code)
+		}
+		if len(rec.Body.Bytes()) < 10000 {
+			t.Errorf("expected Chart.js binary size > 10KB, got %d", len(rec.Body.Bytes()))
+		}
+	})
+
+	// 10. Test /dashboard/export-csv redirects when unauthorized
+	t.Run("GET /dashboard/export-csv unauthorized", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/dashboard/export-csv", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", rec.Code)
+		}
+	})
 }

@@ -19,11 +19,13 @@ type ChatUsageLog struct {
 	CitedDocuments   *string   `gorm:"type:text" json:"cited_documents"` // JSON array: [{"document_id":..., "filename":..., "group":..., "score":...}]
 	PromptTokens     int       `gorm:"not null;default:0" json:"prompt_tokens"`
 	CompletionTokens int       `gorm:"not null;default:0" json:"completion_tokens"`
-	TotalTokens      int       `gorm:"not null;default:0" json:"total_tokens"`
-	LatencyMs        int64     `gorm:"not null;default:0" json:"latency_ms"`
-	Status           string    `gorm:"size:20;not null;default:'success'" json:"status"` // "success" | "error"
-	ErrorMessage     *string   `gorm:"type:text" json:"error_message"`
-	CreatedAt        time.Time `gorm:"index" json:"created_at"`
+	TotalTokens        int       `gorm:"not null;default:0" json:"total_tokens"`
+	EstimatedCost      float64   `gorm:"column:estimated_cost;not null;default:0.0" json:"estimated_cost"` // USD
+	LatencyMs          int64     `gorm:"not null;default:0" json:"latency_ms"`
+	TimeToFirstTokenMs int64     `gorm:"column:time_to_first_token_ms;not null;default:0" json:"time_to_first_token_ms"`
+	Status             string    `gorm:"size:20;not null;default:'success'" json:"status"` // "success" | "error"
+	ErrorMessage       *string   `gorm:"type:text" json:"error_message"`
+	CreatedAt          time.Time `gorm:"index" json:"created_at"`
 
 	ApiKey *ApiKey `gorm:"foreignKey:ApiKeyID" json:"api_key,omitempty"`
 }

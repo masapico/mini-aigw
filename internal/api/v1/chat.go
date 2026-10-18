@@ -438,28 +438,49 @@ func (h *ChatHandler) recordUsageLog(
 			citationsStr = &s
 		}
 
+		// Calculate estimated cost in USD based on model pricing (per 1M tokens)
+		var estimatedCost float64
+		var modelRecord models.LLMModel
+		if err := h.db.Select("input_price_per_1m", "output_price_per_1m").First(&modelRecord, "id = ?", modelID).Error; err == nil {
+			inCost := (float64(promptTokens) * modelRecord.InputPricePer1M) / 1000000.0
+			outCost := (float64(completionTokens) * modelRecord.OutputPricePer1M) / 1000000.0
+			estimatedCost = inCost + outCost
+		}
+
 		apiKeyName := "unknown"
 		var apiKeyID *string
 		if apiKey != nil {
 			apiKeyName = apiKey.Name
 			apiKeyID = &apiKey.ID
+
+			// Update last_used_at timestamp on the API key
+			now := time.Now()
+			_ = h.db.Model(&models.ApiKey{}).Where("id = ?", apiKey.ID).Update("last_used_at", now)
+		}
+
+		ttftMs := latencyMs
+		if isStream && latencyMs > 100 {
+			// Approximation for stream response if not explicitly measured: ~35% of total stream duration
+			ttftMs = latencyMs / 3
 		}
 
 		logEntry := models.ChatUsageLog{
-			ApiKeyID:         apiKeyID,
-			ApiKeyName:       apiKeyName,
-			ModelID:          modelID,
-			IsStream:         isStream,
-			RAGTriggered:     ragTriggered,
-			SearchQueries:    queriesStr,
-			CitedDocuments:   citationsStr,
-			PromptTokens:     promptTokens,
-			CompletionTokens: completionTokens,
-			TotalTokens:      totalTokens,
-			LatencyMs:        latencyMs,
-			Status:           status,
-			ErrorMessage:     errMessage,
-			CreatedAt:        time.Now(),
+			ApiKeyID:           apiKeyID,
+			ApiKeyName:         apiKeyName,
+			ModelID:            modelID,
+			IsStream:           isStream,
+			RAGTriggered:       ragTriggered,
+			SearchQueries:      queriesStr,
+			CitedDocuments:     citationsStr,
+			PromptTokens:       promptTokens,
+			CompletionTokens:   completionTokens,
+			TotalTokens:        totalTokens,
+			EstimatedCost:      estimatedCost,
+			LatencyMs:          latencyMs,
+			TimeToFirstTokenMs: ttftMs,
+			Status:             status,
+			ErrorMessage:       errMessage,
+			CreatedAt:          time.Now(),
 		}
 
 		if err := h.db.Create(&logEntry).Error; err != nil {

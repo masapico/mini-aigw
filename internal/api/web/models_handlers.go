@@ -66,6 +66,13 @@ func (h *WebModelsHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 		descPtr = &desc
 	}
 
+	inputPriceStr := strings.TrimSpace(r.FormValue("input_price_per_1m"))
+	outputPriceStr := strings.TrimSpace(r.FormValue("output_price_per_1m"))
+
+	var inputPrice, outputPrice float64
+	_, _ = fmt.Sscanf(inputPriceStr, "%f", &inputPrice)
+	_, _ = fmt.Sscanf(outputPriceStr, "%f", &outputPrice)
+
 	if modelID == "" || name == "" {
 		h.renderSectionWithError(w, "モデルIDと表示名は必須です")
 		return
@@ -79,11 +86,13 @@ func (h *WebModelsHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m := models.LLMModel{
-		ID:          modelID,
-		Name:        name,
-		Provider:    provider,
-		Description: descPtr,
-		IsActive:    true,
+		ID:               modelID,
+		Name:             name,
+		Provider:         provider,
+		Description:      descPtr,
+		InputPricePer1M:  inputPrice,
+		OutputPricePer1M: outputPrice,
+		IsActive:         true,
 	}
 	if err := h.db.Create(&m).Error; err != nil {
 		h.renderSectionWithError(w, fmt.Sprintf("登録失敗: %v", err))
@@ -91,6 +100,52 @@ func (h *WebModelsHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderSectionWithSuccess(w, fmt.Sprintf("モデル「%s」を登録しました", name))
+}
+
+func (h *WebModelsHandler) EditModel(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil || !user.HasRole("admin") {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	modelID := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
+
+	var m models.LLMModel
+	if err := h.db.First(&m, "id = ?", modelID).Error; err != nil {
+		h.renderSectionWithError(w, "モデルが見つかりません")
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name != "" {
+		m.Name = name
+	}
+	desc := strings.TrimSpace(r.FormValue("description"))
+	if desc != "" {
+		m.Description = &desc
+	} else if r.Form.Has("description") {
+		m.Description = nil
+	}
+
+	var inputPrice, outputPrice float64
+	if _, err := fmt.Sscanf(r.FormValue("input_price_per_1m"), "%f", &inputPrice); err == nil {
+		m.InputPricePer1M = inputPrice
+	}
+	if _, err := fmt.Sscanf(r.FormValue("output_price_per_1m"), "%f", &outputPrice); err == nil {
+		m.OutputPricePer1M = outputPrice
+	}
+
+	if err := h.db.Save(&m).Error; err != nil {
+		h.renderSectionWithError(w, fmt.Sprintf("更新失敗: %v", err))
+		return
+	}
+
+	h.renderSectionWithSuccess(w, fmt.Sprintf("モデル「%s」の設定を更新しました", m.Name))
 }
 
 func (h *WebModelsHandler) ToggleModel(w http.ResponseWriter, r *http.Request) {

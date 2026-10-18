@@ -36,8 +36,9 @@
         <th>名前</th>
         <th>キープレフィックス</th>
         <th>固定モデル</th>
-        <th>システムプロンプト</th>
+        <th>制限 (RPM)</th>
         <th>許可グループ (権限)</th>
+        <th>最終利用</th>
         <th>発行日時</th>
         <th class="text-end">操作</th>
       </tr>
@@ -71,17 +72,25 @@
           <span class="text-muted small">指定なし (任意)</span>
           {{end}}
         </td>
+          <div class="mt-1">
+            {{if $k.SystemPrompt}}
+            <span
+              class="badge bg-info-subtle text-info border border-info-subtle px-2 py-0 rounded-pill small"
+              title="{{$k.GetSystemPrompt}}"
+              style="cursor: help; font-size: 0.72rem;"
+            >
+              プロンプト設定あり
+            </span>
+            {{end}}
+          </div>
+        </td>
         <td>
-          {{if $k.SystemPrompt}}
-          <span
-            class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1 rounded-pill small"
-            title="{{$k.GetSystemPrompt}}"
-            style="cursor: help;"
-          >
-            設定あり (基底注入)
+          {{if gt $k.RateLimitRPM 0}}
+          <span class="badge bg-light text-dark border px-2 py-1 font-monospace small">
+            {{$k.RateLimitRPM}} <span class="text-muted" style="font-size: 0.7rem;">RPM</span>
           </span>
           {{else}}
-          <span class="text-muted small">なし</span>
+          <span class="text-muted small">無制限</span>
           {{end}}
         </td>
         <td>
@@ -90,6 +99,13 @@
           <span class="badge-pill-modern badge-group">{{.}}</span>
           {{else}}
           <span class="text-muted small">なし (LLM専用)</span>
+          {{end}}
+        </td>
+        <td class="text-muted small">
+          {{if $k.LastUsedAt}}
+          <span title="{{formatTime $k.LastUsedAt}}">{{formatTime $k.LastUsedAt}}</span>
+          {{else}}
+          <span class="text-muted" style="font-size: 0.8rem;">-</span>
           {{end}}
         </td>
         <td class="text-muted small">
@@ -133,7 +149,7 @@
                 >
                   <div class="modal-body p-4">
                     <div class="row g-3">
-                      <div class="col-12 col-md-6">
+                      <div class="col-12 col-md-5">
                         <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
                         <input
                           type="text"
@@ -143,7 +159,7 @@
                           required
                         >
                       </div>
-                      <div class="col-12 col-md-6">
+                      <div class="col-12 col-md-4">
                         <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
                         <select name="model_id" class="form-select form-control-modern">
                           <option value="">指定なし (クライアント指定 / 既定モデル)</option>
@@ -151,6 +167,21 @@
                           <option value="{{$m.ID}}" {{if eq $k.GetModelID $m.ID}}selected{{end}}>{{$m.Name}}</option>
                           {{end}}
                         </select>
+                      </div>
+                      <div class="col-12 col-md-3">
+                        <label class="form-label small fw-semibold text-secondary">レート制限 (RPM)</label>
+                        <div class="input-group">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            class="form-control form-control-modern"
+                            name="rate_limit_rpm"
+                            value="{{$k.RateLimitRPM}}"
+                          >
+                          <span class="input-group-text bg-light text-muted small">req/分</span>
+                        </div>
+                        <div class="form-text" style="font-size: 0.72rem;">0: 無制限</div>
                       </div>
 
                       {{if $k.RawKey}}

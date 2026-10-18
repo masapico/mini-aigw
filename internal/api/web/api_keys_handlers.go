@@ -126,6 +126,11 @@ func (h *APIKeysHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 	keyHash := auth.HashAPIKey(rawKey)
 	prefix := fmt.Sprintf("sk-live-%s...", secretPart[:6])
 
+	var rateLimitRPM int
+	if r.FormValue("rate_limit_rpm") != "" {
+		_, _ = fmt.Sscanf(r.FormValue("rate_limit_rpm"), "%d", &rateLimitRPM)
+	}
+
 	key := models.ApiKey{
 		UserID:       &user.ID,
 		Name:         name,
@@ -134,6 +139,7 @@ func (h *APIKeysHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		RawKey:       &rawKey,
 		ModelID:      modelIDPtr,
 		SystemPrompt: systemPromptPtr,
+		RateLimitRPM: rateLimitRPM,
 	}
 	key.SetAllowedGroups(cleanGroups)
 
@@ -208,6 +214,13 @@ func (h *APIKeysHandler) EditKey(w http.ResponseWriter, r *http.Request) {
 	}
 	if cleanGroups == nil {
 		cleanGroups = []string{}
+	}
+
+	if r.FormValue("rate_limit_rpm") != "" {
+		var rateLimitRPM int
+		if _, err := fmt.Sscanf(r.FormValue("rate_limit_rpm"), "%d", &rateLimitRPM); err == nil {
+			key.RateLimitRPM = rateLimitRPM
+		}
 	}
 
 	key.Name = name

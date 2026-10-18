@@ -168,6 +168,7 @@ func SetupRouter(
 		// API Key Protected
 		v1Router.Group(func(authRouter chi.Router) {
 			authRouter.Use(middleware.VerifyAPIKey(database))
+			authRouter.Use(middleware.CheckAPIRateLimit(nil))
 			authRouter.Post("/chat/completions", chatHandler.HandleChatCompletions)
 		})
 	})
@@ -205,6 +206,9 @@ func SetupRouter(
 		webRouter.Group(func(adminRouter chi.Router) {
 			adminRouter.Use(middleware.RequireAdmin)
 
+			// Dashboard export
+			adminRouter.Get("/dashboard/export-csv", dashboardHandler.ExportCSV)
+
 			// API Keys
 			adminRouter.Get("/api-keys", apiKeysHandler.ShowAPIKeys)
 			adminRouter.Post("/api-keys/create", apiKeysHandler.CreateKey)
@@ -214,6 +218,7 @@ func SetupRouter(
 			// Models
 			adminRouter.Get("/models", webModelsHandler.ShowModels)
 			adminRouter.Post("/models/create", webModelsHandler.CreateModel)
+			adminRouter.Post("/models/{id}/edit", webModelsHandler.EditModel)
 			adminRouter.Post("/models/{id}/toggle", webModelsHandler.ToggleModel)
 			adminRouter.Post("/models/{id}/default", webModelsHandler.SetDefaultModel)
 			adminRouter.Delete("/models/{id}", webModelsHandler.DeleteModel)

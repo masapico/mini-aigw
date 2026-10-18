@@ -23,7 +23,7 @@
     onsubmit="setTimeout(() => { document.getElementById('keyNameInput').value = ''; document.getElementById('keySystemPromptInput').value = ''; }, 400)"
   >
     <div class="row g-3">
-      <div class="col-12 col-md-6">
+      <div class="col-12 col-md-5">
         <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
         <input
           type="text"
@@ -35,7 +35,7 @@
         >
       </div>
 
-      <div class="col-12 col-md-6">
+      <div class="col-12 col-md-4">
         <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
         <select name="model_id" id="keyModelSelect" class="form-select form-control-modern">
           <option value="">指定なし (クライアント指定 / 既定モデル)</option>
@@ -43,6 +43,23 @@
           <option value="{{.ID}}">{{.Name}}</option>
           {{end}}
         </select>
+      </div>
+
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-secondary">レート制限 (RPM)</label>
+        <div class="input-group">
+          <input
+            type="number"
+            min="0"
+            step="1"
+            class="form-control form-control-modern"
+            name="rate_limit_rpm"
+            placeholder="0"
+            value="0"
+          >
+          <span class="input-group-text bg-light text-muted small">req/分</span>
+        </div>
+        <div class="form-text" style="font-size: 0.72rem;">0: 無制限</div>
       </div>
 
       <div class="col-12">

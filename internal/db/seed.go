@@ -60,18 +60,31 @@ func SeedInitialData(db *gorm.DB, cfg *config.Config) error {
 	if modelCount == 0 {
 		modelsList := []models.LLMModel{
 			{
-				ID:        "jp.amazon.nova-2-lite-v1:0",
-				Name:      "Amazon Nova 2 Lite",
-				Provider:  "bedrock",
-				IsActive:  true,
-				IsDefault: true,
+				ID:               "jp.amazon.nova-2-lite-v1:0",
+				Name:             "Amazon Nova 2 Lite",
+				Provider:         "bedrock",
+				InputPricePer1M:  0.06,
+				OutputPricePer1M: 0.24,
+				IsActive:         true,
+				IsDefault:        true,
 			},
 			{
-				ID:        "amazon.nova-lite-v1:0",
-				Name:      "Amazon Nova Lite",
-				Provider:  "bedrock",
-				IsActive:  true,
-				IsDefault: false,
+				ID:               "amazon.nova-lite-v1:0",
+				Name:             "Amazon Nova Lite",
+				Provider:         "bedrock",
+				InputPricePer1M:  0.06,
+				OutputPricePer1M: 0.24,
+				IsActive:         true,
+				IsDefault:        false,
+			},
+			{
+				ID:               "jp.anthropic.claude-haiku-5-5",
+				Name:             "Claude 3.5 Haiku",
+				Provider:         "bedrock",
+				InputPricePer1M:  0.80,
+				OutputPricePer1M: 4.00,
+				IsActive:         true,
+				IsDefault:        false,
 			},
 		}
 		for _, m := range modelsList {
@@ -80,6 +93,16 @@ func SeedInitialData(db *gorm.DB, cfg *config.Config) error {
 			}
 		}
 		log.Println("Seeded default LLM models")
+	} else {
+		// 既存モデルの単価が 0 の場合、代表的モデルに初期単価を補完
+		db.Model(&models.LLMModel{}).Where("id LIKE ? AND input_price_per_1m = 0", "%nova%lite%").Updates(map[string]interface{}{
+			"input_price_per_1m":  0.06,
+			"output_price_per_1m": 0.24,
+		})
+		db.Model(&models.LLMModel{}).Where("id LIKE ? AND input_price_per_1m = 0", "%claude%haiku%").Updates(map[string]interface{}{
+			"input_price_per_1m":  0.80,
+			"output_price_per_1m": 4.00,
+		})
 	}
 
 	return nil

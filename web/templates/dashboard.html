@@ -48,6 +48,18 @@
       </div>
     </div>
   </div>
+
+  <div class="col-12 col-sm-6 col-lg-3">
+    <div class="modern-card">
+      <div class="text-muted small fw-semibold mb-1">累計概算コスト (USD)</div>
+      <div class="d-flex align-items-baseline gap-1">
+        <h2 class="fw-bold mb-0 text-success">${{printf "%.4f" .TotalCostUSD}}</h2>
+      </div>
+      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+        全モデルのトークン消費概算
+      </div>
+    </div>
+  </div>
   {{else}}
   <div class="col-12 col-sm-6 col-lg-3">
     <div class="modern-card">
@@ -209,106 +221,368 @@ for chunk in response:
 </div>
 
 {{if .IsAdmin}}
-<!-- API 利用統計 & RAG 監査ログ -->
+<!-- API 利用推移チャート & FinOps 分析 -->
 <div class="row g-4 mt-1">
   <div class="col-12">
     <div class="modern-card">
       <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
-          <h5 class="fw-bold mb-0">API 利用状況・RAG 監査ログ</h5>
-          <p class="text-muted small mb-0">APIキーごとのトークン消費量および参照ナレッジドキュメントの履歴</p>
+          <h5 class="fw-bold mb-0">利用推移 & コスト分析 (直近14日間)</h5>
+          <p class="text-muted small mb-0">日次の消費トークン数（バー）および概算コスト（折れ線）の推移</p>
         </div>
-        <div class="d-flex flex-wrap gap-3">
+        <div class="d-flex flex-wrap gap-2">
+          <a href="/dashboard/export-csv" class="btn-modern-secondary py-1 px-3 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.85rem;">
+            <i class="bi bi-file-earmark-spreadsheet"></i> CSVエクスポート
+          </a>
+        </div>
+      </div>
+
+      <div style="position: relative; width: 100%; height: 230px;">
+        <canvas id="dailyUsageChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API 利用統計 & 各種按分集計タブ -->
+<div class="row g-4 mt-1">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+          <h5 class="fw-bold mb-0">利用実績 & 社内按分集計</h5>
+          <p class="text-muted small mb-0">APIキーごと・モデルごと・所属グループごとのトークン消費量とコスト</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
           <div class="px-3 py-1 rounded-3 bg-light border">
             <span class="text-muted small">累計リクエスト:</span>
             <strong class="ms-1">{{.TotalRequests}}</strong> <span class="text-muted small">回</span>
           </div>
           <div class="px-3 py-1 rounded-3 bg-light border">
-            <span class="text-muted small">RAG 検索実行:</span>
+            <span class="text-muted small">RAG 検索:</span>
             <strong class="ms-1 text-indigo">{{.RAGRequests}}</strong> <span class="text-muted small">回</span>
           </div>
           <div class="px-3 py-1 rounded-3 bg-light border">
-            <span class="text-muted small">累計消費トークン:</span>
+            <span class="text-muted small">累計消費:</span>
             <strong class="ms-1">{{.TotalTokens}}</strong> <span class="text-muted small">tokens</span>
           </div>
         </div>
       </div>
 
-      {{if .RecentUsageLogs}}
-      <div class="table-responsive">
-        <table class="table table-borderless align-middle mb-0" style="font-size: 0.85rem;">
-          <thead>
-            <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
-              <th>日時</th>
-              <th>API キー</th>
-              <th>モデル</th>
-              <th>種別</th>
-              <th>検索クエリ / 参照ナレッジ</th>
-              <th class="text-end">トークン数</th>
-              <th class="text-end">応答時間</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{range .RecentUsageLogs}}
-            <tr class="border-bottom">
-              <td class="text-muted small text-nowrap">
-                {{formatTime .CreatedAt}}
-              </td>
-              <td class="fw-semibold">{{.ApiKeyName}}</td>
-              <td><code class="small">{{.ModelID}}</code></td>
-              <td>
-                {{if .RAGTriggered}}
-                <span class="badge-pill-modern bg-primary text-white">RAG</span>
-                {{else}}
-                <span class="badge-pill-modern bg-light text-dark border">LLM</span>
-                {{end}}
-                {{if .IsStream}}
-                <span class="badge-pill-modern bg-light text-secondary border">Stream</span>
-                {{end}}
-              </td>
-              <td>
-                {{if .RAGTriggered}}
-                  {{$queries := .GetSearchQueries}}
-                  {{if $queries}}
-                  <div class="small text-dark">
-                    <i class="bi bi-search text-muted me-1"></i>
-                    {{range $i, $q := $queries}}{{if $i}}, {{end}}{{$q}}{{end}}
-                  </div>
-                  {{end}}
-                  {{$docs := .GetCitedDocuments}}
-                  {{if $docs}}
-                  <div class="d-flex flex-wrap gap-1 mt-1">
-                    {{range $docs}}
-                    <span class="badge-pill-modern badge-group">
-                      <i class="bi bi-file-earmark-text me-1"></i>{{index . "filename"}} ({{index . "group"}})
-                    </span>
+      <!-- タブ切り替え -->
+      <ul class="nav nav-pills mb-3 gap-2 border-bottom pb-2" id="usageTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active rounded-pill px-3 py-1 fw-semibold small" id="tab-recent-btn" data-bs-toggle="pill" data-bs-target="#tab-recent" type="button" role="tab">
+            直近の監査ログ
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link rounded-pill px-3 py-1 fw-semibold small" id="tab-apikey-btn" data-bs-toggle="pill" data-bs-target="#tab-apikey" type="button" role="tab">
+            APIキー別集計{{if .ApiKeyStats}} ({{len .ApiKeyStats}}){{end}}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link rounded-pill px-3 py-1 fw-semibold small" id="tab-model-btn" data-bs-toggle="pill" data-bs-target="#tab-model" type="button" role="tab">
+            モデル別集計{{if .ModelStats}} ({{len .ModelStats}}){{end}}
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link rounded-pill px-3 py-1 fw-semibold small" id="tab-group-btn" data-bs-toggle="pill" data-bs-target="#tab-group" type="button" role="tab">
+            グループ別集計
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="usageTabsContent">
+        <!-- 1. 直近ログ -->
+        <div class="tab-pane fade show active" id="tab-recent" role="tabpanel">
+          {{if .RecentUsageLogs}}
+          <div class="table-responsive">
+            <table class="table table-borderless align-middle mb-0" style="font-size: 0.85rem;">
+              <thead>
+                <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
+                  <th>日時</th>
+                  <th>API キー</th>
+                  <th>モデル</th>
+                  <th>種別</th>
+                  <th>検索クエリ / 参照ナレッジ</th>
+                  <th class="text-end">トークン数</th>
+                  <th class="text-end">概算コスト</th>
+                  <th class="text-end">応答時間</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range .RecentUsageLogs}}
+                <tr class="border-bottom">
+                  <td class="text-muted small text-nowrap">{{formatTime .CreatedAt}}</td>
+                  <td class="fw-semibold">{{.ApiKeyName}}</td>
+                  <td><code class="small">{{.ModelID}}</code></td>
+                  <td>
+                    {{if .RAGTriggered}}
+                    <span class="badge-pill-modern bg-primary text-white">RAG</span>
+                    {{else}}
+                    <span class="badge-pill-modern bg-light text-dark border">LLM</span>
                     {{end}}
-                  </div>
-                  {{else}}
-                  <span class="text-muted small">該当チャンクなし</span>
-                  {{end}}
-                {{else}}
-                <span class="text-muted small">-</span>
+                    {{if .IsStream}}
+                    <span class="badge-pill-modern bg-light text-secondary border">Stream</span>
+                    {{end}}
+                  </td>
+                  <td>
+                    {{if .RAGTriggered}}
+                      {{$queries := .GetSearchQueries}}
+                      {{if $queries}}
+                      <div class="small text-dark">
+                        <i class="bi bi-search text-muted me-1"></i>
+                        {{range $i, $q := $queries}}{{if $i}}, {{end}}{{$q}}{{end}}
+                      </div>
+                      {{end}}
+                      {{$docs := .GetCitedDocuments}}
+                      {{if $docs}}
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        {{range $docs}}
+                        <span class="badge-pill-modern badge-group">
+                          <i class="bi bi-file-earmark-text me-1"></i>{{index . "filename"}} ({{index . "group"}})
+                        </span>
+                        {{end}}
+                      </div>
+                      {{else}}
+                      <span class="text-muted small">該当チャンクなし</span>
+                      {{end}}
+                    {{else}}
+                    <span class="text-muted small">-</span>
+                    {{end}}
+                  </td>
+                  <td class="text-end font-monospace small">
+                    {{.TotalTokens}}
+                    <span class="text-muted" style="font-size: 0.72rem;">(in:{{.PromptTokens}}/out:{{.CompletionTokens}})</span>
+                  </td>
+                  <td class="text-end font-monospace small text-success fw-semibold">
+                    ${{printf "%.5f" .EstimatedCost}}
+                  </td>
+                  <td class="text-end text-muted small text-nowrap">
+                    {{.LatencyMs}} ms
+                    {{if .TimeToFirstTokenMs}}
+                    <div class="text-muted" style="font-size: 0.7rem;">(TTFT: {{.TimeToFirstTokenMs}}ms)</div>
+                    {{end}}
+                  </td>
+                </tr>
                 {{end}}
-              </td>
-              <td class="text-end font-monospace small">
-                {{.TotalTokens}}
-                <span class="text-muted" style="font-size: 0.75rem;">(in:{{.PromptTokens}}/out:{{.CompletionTokens}})</span>
-              </td>
-              <td class="text-end text-muted small text-nowrap">{{.LatencyMs}} ms</td>
-            </tr>
-            {{end}}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+          {{else}}
+          <div class="text-center py-4 text-muted small">API チャットの利用履歴はまだありません。</div>
+          {{end}}
+        </div>
+
+        <!-- 2. APIキー別集計 -->
+        <div class="tab-pane fade" id="tab-apikey" role="tabpanel">
+          {{if .ApiKeyStats}}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+              <thead class="table-light border-bottom">
+                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+                  <th>API キー名</th>
+                  <th class="text-end">リクエスト回数</th>
+                  <th class="text-end">Prompt トークン</th>
+                  <th class="text-end">Completion トークン</th>
+                  <th class="text-end">総トークン数</th>
+                  <th class="text-end">累計概算コスト (USD)</th>
+                  <th class="text-end">最終利用日時</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range .ApiKeyStats}}
+                <tr class="border-bottom">
+                  <td class="fw-semibold text-dark">{{.ApiKeyName}}</td>
+                  <td class="text-end font-monospace">{{.RequestCount}} 回</td>
+                  <td class="text-end font-monospace text-muted">{{.PromptTokens}}</td>
+                  <td class="text-end font-monospace text-muted">{{.CompletionTokens}}</td>
+                  <td class="text-end font-monospace fw-semibold">{{.TotalTokens}}</td>
+                  <td class="text-end font-monospace fw-bold text-success">${{printf "%.5f" .TotalCost}}</td>
+                  <td class="text-end text-muted small">
+                    {{if .LastUsedAt}}{{.LastUsedAt}}{{else}}-{{end}}
+                  </td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+          {{else}}
+          <div class="text-center py-4 text-muted small">API キー別の利用実績はまだありません。</div>
+          {{end}}
+        </div>
+
+        <!-- 3. モデル別集計 -->
+        <div class="tab-pane fade" id="tab-model" role="tabpanel">
+          {{if .ModelStats}}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+              <thead class="table-light border-bottom">
+                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+                  <th>モデル ID (profileId)</th>
+                  <th class="text-end">実行回数</th>
+                  <th class="text-end">消費トークン合計</th>
+                  <th class="text-end">累計コスト (USD)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range .ModelStats}}
+                <tr class="border-bottom">
+                  <td><code class="fw-semibold text-dark">{{.ModelID}}</code></td>
+                  <td class="text-end font-monospace">{{.RequestCount}} 回</td>
+                  <td class="text-end font-monospace fw-semibold">{{.TotalTokens}} tokens</td>
+                  <td class="text-end font-monospace fw-bold text-success">${{printf "%.5f" .TotalCost}}</td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+          {{else}}
+          <div class="text-center py-4 text-muted small">モデル別の利用実績はまだありません。</div>
+          {{end}}
+        </div>
+
+        <!-- 4. グループ別集計 -->
+        <div class="tab-pane fade" id="tab-group" role="tabpanel">
+          {{if .GroupStats}}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+              <thead class="table-light border-bottom">
+                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+                  <th>ナレッジグループ名</th>
+                  <th class="text-end">登録ドキュメント数</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{range .GroupStats}}
+                <tr class="border-bottom">
+                  <td>
+                    <span class="badge-pill-modern badge-group fs-6">{{.GroupName}}</span>
+                  </td>
+                  <td class="text-end font-monospace fw-semibold">{{.DocCount}} 件</td>
+                </tr>
+                {{end}}
+              </tbody>
+            </table>
+          </div>
+          {{else}}
+          <div class="text-center py-4 text-muted small">グループ情報がありません。</div>
+          {{end}}
+        </div>
       </div>
-      {{else}}
-      <div class="text-center py-4 text-muted small">
-        API チャットの利用履歴はまだありません。
-      </div>
-      {{end}}
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const dailyDataRaw = '{{.DailyStatsJSON}}';
+  if (!dailyDataRaw || dailyDataRaw === "[]") return;
+
+  try {
+    const dailyData = JSON.parse(dailyDataRaw);
+    const labels = dailyData.map(d => d.date);
+    const tokens = dailyData.map(d => d.tokens);
+    const costs = dailyData.map(d => d.cost);
+
+    const ctx = document.getElementById("dailyUsageChart");
+    if (!ctx || typeof Chart === "undefined") return;
+
+    new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "消費トークン (tokens)",
+            data: tokens,
+            backgroundColor: "rgba(99, 102, 241, 0.25)",
+            borderColor: "rgba(99, 102, 241, 0.9)",
+            borderWidth: 1.5,
+            borderRadius: 4,
+            yAxisID: "yTokens",
+            order: 2,
+          },
+          {
+            label: "概算コスト ($ USD)",
+            data: costs,
+            type: "line",
+            borderColor: "rgba(16, 185, 129, 0.95)",
+            backgroundColor: "rgba(16, 185, 129, 0.1)",
+            borderWidth: 2,
+            pointBackgroundColor: "rgba(16, 185, 129, 1)",
+            pointRadius: 3,
+            tension: 0.3,
+            yAxisID: "yCost",
+            order: 1,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            position: "top",
+            labels: {
+              boxWidth: 12,
+              font: { size: 11, family: "sans-serif" }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                if (context.dataset.yAxisID === "yCost") {
+                  return `${context.dataset.label}: $${Number(context.raw).toFixed(5)}`;
+                }
+                return `${context.dataset.label}: ${Number(context.raw).toLocaleString()} tokens`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10 } }
+          },
+          yTokens: {
+            type: "linear",
+            position: "left",
+            beginAtZero: true,
+            grid: { color: "rgba(0, 0, 0, 0.05)" },
+            ticks: {
+              font: { size: 10 },
+              callback: function(value) {
+                if (value >= 1000) return (value / 1000) + "k";
+                return value;
+              }
+            }
+          },
+          yCost: {
+            type: "linear",
+            position: "right",
+            beginAtZero: true,
+            grid: { drawOnChartArea: false },
+            ticks: {
+              font: { size: 10 },
+              callback: function(value) {
+                return "$" + value.toFixed(3);
+              }
+            }
+          }
+        }
+      }
+    });
+  } catch (e) {
+    console.error("Failed to render daily usage chart:", e);
+  }
+});
+</script>
 {{end}}
 {{end}}
 

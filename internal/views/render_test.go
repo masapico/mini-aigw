@@ -37,7 +37,12 @@ func TestInitRenderer_AllTemplatesValid(t *testing.T) {
 		"TotalRequests":     100,
 		"RAGRequests":       25,
 		"TotalTokens":       50000,
+		"TotalCostUSD":      0.1234,
+		"DailyStatsJSON":    `[{"date":"10/18","requests":10,"tokens":5000,"cost":0.01}]`,
 		"RecentUsageLogs":   []models.ChatUsageLog{},
+		"ApiKeyStats":       []interface{}{},
+		"ModelStats":        []interface{}{},
+		"GroupStats":        []interface{}{},
 	}
 
 	err = r.Render(w, "dashboard.html", data)
