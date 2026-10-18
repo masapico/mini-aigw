@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mini-aigw RAG 品質評価 & モデル比較レポート</title>
+<style>
+:root {
+  --bg-color: #f8fafc;
+  --text-color: #1e293b;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --primary: #0284c7;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 2rem;
+  line-height: 1.5;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+h1, h2, h3 { color: #0f172a; margin-top: 1.5rem; }
+.meta-box {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 2rem;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.card-title { font-size: 0.875rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+.card-value { font-size: 1.75rem; font-weight: 700; color: #0f172a; margin-top: 0.25rem; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+th { background-color: #f1f5f9; font-weight: 600; color: #334155; }
+tr:last-child td { border-bottom: none; }
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-success { background-color: #dcfce7; color: #15803d; }
+.badge-danger { background-color: #fee2e2; color: #b91c1c; }
+.badge-info { background-color: #e0f2fe; color: #0369a1; }
+.case-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+pre {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+}
+details { margin-top: 0.75rem; }
+summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📊 mini-aigw RAG 品質評価 & モデル比較レポート</h1>
+<div class="meta-box">
+  <div><strong>実行日時:</strong> 2026-10-18 14:51:54 JST</div>
+  <div><strong>データセット:</strong> <code>./testdata/eval/sample_dataset.jsonl</code> (4 件)</div>
+  <div><strong>検索パラメータ:</strong> Top-K=8, ScoreThreshold=0.30</div>
+  <div><strong>Judge モデル:</strong> <code></code></div>
+</div>
+
+<h2>Retriever サマリー</h2>
+<div class="grid">
+  <div class="card">
+    <div class="card-title">Hit@8 達成率</div>
+    <div class="card-value">100.0%</div>
+  </div>
+  <div class="card">
+    <div class="card-title">MRR (平均逆順位)</div>
+    <div class="card-value">1.00</div>
+  </div>
+  <div class="card">
+    <div class="card-title">権限分離リーク数</div>
+    <div class="card-value">0 件</div>
+  </div>
+</div>
+<h2>モデル別 総合品質・速度比較</h2>
+<table>
+<thead>
+<tr>
+  <th>モデルID</th>
+  <th>平均レイテンシ</th>
+  <th>平均トークン (In / Out)</th>
+  <th>引用遵守率</th>
+  <th>忠実度 (Faithfulness)</th>
+  <th>適合度 (Relevance)</th>
+  <th>正確性 (Correctness)</th>
+  <th>成功率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><strong>jp.amazon.nova-2-lite-v1:0</strong></td>
+  <td><span class="badge badge-info">350 ms</span></td>
+  <td>250 / 120</td>
+  <td>100.0%</td>
+  <td><strong>4.0</strong> / 5.0</td>
+  <td>4.0 / 5.0</td>
+  <td>2.0 / 5.0</td>
+  <td>100.0%</td>
+</tr>
+<tr>
+  <td><strong>jp.anthropic.claude-haiku-5-5</strong></td>
+  <td><span class="badge badge-info">350 ms</span></td>
+  <td>250 / 120</td>
+  <td>100.0%</td>
+  <td><strong>4.0</strong> / 5.0</td>
+  <td>4.0 / 5.0</td>
+  <td>2.0 / 5.0</td>
+  <td>100.0%</td>
+</tr></tbody></table><h2>テストケース別 詳細一覧</h2>
+<div class="case-card">
+  <h3>[1] 年次有給休暇は何日付与されますか？</h3>
+  <div><strong>ID:</strong> tc-001 | <strong>Group:</strong> <code>public</code> | <strong>Retriever:</strong> <span class="badge badge-success">HIT</span> | <strong>権限分離:</strong> <span class="badge badge-success">ISOLATED</span></div>
+  <div style="margin-top: 0.5rem;"><strong>取得ファイル:</strong> <code>就業規則_2025.pdf</code></div><div style="margin-top: 0.5rem; color: #475569;"><strong>模範解答:</strong> 入社半年後に10日付与され、その後勤続年数に応じて最大20日まで付与されます。</div>
+  <table style="margin-top: 1rem; margin-bottom: 0.5rem;">
+  <thead>
+  <tr>
+    <th>モデル</th>
+    <th>レイテンシ</th>
+    <th>トークン</th>
+    <th>忠実度</th>
+    <th>適合度</th>
+    <th>正確性</th>
+    <th>引用遵守</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td><strong>jp.amazon.nova-2-lite-v1:0</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr>
+  <tr>
+    <td><strong>jp.anthropic.claude-haiku-5-5</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr></tbody></table>
+  <details>
+    <summary>モデルごとの生成回答・採点理由を表示</summary>
+    <h4 style="margin-top: 1rem;">jp.amazon.nova-2-lite-v1:0:</h4>
+    <pre>これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+    <h4 style="margin-top: 1rem;">jp.anthropic.claude-haiku-5-5:</h4>
+    <pre>これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+  </details></div>
+<div class="case-card">
+  <h3>[2] 営業部の出張旅費における日当の支給基準を教えてください。</h3>
+  <div><strong>ID:</strong> tc-002 | <strong>Group:</strong> <code>sales</code> | <strong>Retriever:</strong> <span class="badge badge-success">HIT</span> | <strong>権限分離:</strong> <span class="badge badge-success">ISOLATED</span></div>
+  <div style="margin-top: 0.5rem;"><strong>取得ファイル:</strong> <code>営業部旅費規程.docx</code></div><div style="margin-top: 0.5rem; color: #475569;"><strong>模範解答:</strong> 日帰り出張の場合は1日あたり2,000円、宿泊を伴う出張の場合は1泊あたり3,500円が支給されます。</div>
+  <table style="margin-top: 1rem; margin-bottom: 0.5rem;">
+  <thead>
+  <tr>
+    <th>モデル</th>
+    <th>レイテンシ</th>
+    <th>トークン</th>
+    <th>忠実度</th>
+    <th>適合度</th>
+    <th>正確性</th>
+    <th>引用遵守</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td><strong>jp.amazon.nova-2-lite-v1:0</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr>
+  <tr>
+    <td><strong>jp.anthropic.claude-haiku-5-5</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr></tbody></table>
+  <details>
+    <summary>モデルごとの生成回答・採点理由を表示</summary>
+    <h4 style="margin-top: 1rem;">jp.amazon.nova-2-lite-v1:0:</h4>
+    <pre>これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+    <h4 style="margin-top: 1rem;">jp.anthropic.claude-haiku-5-5:</h4>
+    <pre>これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+  </details></div>
+<div class="case-card">
+  <h3>[3] 他部署の社内ポータルパスワード初期化手順は？</h3>
+  <div><strong>ID:</strong> tc-003 | <strong>Group:</strong> <code>engineering</code> | <strong>Retriever:</strong> <span class="badge badge-success">HIT</span> | <strong>権限分離:</strong> <span class="badge badge-success">ISOLATED</span></div>
+  <div style="margin-top: 0.5rem;"><strong>取得ファイル:</strong> <code>ポータル運用手順書.pdf</code></div><div style="margin-top: 0.5rem; color: #475569;"><strong>模範解答:</strong> 情報システム部のチケット起票画面より申請し、承認後に初期パスワードが通知されます。</div>
+  <table style="margin-top: 1rem; margin-bottom: 0.5rem;">
+  <thead>
+  <tr>
+    <th>モデル</th>
+    <th>レイテンシ</th>
+    <th>トークン</th>
+    <th>忠実度</th>
+    <th>適合度</th>
+    <th>正確性</th>
+    <th>引用遵守</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td><strong>jp.amazon.nova-2-lite-v1:0</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr>
+  <tr>
+    <td><strong>jp.anthropic.claude-haiku-5-5</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr></tbody></table>
+  <details>
+    <summary>モデルごとの生成回答・採点理由を表示</summary>
+    <h4 style="margin-top: 1rem;">jp.amazon.nova-2-lite-v1:0:</h4>
+    <pre>これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+    <h4 style="margin-top: 1rem;">jp.anthropic.claude-haiku-5-5:</h4>
+    <pre>これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+  </details></div>
+<div class="case-card">
+  <h3>[4] AWS Bedrockのクォータ引き上げ申請の手順を教えてください。</h3>
+  <div><strong>ID:</strong> tc-004 | <strong>Group:</strong> <code>public</code> | <strong>Retriever:</strong> <span class="badge badge-success">HIT</span> | <strong>権限分離:</strong> <span class="badge badge-success">ISOLATED</span></div>
+  <div style="margin-top: 0.5rem;"><strong>取得ファイル:</strong> <code></code></div><div style="margin-top: 0.5rem; color: #475569;"><strong>模範解答:</strong> 提供されたナレッジベースには該当情報がありません。AWS Service Quotas コンソールから申請を行ってください。</div>
+  <table style="margin-top: 1rem; margin-bottom: 0.5rem;">
+  <thead>
+  <tr>
+    <th>モデル</th>
+    <th>レイテンシ</th>
+    <th>トークン</th>
+    <th>忠実度</th>
+    <th>適合度</th>
+    <th>正確性</th>
+    <th>引用遵守</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr>
+    <td><strong>jp.amazon.nova-2-lite-v1:0</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr>
+  <tr>
+    <td><strong>jp.anthropic.claude-haiku-5-5</strong></td>
+    <td>350 ms</td>
+    <td>250 in / 120 out</td>
+    <td>4.0</td>
+    <td>4.0</td>
+    <td>2.0</td>
+    <td><span class="badge badge-success">PASS</span></td>
+  </tr></tbody></table>
+  <details>
+    <summary>モデルごとの生成回答・採点理由を表示</summary>
+    <h4 style="margin-top: 1rem;">jp.amazon.nova-2-lite-v1:0:</h4>
+    <pre>これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+    <h4 style="margin-top: 1rem;">jp.anthropic.claude-haiku-5-5:</h4>
+    <pre>これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。
+
+### 根拠資料
+- [就業規則](http://example.com)</pre>
+    <div style="font-size: 0.85rem; color: #64748b;"><em>Judge 採点理由: Rule-based estimation (Judge LLM not specified)</em></div>
+  </details></div></div></body></html>

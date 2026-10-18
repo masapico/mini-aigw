@@ -1,0 +1,5 @@
+{"id":"tc-001","query":"年次有給休暇は何日付与されますか？","group":"public","expected_doc_ids":["doc-rule-leave-01"],"expected_filenames":["就業規則_2025.pdf"],"reference_answer":"入社半年後に10日付与され、その後勤続年数に応じて最大20日まで付与されます。"}
+{"id":"tc-002","query":"営業部の出張旅費における日当の支給基準を教えてください。","group":"sales","expected_doc_ids":["doc-sales-travel-02"],"expected_filenames":["営業部旅費規程.docx"],"reference_answer":"日帰り出張の場合は1日あたり2,000円、宿泊を伴う出張の場合は1泊あたり3,500円が支給されます。"}
+{"id":"tc-003","query":"他部署の社内ポータルパスワード初期化手順は？","group":"engineering","expected_doc_ids":["doc-eng-portal-01"],"expected_filenames":["ポータル運用手順書.pdf"],"reference_answer":"情報システム部のチケット起票画面より申請し、承認後に初期パスワードが通知されます。"}
+{"id":"tc-004","query":"AWS Bedrockのクォータ引き上げ申請の手順を教えてください。","group":"public","expected_doc_ids":[],"expected_filenames":[],"reference_answer":"提供されたナレッジベースには該当情報がありません。AWS Service Quotas コンソールから申請を行ってください。"}
+

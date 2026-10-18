@@ -1,0 +1,281 @@
+{
+  "dataset_path": "./testdata/eval/sample_dataset.jsonl",
+  "timestamp": "2026-10-18T14:51:54.147121+09:00",
+  "top_k": 8,
+  "score_threshold": 0.3,
+  "judge_model_id": "",
+  "models": [
+    "jp.amazon.nova-2-lite-v1:0",
+    "jp.anthropic.claude-haiku-5-5"
+  ],
+  "total_cases": 4,
+  "hit_at_k_rate": 100,
+  "mean_reciprocal_rank": 1,
+  "total_leaks": 0,
+  "model_summaries": {
+    "jp.amazon.nova-2-lite-v1:0": {
+      "model_id": "jp.amazon.nova-2-lite-v1:0",
+      "avg_latency_ms": 350,
+      "avg_input_tokens": 250,
+      "avg_output_tokens": 120,
+      "citation_pass_rate": 100,
+      "avg_faithfulness": 4,
+      "avg_relevance": 4,
+      "avg_correctness": 2,
+      "success_rate": 100
+    },
+    "jp.anthropic.claude-haiku-5-5": {
+      "model_id": "jp.anthropic.claude-haiku-5-5",
+      "avg_latency_ms": 350,
+      "avg_input_tokens": 250,
+      "avg_output_tokens": 120,
+      "citation_pass_rate": 100,
+      "avg_faithfulness": 4,
+      "avg_relevance": 4,
+      "avg_correctness": 2,
+      "success_rate": 100
+    }
+  },
+  "case_results": [
+    {
+      "test_case": {
+        "id": "tc-001",
+        "query": "年次有給休暇は何日付与されますか？",
+        "group": "public",
+        "expected_doc_ids": [
+          "doc-rule-leave-01"
+        ],
+        "expected_filenames": [
+          "就業規則_2025.pdf"
+        ],
+        "reference_answer": "入社半年後に10日付与され、その後勤続年数に応じて最大20日まで付与されます。"
+      },
+      "retrieved_doc_ids": [
+        "doc-rule-leave-01"
+      ],
+      "retrieved_filenames": [
+        "就業規則_2025.pdf"
+      ],
+      "retrieved_groups": [
+        "public"
+      ],
+      "formatted_contexts": [
+        "[1] モックコンテキスト内容"
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1,
+      "leaked_groups": null,
+      "is_isolated": true,
+      "model_results": {
+        "jp.amazon.nova-2-lite-v1:0": {
+          "model_id": "jp.amazon.nova-2-lite-v1:0",
+          "answer_text": "これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        },
+        "jp.anthropic.claude-haiku-5-5": {
+          "model_id": "jp.anthropic.claude-haiku-5-5",
+          "answer_text": "これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        }
+      }
+    },
+    {
+      "test_case": {
+        "id": "tc-002",
+        "query": "営業部の出張旅費における日当の支給基準を教えてください。",
+        "group": "sales",
+        "expected_doc_ids": [
+          "doc-sales-travel-02"
+        ],
+        "expected_filenames": [
+          "営業部旅費規程.docx"
+        ],
+        "reference_answer": "日帰り出張の場合は1日あたり2,000円、宿泊を伴う出張の場合は1泊あたり3,500円が支給されます。"
+      },
+      "retrieved_doc_ids": [
+        "doc-sales-travel-02"
+      ],
+      "retrieved_filenames": [
+        "営業部旅費規程.docx"
+      ],
+      "retrieved_groups": [
+        "sales"
+      ],
+      "formatted_contexts": [
+        "[1] モックコンテキスト内容"
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1,
+      "leaked_groups": null,
+      "is_isolated": true,
+      "model_results": {
+        "jp.amazon.nova-2-lite-v1:0": {
+          "model_id": "jp.amazon.nova-2-lite-v1:0",
+          "answer_text": "これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        },
+        "jp.anthropic.claude-haiku-5-5": {
+          "model_id": "jp.anthropic.claude-haiku-5-5",
+          "answer_text": "これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        }
+      }
+    },
+    {
+      "test_case": {
+        "id": "tc-003",
+        "query": "他部署の社内ポータルパスワード初期化手順は？",
+        "group": "engineering",
+        "expected_doc_ids": [
+          "doc-eng-portal-01"
+        ],
+        "expected_filenames": [
+          "ポータル運用手順書.pdf"
+        ],
+        "reference_answer": "情報システム部のチケット起票画面より申請し、承認後に初期パスワードが通知されます。"
+      },
+      "retrieved_doc_ids": [
+        "doc-eng-portal-01"
+      ],
+      "retrieved_filenames": [
+        "ポータル運用手順書.pdf"
+      ],
+      "retrieved_groups": [
+        "engineering"
+      ],
+      "formatted_contexts": [
+        "[1] モックコンテキスト内容"
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1,
+      "leaked_groups": null,
+      "is_isolated": true,
+      "model_results": {
+        "jp.amazon.nova-2-lite-v1:0": {
+          "model_id": "jp.amazon.nova-2-lite-v1:0",
+          "answer_text": "これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        },
+        "jp.anthropic.claude-haiku-5-5": {
+          "model_id": "jp.anthropic.claude-haiku-5-5",
+          "answer_text": "これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        }
+      }
+    },
+    {
+      "test_case": {
+        "id": "tc-004",
+        "query": "AWS Bedrockのクォータ引き上げ申請の手順を教えてください。",
+        "group": "public",
+        "expected_doc_ids": [],
+        "expected_filenames": [],
+        "reference_answer": "提供されたナレッジベースには該当情報がありません。AWS Service Quotas コンソールから申請を行ってください。"
+      },
+      "retrieved_doc_ids": [],
+      "retrieved_filenames": [],
+      "retrieved_groups": [
+        "public"
+      ],
+      "formatted_contexts": [
+        "[1] モックコンテキスト内容"
+      ],
+      "hit_at_k": true,
+      "reciprocal_rank": 1,
+      "leaked_groups": null,
+      "is_isolated": true,
+      "model_results": {
+        "jp.amazon.nova-2-lite-v1:0": {
+          "model_id": "jp.amazon.nova-2-lite-v1:0",
+          "answer_text": "これは jp.amazon.nova-2-lite-v1:0 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        },
+        "jp.anthropic.claude-haiku-5-5": {
+          "model_id": "jp.anthropic.claude-haiku-5-5",
+          "answer_text": "これは jp.anthropic.claude-haiku-5-5 によるテスト回答です[1]。\n\n### 根拠資料\n- [就業規則](http://example.com)",
+          "latency_ms": 350,
+          "input_tokens": 250,
+          "output_tokens": 120,
+          "citation_pass": true,
+          "citation_details": "モック正常判定",
+          "judge": {
+            "faithfulness": 4,
+            "answer_relevance": 4,
+            "correctness": 2,
+            "reasoning": "Rule-based estimation (Judge LLM not specified)"
+          }
+        }
+      }
+    }
+  ]
+}
