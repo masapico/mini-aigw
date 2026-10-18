@@ -41,7 +41,7 @@ offline_deploy_bundle/
 | **Bedrock Agent** | `com.amazonaws.<region>.bedrock-agent` | Interface | ナレッジベース同期ジョブ (`StartIngestionJob`, `ListIngestionJobs`) |
 | **Amazon S3** | `com.amazonaws.<region>.s3` | Gateway (推奨) / Interface | ナレッジ原本ファイルおよびサイドカーメタデータ (`.metadata.json`) のアップロード・取得・削除。<br>※ 同一リージョン内の VPC であれば Gateway 型（無料・ルートテーブル設定）が推奨です。 |
 | *(運用用)* **AWS Systems Manager (SSM)** | `com.amazonaws.<region>.ssm`<br>`com.amazonaws.<region>.ssmmessages`<br>`com.amazonaws.<region>.ec2messages` | Interface | 閉域 EC2 に対し、SSH ポートを開放せずマネジメントコンソールや CLI からセッションマネージャー経由で安全に接続・運用する場合に必要 |
-| *(認証用)* **社内 OIDC IdP** | mini-id / Keycloak 等 | - | 認証に mini-id (OIDC) を使用する場合、社内閉域ネットワーク（Direct Connect / Transit Gateway / VPN）または VPC エンドポイントサービス経由でアクセス可能な経路を確保 |
+| *(認証用)* **OIDC IdP** | mini-id / Keycloak 等 | - | 認証に mini-id (OIDC) を使用する場合、閉域ネットワーク（Direct Connect / Transit Gateway / VPN）または VPC エンドポイントサービス経由でアクセス可能な経路を確保 |
 
 > **VPC エンドポイント設定の重要ポイント**:
 > 1. **プライベート DNS の有効化 (Private DNS Name)**:
