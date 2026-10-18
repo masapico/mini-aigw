@@ -73,6 +73,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.LLMModel{},
 		&models.KnowledgeDocument{},
 		&models.ChatUsageLog{},
+		&models.ZeroHitQuery{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)

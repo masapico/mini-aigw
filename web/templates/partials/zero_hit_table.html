@@ -1,0 +1,134 @@
+<div class="table-responsive">
+  <table class="table table-borderless align-middle mb-0" style="font-size: 0.88rem;">
+    <thead>
+      <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <th style="min-width: 280px;">質問クエリ (未解決の検索文)</th>
+        <th style="min-width: 100px;">グループ</th>
+        <th style="min-width: 80px;" class="text-center">発生回数</th>
+        <th style="min-width: 90px;">最高スコア</th>
+        <th style="min-width: 100px;">検知理由</th>
+        <th style="min-width: 130px;">最終発生日時</th>
+        <th style="min-width: 90px;">状態</th>
+        <th style="min-width: 180px;" class="text-end">アクション</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Queries}}
+      <tr class="border-bottom" id="query-row-{{.ID}}">
+        <td>
+          <div class="fw-semibold text-dark text-break">{{.Query}}</div>
+          {{if ne .LastApiKeyName "unknown"}}
+          <span class="text-muted small" style="font-size: 0.75rem;">
+            最終利用キー: <code>{{.LastApiKeyName}}</code>
+          </span>
+          {{end}}
+        </td>
+        <td>
+          <span class="badge-pill-modern badge-group">{{.GroupName}}</span>
+        </td>
+        <td class="text-center">
+          <span class="badge rounded-pill {{if gt .HitCount 5}}bg-danger text-white{{else if gt .HitCount 1}}bg-warning text-dark{{else}}bg-secondary text-white{{end}} px-2 py-1">
+            {{.HitCount}} 回
+          </span>
+        </td>
+        <td>
+          <code class="fw-semibold">{{printf "%.2f" .MaxScore}}</code>
+        </td>
+        <td>
+          {{if eq .Reason "0件ヒット"}}
+          <span class="badge bg-light text-danger border border-danger-subtle">0件ヒット</span>
+          {{else}}
+          <span class="badge bg-light text-warning text-dark border border-warning-subtle">スコア不足</span>
+          {{end}}
+        </td>
+        <td class="text-secondary small">
+          {{formatTime .LastOccurredAt}}
+        </td>
+        <td>
+          {{if eq .Status "resolved"}}
+          <span class="badge bg-success-subtle text-success border border-success-subtle">解決済</span>
+          {{else if eq .Status "ignored"}}
+          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">対象外</span>
+          {{else}}
+          <span class="badge bg-danger-subtle text-danger border border-danger-subtle">未解決</span>
+          {{end}}
+        </td>
+        <td class="text-end">
+          <div class="d-inline-flex align-items-center gap-1">
+            <!-- 🔍 RAGテストで確認 -->
+            <a
+              href="/rag-test?query={{.Query}}&group={{.GroupName}}"
+              class="btn btn-sm btn-outline-primary py-1 px-2 d-inline-flex align-items-center gap-1"
+              title="RAGテスト画面でこのクエリを事前入力して検索確認"
+              style="font-size: 0.78rem;"
+            >
+              <i class="bi bi-search"></i> テスト
+            </a>
+
+            {{if eq .Status "unresolved"}}
+            <!-- ✔️ 解決ボタン -->
+            <button
+              class="btn btn-sm btn-outline-success py-1 px-2 d-inline-flex align-items-center gap-1"
+              title="ナレッジ追加完了・解決済みに変更"
+              style="font-size: 0.78rem;"
+              hx-post="/zero-hit-queries/{{.ID}}/status"
+              hx-vals='{"status": "resolved", "current_filter": "{{$.StatusFilter}}"}'
+              hx-target="#query-row-{{.ID}}"
+              hx-swap="outerHTML"
+            >
+              <i class="bi bi-check-lg"></i> 解決
+            </button>
+            <!-- 🚫 対象外ボタン -->
+            <button
+              class="btn btn-sm btn-outline-secondary py-1 px-2 d-inline-flex align-items-center gap-1"
+              title="ナレッジ化不要・業務外として対象外に変更"
+              style="font-size: 0.78rem;"
+              hx-post="/zero-hit-queries/{{.ID}}/status"
+              hx-vals='{"status": "ignored", "current_filter": "{{$.StatusFilter}}"}'
+              hx-target="#query-row-{{.ID}}"
+              hx-swap="outerHTML"
+            >
+              <i class="bi bi-slash-circle"></i> 対象外
+            </button>
+            {{else}}
+            <!-- ↩️ 未解決に戻す -->
+            <button
+              class="btn btn-sm btn-outline-warning py-1 px-2 d-inline-flex align-items-center gap-1"
+              title="未解決ステータスに戻す"
+              style="font-size: 0.78rem;"
+              hx-post="/zero-hit-queries/{{.ID}}/status"
+              hx-vals='{"status": "unresolved", "current_filter": "{{$.StatusFilter}}"}'
+              hx-target="#zero-hit-table-container"
+              hx-swap="innerHTML"
+            >
+              <i class="bi bi-arrow-counterclockwise"></i> 未解決へ
+            </button>
+            {{end}}
+
+            <!-- 🗑️ 削除ボタン -->
+            <button
+              class="btn btn-sm btn-outline-danger py-1 px-2"
+              title="誤入力等の記録を削除"
+              style="font-size: 0.78rem;"
+              hx-delete="/zero-hit-queries/{{.ID}}"
+              hx-confirm="この未解決クエリ記録を削除しますか？"
+              hx-target="#query-row-{{.ID}}"
+              hx-swap="outerHTML"
+            >
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {{else}}
+      <tr>
+        <td colspan="8" class="text-center py-5 text-muted">
+          <i class="bi bi-check2-circle fs-3 text-success d-block mb-2"></i>
+          該当する未解決クエリはありません。
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+

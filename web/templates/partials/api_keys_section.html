@@ -46,7 +46,20 @@
     <tbody>
       {{range $k := .Keys}}
       <tr class="border-bottom" id="key-row-{{$k.ID}}">
-        <td class="fw-semibold text-dark">{{$k.Name}}</td>
+        <td>
+          <div class="fw-semibold text-dark">{{$k.Name}}</div>
+          {{if and $k.SystemPrompt (ne $k.GetSystemPrompt "")}}
+          <div class="mt-1">
+            <span
+              class="badge bg-info-subtle text-info border border-info-subtle px-2 py-0 rounded-pill small"
+              title="{{$k.GetSystemPrompt}}"
+              style="cursor: help; font-size: 0.72rem; font-weight: normal;"
+            >
+              <i class="bi bi-chat-quote me-1"></i>プロンプト設定あり
+            </span>
+          </div>
+          {{end}}
+        </td>
         <td>
           <div class="d-flex align-items-center gap-2">
             <span class="font-monospace text-muted small">{{$k.Prefix}}</span>
@@ -71,18 +84,6 @@
           {{else}}
           <span class="text-muted small">指定なし (任意)</span>
           {{end}}
-        </td>
-          <div class="mt-1">
-            {{if $k.SystemPrompt}}
-            <span
-              class="badge bg-info-subtle text-info border border-info-subtle px-2 py-0 rounded-pill small"
-              title="{{$k.GetSystemPrompt}}"
-              style="cursor: help; font-size: 0.72rem;"
-            >
-              プロンプト設定あり
-            </span>
-            {{end}}
-          </div>
         </td>
         <td>
           {{if gt $k.RateLimitRPM 0}}

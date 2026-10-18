@@ -160,6 +160,7 @@ func InitRenderer() (*Renderer, error) {
 		"models.html",
 		"users.html",
 		"login.html",
+		"zero_hit_queries.html",
 	}
 
 	for _, page := range pages {

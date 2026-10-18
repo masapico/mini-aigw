@@ -63,3 +63,38 @@ func (c *ChatUsageLog) GetCitedDocuments() []map[string]interface{} {
 	return []map[string]interface{}{}
 }
 
+type UniqueCitedDoc struct {
+	Filename string `json:"filename"`
+	Group    string `json:"group"`
+	Count    int    `json:"count"`
+}
+
+func (c *ChatUsageLog) GetUniqueCitedDocuments() []UniqueCitedDoc {
+	docs := c.GetCitedDocuments()
+	if len(docs) == 0 {
+		return nil
+	}
+	var result []UniqueCitedDoc
+	indexMap := make(map[string]int)
+
+	for _, d := range docs {
+		filename, _ := d["filename"].(string)
+		group, _ := d["group"].(string)
+		if filename == "" {
+			continue
+		}
+		key := filename + "::" + group
+		if idx, exists := indexMap[key]; exists {
+			result[idx].Count++
+		} else {
+			indexMap[key] = len(result)
+			result = append(result, UniqueCitedDoc{
+				Filename: filename,
+				Group:    group,
+				Count:    1,
+			})
+		}
+	}
+	return result
+}
+

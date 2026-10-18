@@ -130,6 +130,8 @@ func SetupRouter(
 	apiKeysHandler := webapi.NewAPIKeysHandler(database, cfg, renderer)
 	webModelsHandler := webapi.NewWebModelsHandler(database, renderer)
 	usersHandler := webapi.NewUsersHandler(database, renderer)
+	zeroHitSvc := services.NewZeroHitService(database)
+	zeroHitHandler := webapi.NewZeroHitHandler(zeroHitSvc, renderer)
 
 	r := chi.NewRouter()
 
@@ -201,6 +203,12 @@ func SetupRouter(
 		webRouter.Get("/rag-test", ragTestHandler.ShowRAGTest)
 		webRouter.Post("/rag-test/retrieve", ragTestHandler.HandleRetrieve)
 		webRouter.Post("/rag-test/chat", ragTestHandler.HandleChat)
+
+		// Zero-Hit Queries
+		webRouter.Get("/zero-hit-queries", zeroHitHandler.ShowZeroHitQueries)
+		webRouter.Post("/zero-hit-queries/{id}/status", zeroHitHandler.HandleUpdateStatus)
+		webRouter.Delete("/zero-hit-queries/{id}", zeroHitHandler.HandleDelete)
+		webRouter.Get("/zero-hit-queries/export-csv", zeroHitHandler.HandleExportCSV)
 
 		// Admin Only Routes
 		webRouter.Group(func(adminRouter chi.Router) {

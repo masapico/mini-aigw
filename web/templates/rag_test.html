@@ -72,7 +72,7 @@
             </label>
             <select class="form-select form-select-modern" name="group">
               {{range .Groups}}
-              <option value="{{.}}" {{if eq . "public"}}selected{{end}}>{{.}}</option>
+              <option value="{{.}}" {{if $.InitGroup}}{{if eq . $.InitGroup}}selected{{end}}{{else if eq . "public"}}selected{{end}}>{{.}}</option>
               {{end}}
             </select>
           </div>
@@ -94,6 +94,7 @@
                 type="text"
                 class="form-control form-control-modern"
                 name="query"
+                value="{{.InitQuery}}"
                 required
                 placeholder="例: 有給休暇の申請手続きについて教えてください"
               >

@@ -1,0 +1,126 @@
+{{template "base" .}}
+
+{{define "title"}}未解決クエリ分析 - mini-aigw{{end}}
+
+{{define "content"}}
+<div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+  <div>
+    <h3 class="fw-bold mb-1">未解決クエリ分析 (Zero-Hit Query Insights)</h3>
+    <p class="text-muted small mb-0">RAG検索でヒット0件または類似度不足となった質問を集約・可視化します</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <a
+      href="/zero-hit-queries/export-csv?status={{.StatusFilter}}"
+      class="btn-modern-secondary text-decoration-none py-2 px-3 d-inline-flex align-items-center gap-2"
+    >
+      <i class="bi bi-file-earmark-spreadsheet"></i>
+      <span>CSVエクスポート</span>
+    </a>
+    <a
+      href="/knowledge"
+      class="btn-modern-primary text-decoration-none py-2 px-3 d-inline-flex align-items-center gap-2"
+    >
+      <i class="bi bi-cloud-arrow-up"></i>
+      <span>ナレッジ登録へ</span>
+    </a>
+  </div>
+</div>
+
+<!-- 概要 & 運用ガイドカード -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <div class="modern-card">
+      <div class="text-muted small fw-semibold mb-1">未対応の未解決クエリ</div>
+      <div class="d-flex align-items-baseline gap-2">
+        <h2 class="fw-bold mb-0 text-danger">{{.UnresolvedCount}}</h2>
+        <span class="text-muted small">件 (ナレッジ不足の質問)</span>
+      </div>
+      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+        ナレッジを追加して解決確認後、消し込んでください
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-8">
+    <div class="modern-card d-flex flex-column justify-content-center">
+      <h6 class="fw-bold mb-2 d-flex align-items-center gap-2 text-dark">
+        <i class="bi bi-lightbulb text-warning fs-5"></i> ナレッジ改善の3ステップ運用
+      </h6>
+      <div class="row g-2 text-secondary small">
+        <div class="col-12 col-sm-4 d-flex align-items-start gap-2">
+          <span class="badge bg-primary rounded-circle px-2 py-1">1</span>
+          <span><strong>頻出質問を確認:</strong> 利用者が多く検索している不足文書を把握</span>
+        </div>
+        <div class="col-12 col-sm-4 d-flex align-items-start gap-2">
+          <span class="badge bg-primary rounded-circle px-2 py-1">2</span>
+          <span><strong>ドキュメント投入:</strong> FAQやマニュアルを作成しナレッジ管理に同期</span>
+        </div>
+        <div class="col-12 col-sm-4 d-flex align-items-start gap-2">
+          <span class="badge bg-primary rounded-circle px-2 py-1">3</span>
+          <span><strong>確認 & 解決消込:</strong> 「テスト」でヒット確認後「解決」をクリック</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- メインテーブルカード -->
+<div class="modern-card">
+  <!-- フィルタ & 検索バー -->
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-3 pb-3 border-bottom">
+    <!-- ステータス切替タブ -->
+    <div class="d-flex align-items-center gap-1 bg-light p-1 rounded-pill border">
+      <a
+        href="/zero-hit-queries?status=unresolved"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "unresolved"}}active{{end}}"
+      >
+        未解決 <span class="badge bg-danger rounded-pill ms-1">{{.UnresolvedCount}}</span>
+      </a>
+      <a
+        href="/zero-hit-queries?status=resolved"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "resolved"}}active{{end}}"
+      >
+        解決済
+      </a>
+      <a
+        href="/zero-hit-queries?status=ignored"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "ignored"}}active{{end}}"
+      >
+        対象外
+      </a>
+      <a
+        href="/zero-hit-queries?status=all"
+        class="nav-pill-link rounded-pill px-3 py-1 text-decoration-none small {{if eq .StatusFilter "all"}}active{{end}}"
+      >
+        すべて
+      </a>
+    </div>
+
+    <!-- 検索ボックス -->
+    <div style="min-width: 280px;">
+      <div class="input-group">
+        <span class="input-group-text bg-transparent border-end-0 text-muted">
+          <i class="bi bi-search"></i>
+        </span>
+        <input
+          type="text"
+          class="form-control form-control-modern border-start-0"
+          placeholder="質問クエリを絞り込み検索..."
+          name="search"
+          value="{{.SearchKeyword}}"
+          hx-get="/zero-hit-queries"
+          hx-params="status,search"
+          hx-vals='{"status": "{{.StatusFilter}}"}'
+          hx-trigger="keyup changed delay:300ms, search"
+          hx-target="#zero-hit-table-container"
+        >
+      </div>
+    </div>
+  </div>
+
+  <!-- テーブルコンテナ (HTMX で部分置換) -->
+  <div id="zero-hit-table-container">
+    {{template "zero_hit_table.html" .}}
+  </div>
+</div>
+{{end}}
+

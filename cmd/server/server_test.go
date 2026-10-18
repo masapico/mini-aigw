@@ -210,4 +210,15 @@ func TestFullRouterEndpoints(t *testing.T) {
 			t.Errorf("expected 303 redirect, got %d", rec.Code)
 		}
 	})
+
+	// 11. Test /zero-hit-queries redirects when unauthorized
+	t.Run("GET /zero-hit-queries unauthorized", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/zero-hit-queries", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Errorf("expected 303 redirect, got %d", rec.Code)
+		}
+	})
 }

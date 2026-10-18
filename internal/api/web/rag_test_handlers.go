@@ -79,6 +79,9 @@ func (h *RAGTestHandler) ShowRAGTest(w http.ResponseWriter, r *http.Request) {
 	var activeModels []models.LLMModel
 	h.db.Where("is_active = ?", true).Find(&activeModels)
 
+	initQuery := strings.TrimSpace(r.URL.Query().Get("query"))
+	initGroup := strings.TrimSpace(r.URL.Query().Get("group"))
+
 	data := map[string]interface{}{
 		"User":          user,
 		"IsAdmin":       isAdmin,
@@ -87,6 +90,8 @@ func (h *RAGTestHandler) ShowRAGTest(w http.ResponseWriter, r *http.Request) {
 		"AvailableTags": availableTags,
 		"Models":        activeModels,
 		"Config":        h.cfg,
+		"InitQuery":     initQuery,
+		"InitGroup":     initGroup,
 	}
 
 	_ = h.renderer.Render(w, "rag_test.html", data)

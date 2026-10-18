@@ -38,6 +38,7 @@
           <a href="/" class="nav-pill-link {{if eq .CurrentPath "/"}}active{{end}}">ダッシュボード</a>
           <a href="/knowledge" class="nav-pill-link {{if eq .CurrentPath "/knowledge"}}active{{end}}">ナレッジ管理</a>
           <a href="/rag-test" class="nav-pill-link {{if eq .CurrentPath "/rag-test"}}active{{end}}">RAGテスト</a>
+          <a href="/zero-hit-queries" class="nav-pill-link {{if eq .CurrentPath "/zero-hit-queries"}}active{{end}}">未解決クエリ</a>
           {{if hasRole .User "admin"}}
           <a href="/api-keys" class="nav-pill-link {{if eq .CurrentPath "/api-keys"}}active{{end}}">APIキー</a>
           <a href="/models" class="nav-pill-link {{if eq .CurrentPath "/models"}}active{{end}}">モデル管理</a>

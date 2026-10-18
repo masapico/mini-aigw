@@ -220,6 +220,85 @@ for chunk in response:
   </div>
 </div>
 
+<!-- 未解決クエリ Top 5 (不足ナレッジの把握) -->
+<div class="row g-4 mt-1">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+          <h5 class="fw-bold mb-1 d-flex align-items-center gap-2">
+            <i class="bi bi-question-circle text-danger"></i> 頻出未解決クエリ Top 5 (不足ナレッジのヒント)
+          </h5>
+          <span class="text-muted small">RAG検索でヒット0件または類似度不足となった質問上位。ドキュメント作成の優先度判断に活用できます。</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-danger rounded-pill px-3 py-2">未対応: {{.UnresolvedZeroHitCount}} 件</span>
+          <a href="/zero-hit-queries" class="btn-modern-secondary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
+            すべて表示 &rarr;
+          </a>
+        </div>
+      </div>
+
+      {{if .TopZeroHitQueries}}
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle mb-0" style="font-size: 0.88rem;">
+          <thead>
+            <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
+              <th>質問クエリ</th>
+              <th>グループ</th>
+              <th class="text-center">発生回数</th>
+              <th>最高スコア</th>
+              <th>検知理由</th>
+              <th>最終発生日時</th>
+              <th class="text-end">アクション</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .TopZeroHitQueries}}
+            <tr class="border-bottom">
+              <td class="fw-semibold text-dark text-break">{{.Query}}</td>
+              <td>
+                <span class="badge-pill-modern badge-group">{{.GroupName}}</span>
+              </td>
+              <td class="text-center">
+                <span class="badge rounded-pill {{if gt .HitCount 5}}bg-danger text-white{{else if gt .HitCount 1}}bg-warning text-dark{{else}}bg-secondary text-white{{end}} px-2 py-1">
+                  {{.HitCount}} 回
+                </span>
+              </td>
+              <td><code>{{printf "%.2f" .MaxScore}}</code></td>
+              <td>
+                {{if eq .Reason "0件ヒット"}}
+                <span class="badge bg-light text-danger border border-danger-subtle">0件ヒット</span>
+                {{else}}
+                <span class="badge bg-light text-warning text-dark border border-warning-subtle">スコア不足</span>
+                {{end}}
+              </td>
+              <td class="text-secondary small">{{formatTime .LastOccurredAt}}</td>
+              <td class="text-end">
+                <div class="d-inline-flex gap-1">
+                  <a href="/rag-test?query={{.Query}}&group={{.GroupName}}" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 0.78rem;">
+                    <i class="bi bi-search"></i> テスト
+                  </a>
+                  <a href="/knowledge" class="btn btn-sm btn-outline-success py-1 px-2" style="font-size: 0.78rem;">
+                    <i class="bi bi-cloud-arrow-up"></i> 登録
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <div class="text-center py-4 text-muted small">
+        <i class="bi bi-check2-circle text-success fs-4 d-block mb-1"></i>
+        現在未対応の未解決クエリはありません。社内ナレッジは正常に検索ヒットしています。
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+
 {{if .IsAdmin}}
 <!-- API 利用推移チャート & FinOps 分析 -->
 <div class="row g-4 mt-1">
@@ -298,71 +377,82 @@ for chunk in response:
         <div class="tab-pane fade show active" id="tab-recent" role="tabpanel">
           {{if .RecentUsageLogs}}
           <div class="table-responsive">
-            <table class="table table-borderless align-middle mb-0" style="font-size: 0.85rem;">
-              <thead>
-                <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
-                  <th>日時</th>
-                  <th>API キー</th>
-                  <th>モデル</th>
-                  <th>種別</th>
-                  <th>検索クエリ / 参照ナレッジ</th>
-                  <th class="text-end">トークン数</th>
-                  <th class="text-end">概算コスト</th>
-                  <th class="text-end">応答時間</th>
+            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+              <thead class="table-light border-bottom">
+                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                  <th style="width: 140px;" class="text-nowrap">日時</th>
+                  <th style="width: 130px;" class="text-nowrap">API キー</th>
+                  <th style="width: 160px;" class="text-nowrap">モデル</th>
+                  <th style="width: 85px;" class="text-nowrap text-center">種別</th>
+                  <th style="min-width: 300px;">検索クエリ / 参照ナレッジ</th>
+                  <th style="width: 130px;" class="text-end text-nowrap">トークン数</th>
+                  <th style="width: 95px;" class="text-end text-nowrap">概算コスト</th>
+                  <th style="width: 125px;" class="text-end text-nowrap">応答時間</th>
                 </tr>
               </thead>
               <tbody>
                 {{range .RecentUsageLogs}}
                 <tr class="border-bottom">
                   <td class="text-muted small text-nowrap">{{formatTime .CreatedAt}}</td>
-                  <td class="fw-semibold">{{.ApiKeyName}}</td>
-                  <td><code class="small">{{.ModelID}}</code></td>
-                  <td>
+                  <td class="fw-semibold text-dark text-nowrap">{{.ApiKeyName}}</td>
+                  <td class="text-nowrap">
+                    <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.78rem;">
+                      {{.ModelID}}
+                    </span>
+                  </td>
+                  <td class="text-nowrap text-center">
                     {{if .RAGTriggered}}
-                    <span class="badge-pill-modern bg-primary text-white">RAG</span>
+                    <span class="badge bg-primary text-white rounded-pill px-2 py-1" style="font-size: 0.72rem;">RAG</span>
                     {{else}}
-                    <span class="badge-pill-modern bg-light text-dark border">LLM</span>
+                    <span class="badge bg-light text-secondary border rounded-pill px-2 py-1" style="font-size: 0.72rem;">LLM</span>
                     {{end}}
                     {{if .IsStream}}
-                    <span class="badge-pill-modern bg-light text-secondary border">Stream</span>
+                    <span class="badge bg-light text-muted border rounded-pill px-2 py-1 ms-1" style="font-size: 0.7rem;">Stream</span>
                     {{end}}
                   </td>
                   <td>
                     {{if .RAGTriggered}}
                       {{$queries := .GetSearchQueries}}
                       {{if $queries}}
-                      <div class="small text-dark">
-                        <i class="bi bi-search text-muted me-1"></i>
-                        {{range $i, $q := $queries}}{{if $i}}, {{end}}{{$q}}{{end}}
+                      <div class="mb-1 text-dark" style="font-size: 0.84rem; line-height: 1.4;">
+                        <i class="bi bi-chat-left-text text-primary me-1"></i>
+                        {{range $i, $q := $queries}}{{if $i}}, {{end}}<span class="fw-medium">{{$q}}</span>{{end}}
                       </div>
                       {{end}}
-                      {{$docs := .GetCitedDocuments}}
-                      {{if $docs}}
+                      {{$uniqueDocs := .GetUniqueCitedDocuments}}
+                      {{if $uniqueDocs}}
                       <div class="d-flex flex-wrap gap-1 mt-1">
-                        {{range $docs}}
-                        <span class="badge-pill-modern badge-group">
-                          <i class="bi bi-file-earmark-text me-1"></i>{{index . "filename"}} ({{index . "group"}})
+                        {{range $uniqueDocs}}
+                        <span class="badge bg-light text-secondary border px-2 py-1 d-inline-flex align-items-center gap-1" style="font-size: 0.76rem; font-weight: normal;">
+                          <i class="bi bi-file-earmark-text text-primary"></i>
+                          <span class="text-truncate" style="max-width: 280px;" title="{{.Filename}}">{{.Filename}}</span>
+                          <span class="badge bg-secondary-subtle text-secondary py-0 px-1 rounded">{{.Group}}</span>
+                          {{if gt .Count 1}}
+                          <span class="badge bg-primary-subtle text-primary py-0 px-1 rounded" title="{{.Count}}チャンク参照">×{{.Count}}</span>
+                          {{end}}
                         </span>
                         {{end}}
                       </div>
                       {{else}}
-                      <span class="text-muted small">該当チャンクなし</span>
+                      <span class="badge bg-light text-warning text-dark border border-warning-subtle small" style="font-size: 0.72rem;">
+                        <i class="bi bi-exclamation-circle me-1"></i>参照ドキュメントなし
+                      </span>
                       {{end}}
                     {{else}}
-                    <span class="text-muted small">-</span>
+                      <span class="text-muted small">-</span>
                     {{end}}
                   </td>
-                  <td class="text-end font-monospace small">
-                    {{.TotalTokens}}
-                    <span class="text-muted" style="font-size: 0.72rem;">(in:{{.PromptTokens}}/out:{{.CompletionTokens}})</span>
+                  <td class="text-end font-monospace text-nowrap">
+                    <div class="fw-semibold text-dark">{{.TotalTokens}}</div>
+                    <div class="text-muted" style="font-size: 0.7rem;">in:{{.PromptTokens}} / out:{{.CompletionTokens}}</div>
                   </td>
-                  <td class="text-end font-monospace small text-success fw-semibold">
-                    ${{printf "%.5f" .EstimatedCost}}
+                  <td class="text-end font-monospace text-nowrap">
+                    <span class="text-success fw-bold">${{printf "%.5f" .EstimatedCost}}</span>
                   </td>
-                  <td class="text-end text-muted small text-nowrap">
-                    {{.LatencyMs}} ms
+                  <td class="text-end font-monospace text-nowrap">
+                    <div class="text-dark small">{{.LatencyMs}} ms</div>
                     {{if .TimeToFirstTokenMs}}
-                    <div class="text-muted" style="font-size: 0.7rem;">(TTFT: {{.TimeToFirstTokenMs}}ms)</div>
+                    <div class="text-muted" style="font-size: 0.7rem;">TTFT: {{.TimeToFirstTokenMs}}ms</div>
                     {{end}}
                   </td>
                 </tr>

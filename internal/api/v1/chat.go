@@ -21,6 +21,7 @@ import (
 type ChatHandler struct {
 	bedrockService   *services.BedrockService
 	knowledgeService *services.KnowledgeService
+	zeroHitService   *services.ZeroHitService
 	cfg              *config.Config
 	db               *gorm.DB
 }
@@ -34,6 +35,7 @@ func NewChatHandler(
 	return &ChatHandler{
 		bedrockService:   bedrockService,
 		knowledgeService: knowledgeService,
+		zeroHitService:   services.NewZeroHitService(db),
 		cfg:              cfg,
 		db:               db,
 	}
@@ -315,6 +317,30 @@ func (h *ChatHandler) handleRAGConverse(
 		toolResultText = prompts.FormatRAGGroundingToolResult(formattedContext)
 	} else {
 		toolResultText = prompts.FormatRAGEmptyToolResult(searchQuery, h.cfg.RAGScoreThreshold)
+
+		// 未解決クエリ (Zero-Hit) の非同期集約記録
+		maxScore := 0.0
+		for _, c := range retrievedChunks {
+			if c.Score > maxScore {
+				maxScore = c.Score
+			}
+		}
+		reason := "0件ヒット"
+		if len(retrievedChunks) > 0 {
+			reason = "スコア不足"
+		}
+		primaryGroup := "public"
+		for _, g := range allowedGroups {
+			if g != "public" {
+				primaryGroup = g
+				break
+			}
+		}
+		apiKeyName := "unknown"
+		if apiKey != nil {
+			apiKeyName = apiKey.Name
+		}
+		h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
 	}
 
 	// Turn 2 messages: prior messages + assistant message (with toolUse) + user message (toolResult)

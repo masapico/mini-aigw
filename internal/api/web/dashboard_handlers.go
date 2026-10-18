@@ -12,6 +12,7 @@ import (
 	"mini-aigw/internal/api/middleware"
 	"mini-aigw/internal/config"
 	"mini-aigw/internal/models"
+	"mini-aigw/internal/services"
 	"mini-aigw/internal/views"
 )
 
@@ -177,16 +178,27 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// 6. Zero-hit queries (未解決クエリ集計)
+	var allowedGroups []string
+	if !isAdmin {
+		allowedGroups = append(user.GetGroups(), "public")
+	}
+	zeroHitSvc := services.NewZeroHitService(h.db)
+	unresolvedZeroHitCount, _ := zeroHitSvc.GetUnresolvedCount(allowedGroups)
+	topZeroHitQueries, _ := zeroHitSvc.GetTopQueries(allowedGroups, 5)
+
 	data := map[string]interface{}{
-		"User":              user,
-		"IsAdmin":           isAdmin,
-		"CurrentPath":       "/",
-		"DocCount":          docCount,
-		"KeyCount":          keyCount,
-		"ActiveModelsCount": activeModelsCount,
-		"DefaultModelName":  defaultModelName,
-		"RecentDocs":        recentDocs,
-		"TotalRequests":     totalRequests,
+		"User":                   user,
+		"IsAdmin":                isAdmin,
+		"CurrentPath":            "/",
+		"DocCount":               docCount,
+		"KeyCount":               keyCount,
+		"ActiveModelsCount":      activeModelsCount,
+		"DefaultModelName":       defaultModelName,
+		"RecentDocs":             recentDocs,
+		"UnresolvedZeroHitCount": unresolvedZeroHitCount,
+		"TopZeroHitQueries":      topZeroHitQueries,
+		"TotalRequests":          totalRequests,
 		"RAGRequests":       ragRequests,
 		"TotalTokens":       totalTokens,
 		"TotalCostUSD":      totalCostUSD,
