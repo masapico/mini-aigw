@@ -19,16 +19,24 @@ Amazon Bedrock では、モデルの呼び出し方式として以下の 2 種�
 
 ---
 
-## 2. 事前準備：モデルアクセスの有効化（Model Access）
+## 2. 前提知識：モデルアクセスの自動有効化と権限管理 (IAM)
 
-> [!IMPORTANT]
-> Amazon Bedrock のモデルを API や `mini-aigw` から呼び出すには、AWS アカウント上で対象モデルへのアクセス権が付与されている必要があります。
+> [!NOTE]
+> **「Model access（モデルアクセス）」画面の廃止と自動有効化について**:
+> 以前の Amazon Bedrock ではコンソールの「Model access」画面からモデルごとに手動で有効化申請（`Modify model access`）を行う必要がありましたが、**この機能・画面は廃止（リタイア）されました**。
+> 現在は、ほぼすべてのサーバーレス基盤モデルが各 AWS リージョンで**自動的に有効化**されており、事前の手動申請なしに即座に利用（推論）できます。
 
-1. **AWS マネジメントコンソール** にログインします。
-2. リージョンを運用対象リージョン（例: `ap-northeast-1` 東京リージョン）に切り替えます。
-3. **Amazon Bedrock** サービス画面を開き、左側ナビゲーションメニュー最下部の **「Model access（モデルアクセス）」** をクリックします。
-4. 利用したいモデル（例: Anthropic Claude 3.5 Sonnet, Amazon Nova Lite 等）のステータスが **「Access granted（アクセス許可済み）」** になっていることを確認します。
-5. 未有効化の場合は、「Modify model access」ボタンをクリックして対象モデルにチェックを入れ、リクエストを送信して有効化（即時または承認後付与）してください。
+### 2.1 アクセス制御の方針（IAM ポリシーによる制御）
+モデルがデフォルトで有効化されるようになったため、モデルの利用可否やセキュリティ統制は **AWS IAM ポリシー**（または AWS Organizations の SCP: サービスコントロールポリシー）で行います。
+
+`mini-aigw` が動作する EC2 インスタンスの IAM ロール（インスタンスプロファイル）に、以下の推論権限が付与されていることを確認してください：
+- `bedrock:InvokeModel`
+- `bedrock:InvokeModelWithResponseStream`
+
+特定のモデルのみに利用を制限したい場合は、IAM ポリシーの `Resource` 句に対象モデルや推論プロファイルの ARN を指定して制限します。また、`mini-aigw` の Web 管理画面（`/models`）で有効/無効を切り替えたり、「API キー管理（`/api-keys`）」でキーごとに利用可能なモデルを制限することも可能です。
+
+### 2.2 サードパーティモデル（Anthropic 等）の初回同意
+Anthropic などの一部のモデル（AWS Marketplace 経由の基盤モデル）では、AWS アカウントで初めて利用する際に、Bedrock コンソールの Playground でのモデル選択時などにユースケース情報の送信（Use case details）や利用規約（EULA）への同意が求められる場合があります。API 呼び出しでアクセスエラーとなる場合は、一度 AWS コンソールの Bedrock Playground で該当モデルを選択し、初回同意を完了させてください。
 
 ---
 
@@ -319,7 +327,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 | 現象・エラー | 想定原因 | 対処方法 |
 | :--- | :--- | :--- |
-| **`AccessDeniedException`**<br>`You don't have access to the model with the specified model ID.` | 対象モデルのアクセス権が有効化されていない。 | AWS コンソールの **Bedrock > Model access** で対象モデルにアクセス許可が付与されているか確認してください。 |
+| **`AccessDeniedException`**<br>`You don't have access to the model with the specified model ID.` | EC2 の IAM ロールに該当モデルの推論権限がない、または一部サードパーティモデルの初回同意が未完了。 | 1. EC2 の IAM ロールに `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` が許可されているか（SCP等でブロックされていないか）確認してください。<br>2. Anthropic モデル等の場合、Bedrock コンソールの Playground 等で初回のユースケース送信・利用規約（EULA）同意を完了させてください。 |
 | **`ValidationException`**<br>`The provided model identifier is invalid.` | `profileId` または `modelId` のスペルミス、またはリージョン非対応。 | `aws bedrock list-inference-profiles` の出力結果から `profileId` の文字列をそのままコピー＆ペーストしてください。 |
 | **推論時にタイムアウト / 接続エラー** | 閉域 VPC 環境で VPC エンドポイント（`bedrock-runtime`）の通信が遮断されている。 | VPC エンドポイントのセキュリティグループ（443/TCP 受信許可）およびプライベート DNS が有効になっているか確認してください（詳細は [OFFLINE_DEPLOYMENT_GUIDE.md](OFFLINE_DEPLOYMENT_GUIDE.md) 参照）。 |
 

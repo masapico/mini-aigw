@@ -205,7 +205,7 @@ nssm status mini-aigw
    - RAG テスト画面（`/rag-test`）で検索クエリの Retrieve が正常に結果を返すことを確認。
 3. **LLM 基盤モデルの登録と有効化**:
    - Web 管理画面の「モデル管理 (`/models`)」にて、運用で利用する Bedrock モデル ID / 推論プロファイル ID（例: `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` 等）を登録・有効化・既定設定。
-   - 登録可能なモデル情報の確認方法や Model access の前提条件については、[Bedrock モデル情報取得・登録ガイド (GET_FOUNDATION_MODELS.md)](GET_FOUNDATION_MODELS.md) を参照。
+   - 登録可能なモデル情報の確認方法や IAM 権限・前提条件については、[Bedrock モデル情報取得・登録ガイド (GET_FOUNDATION_MODELS.md)](GET_FOUNDATION_MODELS.md) を参照。
 4. **OpenAI 互換 API 呼び出し**:
    - `curl` コマンドで `/v1/chat/completions` にリクエストを送信し、登録したモデルでの正常な推論応答が得られることを確認。
 
