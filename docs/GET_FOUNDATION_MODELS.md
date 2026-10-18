@@ -38,6 +38,26 @@ Amazon Bedrock では、モデルの呼び出し方式として以下の 2 種�
 ### 2.2 サードパーティモデル（Anthropic 等）の初回同意
 Anthropic などの一部のモデル（AWS Marketplace 経由の基盤モデル）では、AWS アカウントで初めて利用する際に、Bedrock コンソールの Playground でのモデル選択時などにユースケース情報の送信（Use case details）や利用規約（EULA）への同意が求められる場合があります。API 呼び出しでアクセスエラーとなる場合は、一度 AWS コンソールの Bedrock Playground で該当モデルを選択し、初回同意を完了させてください。
 
+### 2.3 特定モデルにおけるアカウント別提供制限 (`is not available for this account`)
+
+> [!WARNING]
+> **「... is not available for this account」エラーについて**:
+> 一部の最新・上位基盤モデル（Anthropic Claude の最上位・新モデルなど）を呼び出した際、以下のエラーが発生することがあります：
+> ```text
+> AccessDeniedException: <model_id> is not available for this account. 
+> You can explore other available models on Amazon Bedrock. 
+> For additional access options, contact AWS Sales at https://aws.amazon.com/contact-us/sales-support/
+> ```
+> 
+> **発生要因と背景**:
+> - **アカウントの利用実績・種別による制限**: AWS 側でインフラキャパシティ管理のため、アカウントの開設期間、過去の課金実績、利用パターン等に基づきモデルごとに利用枠を制御しています。個人利用アカウントや開設直後の新規アカウントでは、特定モデルへのアクセスがデフォルトで制限（またはサービスクォータが 0）されている場合があります。
+> - **IAM 権限不足との違い**: 単純な IAM ポリシー不足（`is not authorized to perform: bedrock:InvokeModel`）ではなく、**AWS 側のアカウント単位のエンタイトルメント（提供資格）によるブロック**です。そのため、EC2 の IAM ロールにフル権限を与えてもこのエラーは解消しません。
+> - **対処方法**:
+>   1. **広く一般開放されているモデルを利用する**: 最初はアカウント制限が厳しくないモデル（例: `apac.amazon.nova-lite-v1:0`, `jp.amazon.nova-2-lite-v1:0`, `apac.anthropic.claude-3-haiku-20240307-v1:0`, `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` 等）でテスト・稼働させることを推奨します。
+>   2. **初回同意・ユースケース送信の完了**: AWS コンソールの Bedrock Playground で該当モデルを選択し、利用規約（EULA）やユースケース提出（Submit use case details）が求められる場合は完了させます。
+>   3. **Service Quotas の確認**: AWS コンソールの **Service Quotas ➔ AWS のサービス ➔ Amazon Bedrock** で該当モデルのクォータ（Tokens per minute 等）が 0 になっていないか確認し、必要に応じて引き上げをリクエストします。
+>   4. **AWS Sales / サポートへの問い合わせ**: 業務要件等でどうしても該当モデルの利用が必須な場合は、エラーメッセージに記載の [AWS Sales Support](https://aws.amazon.com/contact-us/sales-support/) または AWS サポートケースを通じてモデルアクセスのアンブロックをご相談ください。
+
 ---
 
 ## 3. モデル情報の取得方法 (AWS CLI / CloudShell)
@@ -142,6 +162,47 @@ aws bedrock list-foundation-models --region ap-northeast-1 \
 
 ---
 
+### 3.3 モデル料金・トークン単価の取得 (`aws pricing get-products`)
+
+Amazon Bedrock の各基盤モデルの利用料金（入力トークン・出力トークンあたりの単価）は、**AWS Price List API（Pricing CLI）** を用いてコマンドラインから取得できます。
+
+> [!NOTE]
+> **Price List API のエンドポイント指定**:
+> AWS Price List API のサービスエンドポイントはグローバルで `us-east-1`（米国東部）または `ap-south-1`（ムンバイ）等に集約されています。そのため、コマンドの `--region` には `us-east-1` を指定し、**料金を取得したい対象リージョンは `--filters` 内の `Field=regionCode`（例: `ap-northeast-1`（東京））で指定**します。
+
+#### 東京リージョン (`ap-northeast-1`) の特定モデル料金を取得する例:
+
+```bash
+aws pricing get-products --region us-east-1 --service-code AmazonBedrockFoundationModels \
+  --filters 'Type=TERM_MATCH,Field=servicename,Value=Claude Haiku 5.5 (Amazon Bedrock Edition)' \
+            'Type=TERM_MATCH,Field=regionCode,Value=ap-northeast-1'
+```
+
+#### 整形して入力・出力単価（USD）を一覧表示する例 (`jq` 利用):
+
+取得される JSON の `PriceList` から、利用タイプごとの単価（1,000 トークンあたりの USD 料金）を抽出しやすくするには、以下のように `jq` で整形します：
+
+```bash
+aws pricing get-products --region us-east-1 --service-code AmazonBedrockFoundationModels \
+  --filters 'Type=TERM_MATCH,Field=servicename,Value=Claude Haiku 5.5 (Amazon Bedrock Edition)' \
+            'Type=TERM_MATCH,Field=regionCode,Value=ap-northeast-1' \
+  --query 'PriceList' --output text | jq -r '
+    .terms.OnDemand | to_entries[] | .value.priceDimensions | to_entries[] |
+    "\(.value.description) --> \(.value.pricePerUnit.USD) USD / \(.value.unit)"
+  '
+```
+
+> [!TIP]
+> **東京リージョンで提供されているモデル名称（`servicename`）一覧の確認**:
+> フィルターに指定する `servicename` の正確な値を確認したい場合は、以下を実行します：
+> ```bash
+> aws pricing get-products --region us-east-1 --service-code AmazonBedrockFoundationModels \
+>   --filters 'Type=TERM_MATCH,Field=regionCode,Value=ap-northeast-1' \
+>   --query 'PriceList' --output text | jq -r '.product.attributes.servicename' | sort -u
+> ```
+
+---
+
 ## 4. `mini-aigw` へのモデル登録手順
 
 取得した `profileId`（または `modelId`）を `mini-aigw` に登録して、Web UI や API から利用できるように設定します。
@@ -229,7 +290,8 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 | 現象・エラー | 想定原因 | 対処方法 |
 | :--- | :--- | :--- |
-| **`AccessDeniedException`**<br>`You don't have access to the model with the specified model ID.` | 対象モデルのアクセス権が有効化されていない。 | AWS コンソールの **Bedrock > Model access** で対象モデルにアクセス許可が付与されているか確認してください。 |
+| **`AccessDeniedException`**<br>`<model_id> is not available for this account.`<br>`... contact AWS Sales at https://...` | AWS 側によるアカウント単位のモデル提供制限（アカウント利用実績・キャパシティ要因）、またはサービスクォータが 0。 | **IAM 権限不足ではありません。**<br>1. まずは広く一般開放されているモデル（`apac.amazon.nova-lite-v1:0`, `jp.amazon.nova-2-lite-v1:0`, `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` 等）で動作確認を行ってください。<br>2. Bedrock コンソールの Playground でモデル選択時に初回利用規約（EULA）やユースケース送信（Use case details）が求められないか確認してください。<br>3. Service Quotas で該当モデルのクォータを確認・申請するか、必要に応じて AWS Sales 窓口または AWS サポートへご相談ください（詳細は [2.3 特定モデルにおけるアカウント別提供制限](#23-特定モデルにおけるアカウント別提供制限-is-not-available-for-this-account) 参照）。 |
+| **`AccessDeniedException`**<br>`User: ... is not authorized to perform: bedrock:InvokeModel` | EC2 の IAM ロールに対象モデルの推論権限がない、または SCP 等で拒否されている。 | EC2 の IAM ロールに `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` が許可されているか（SCP 等でブロックされていないか）確認してください。 |
 | **`ValidationException`**<br>`The provided model identifier is invalid.` | `profileId` または `modelId` のスペルミス、またはリージョン非対応。 | `aws bedrock list-inference-profiles` の出力結果から `profileId` の文字列をそのままコピー＆ペーストしてください。 |
 | **推論時にタイムアウト / 接続エラー** | 閉域 VPC 環境で VPC エンドポイント（`bedrock-runtime`）の通信が遮断されている。 | VPC エンドポイントのセキュリティグループ（443/TCP 受信許可）およびプライベート DNS が有効になっているか確認してください（詳細は [OFFLINE_DEPLOYMENT_GUIDE.md](OFFLINE_DEPLOYMENT_GUIDE.md) 参照）。 |
 
@@ -242,128 +304,4 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 - [docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md - Bedrock Managed Knowledge Base 検索仕様・トラブルシューティング](BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md)
 - [DESIGN.md - システム設計書](../DESIGN.md)
 
-> [!TIP]
-> **リージョンプレフィックスの選び方**:
-> - `apac.*`: アジア太平洋地域（東京・シドニー・シンガポール等）での推論。日本国内からのアクセスでレイテンシが低く最も推奨されます。
-> - `jp.*`: 日本国内リージョン限定の推論。データ主権やコンプライアンス要件が厳格な場合に最適です。
-> - `global.*` / `us.*`: 最新モデルや特定の大規模モデルで APAC/JP に未展開の場合に使用します。
-
----
-
-### 3.2 単体基盤モデル一覧の取得 (`list-foundation-models`)
-
-推論プロファイルを経由しない単体モデルやオンデマンド提供モデルの一覧を確認したい場合は、以下を実行します：
-
-```bash
-aws bedrock list-foundation-models --region ap-northeast-1 \
-  --by-inference-type ON_DEMAND \
-  --query "modelSummaries[?modelLifecycle.status=='ACTIVE'].{
-    modelId:modelId,
-    modelName:modelName,
-    providerName:providerName
-  }" \
-  --output table
-```
-
----
-
-## 4. `mini-aigw` へのモデル登録手順
-
-取得した `profileId`（または `modelId`）を `mini-aigw` に登録して、Web UI や API から利用できるように設定します。
-
-### 4.1 Web 管理画面からの動的登録
-
-1. ブラウザで `mini-aigw` 管理画面（`http://localhost:8000/models`）にアクセスします。
-2. **「新規モデルの登録」** フォームに以下を入力します：
-   - **Bedrock モデル ID / ARN**: 取得した `profileId` を入力（例: `jp.anthropic.claude-haiku-5-5`）
-   - **表示名**: 利用者にわかりやすい名前（例: `Claude 5.5 Haiku`）
-   - **プロバイダ**: `bedrock`（既定値）
-   - **説明・用途メモ (任意)**: モデルの特徴や用途（例: `高性能推論・コード生成用フラグシップモデル`）
-3. **「モデルを登録」** をクリックします。
-4. 登録されたモデルの行で **「既定にする」** をクリックすると、システム全体のデフォルトモデルとして設定できます。また、「無効化」ボタンでクライアントへの露出を一時停止できます。
-
-```mermaid
-flowchart LR
-    A["AWS CLI / CloudShell<br/>list-inference-profiles"] -->|profileId 取得| B["mini-aigw 管理画面<br/>/models"]
-    B -->|モデル登録・有効化| C["SQLite (llm_models テーブル)"]
-    C --> D["/v1/models (OpenAI 互換一覧)"]
-    C --> E["/v1/chat/completions (推論実行)"]
-    C --> F["/api-keys (キー別モデル固定)"]
-```
-
-### 4.2 設定ファイル (`.env`) による初期既定モデルの設定
-
-サーバー起動時の既定モデルを指定したい場合は、`.env` ファイルの `DEFAULT_MODEL_ID` に設定します。
-
-```env
-# サーバー起動時のデフォルトモデル ID (推論プロファイル ID または 基盤モデル ID)
-DEFAULT_MODEL_ID=jp.anthropic.claude-haiku-5-5
-```
-
-### 4.3 業務チャット用 API キーへのモデル紐付け (`/api-keys`)
-
-「API キー管理 (`/api-keys`)」画面で新しい API キーを発行する際、「固定モデル」に登録したモデルを指定できます。これにより、特定のチャットボットや部署の用途に合わせて利用モデルを統制・制限できます。
-
----
-
-## 5. クライアントからの呼び出し確認
-
-### 5.1 公開モデル一覧の確認 (`/v1/models`)
-
-登録したモデルが OpenAI 互換 API 経由で取得できるか確認します：
-
-```bash
-curl -X GET http://localhost:8000/v1/models \
-  -H "Authorization: Bearer sk-live-..."
-```
-
-**応答例:**
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "jp.anthropic.claude-haiku-5-5",
-      "object": "model",
-      "created": 1729219200,
-      "owned_by": "bedrock"
-    }
-  ]
-}
-```
-
-### 5.2 チャット推論のテスト (`/v1/chat/completions`)
-
-登録した `profileId` を `model` 引数に指定してリクエストを送信します：
-
-```bash
-curl -X POST http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk-live-..." \
-  -d '{
-    "model": "jp.anthropic.claude-haiku-5-5",
-    "messages": [
-      {"role": "user", "content": "こんにちは！"}
-    ]
-  }'
-```
-
----
-
-## 6. トラブルシューティング
-
-| 現象・エラー | 想定原因 | 対処方法 |
-| :--- | :--- | :--- |
-| **`AccessDeniedException`**<br>`You don't have access to the model with the specified model ID.` | EC2 の IAM ロールに該当モデルの推論権限がない、または一部サードパーティモデルの初回同意が未完了。 | 1. EC2 の IAM ロールに `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` が許可されているか（SCP等でブロックされていないか）確認してください。<br>2. Anthropic モデル等の場合、Bedrock コンソールの Playground 等で初回のユースケース送信・利用規約（EULA）同意を完了させてください。 |
-| **`ValidationException`**<br>`The provided model identifier is invalid.` | `profileId` または `modelId` のスペルミス、またはリージョン非対応。 | `aws bedrock list-inference-profiles` の出力結果から `profileId` の文字列をそのままコピー＆ペーストしてください。 |
-| **推論時にタイムアウト / 接続エラー** | 閉域 VPC 環境で VPC エンドポイント（`bedrock-runtime`）の通信が遮断されている。 | VPC エンドポイントのセキュリティグループ（443/TCP 受信許可）およびプライベート DNS が有効になっているか確認してください（詳細は [OFFLINE_DEPLOYMENT_GUIDE.md](OFFLINE_DEPLOYMENT_GUIDE.md) 参照）。 |
-
----
-
-## 7. 関連ドキュメント
-
-- [README.md - mini-aigw 全体仕様・起動手順](../README.md)
-- [docs/OFFLINE_DEPLOYMENT_GUIDE.md - 閉域・オフライン環境向けデプロイ・運用手順書](OFFLINE_DEPLOYMENT_GUIDE.md)
-- [docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md - Bedrock Managed Knowledge Base 検索仕様・トラブルシューティング](BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md)
-- [DESIGN.md - システム設計書](../DESIGN.md)
 
