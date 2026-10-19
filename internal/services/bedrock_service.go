@@ -42,21 +42,162 @@ func NewBedrockService(awsBundle *AWSClientBundle, xberg *XbergService, cfg *con
 // 1. OpenAI 互換メッセージ ⇆ Bedrock Converse 変換
 // ==============================================================================
 
-func detectImageFormat(headerOrName string) bedrockTypes.ImageFormat {
+func detectImageFormatWithSupport(headerOrName string) (bedrockTypes.ImageFormat, bool) {
 	h := strings.ToLower(headerOrName)
 	if strings.Contains(h, "image/png") || strings.HasSuffix(h, ".png") {
-		return bedrockTypes.ImageFormatPng
+		return bedrockTypes.ImageFormatPng, true
 	}
 	if strings.Contains(h, "image/jpeg") || strings.Contains(h, "image/jpg") || strings.HasSuffix(h, ".jpg") || strings.HasSuffix(h, ".jpeg") {
-		return bedrockTypes.ImageFormatJpeg
+		return bedrockTypes.ImageFormatJpeg, true
 	}
 	if strings.Contains(h, "image/gif") || strings.HasSuffix(h, ".gif") {
-		return bedrockTypes.ImageFormatGif
+		return bedrockTypes.ImageFormatGif, true
 	}
 	if strings.Contains(h, "image/webp") || strings.HasSuffix(h, ".webp") {
-		return bedrockTypes.ImageFormatWebp
+		return bedrockTypes.ImageFormatWebp, true
 	}
-	return bedrockTypes.ImageFormatJpeg
+	return bedrockTypes.ImageFormatJpeg, false
+}
+
+func detectImageFormat(headerOrName string) bedrockTypes.ImageFormat {
+	fmtType, _ := detectImageFormatWithSupport(headerOrName)
+	return fmtType
+}
+
+func inferFilenameFromHeaderOrData(header, filename, b64Data string) string {
+	h := strings.ToLower(header)
+	if idx := strings.Index(b64Data, ";base64,"); idx != -1 && h == "" {
+		h = strings.ToLower(b64Data[:idx])
+	}
+
+	ext := ""
+	switch {
+	case strings.Contains(h, "application/pdf"):
+		ext = ".pdf"
+	case strings.Contains(h, "wordprocessingml") || strings.Contains(h, "application/msword"):
+		ext = ".docx"
+	case strings.Contains(h, "spreadsheetml") || strings.Contains(h, "application/vnd.ms-excel"):
+		ext = ".xlsx"
+	case strings.Contains(h, "presentationml") || strings.Contains(h, "application/vnd.ms-powerpoint"):
+		ext = ".pptx"
+	case strings.Contains(h, "text/csv"):
+		ext = ".csv"
+	case strings.Contains(h, "text/markdown"):
+		ext = ".md"
+	case strings.Contains(h, "text/html"):
+		ext = ".html"
+	case strings.Contains(h, "text/plain"):
+		ext = ".txt"
+	case strings.Contains(h, "application/json"):
+		ext = ".json"
+	}
+
+	// Check raw base64 prefix for %PDF- ("JVBERi0")
+	rawB64 := b64Data
+	if idx := strings.Index(rawB64, ","); idx != -1 {
+		rawB64 = rawB64[idx+1:]
+	}
+	if ext == "" && strings.HasPrefix(strings.TrimSpace(rawB64), "JVBERi0") {
+		ext = ".pdf"
+	}
+
+	if filename == "" || filename == "document.bin" || filename == "file.bin" {
+		if ext != "" {
+			return "document" + ext
+		}
+		if filename != "" {
+			return filename
+		}
+		return "document.bin"
+	}
+
+	if ext != "" && !strings.Contains(filename, ".") {
+		return filename + ext
+	}
+	return filename
+}
+
+func extractAttachmentFields(part map[string]interface{}) (b64Body string, filename string, mimeHeader string) {
+	b64Body, _ = part["data"].(string)
+	if b64Body == "" {
+		b64Body, _ = part["content"].(string)
+	}
+	if b64Body == "" {
+		b64Body, _ = part["file_data"].(string)
+	}
+
+	filename, _ = part["name"].(string)
+	if filename == "" {
+		filename, _ = part["filename"].(string)
+	}
+
+	mimeHeader, _ = part["mime_type"].(string)
+	if mimeHeader == "" {
+		mimeHeader, _ = part["media_type"].(string)
+	}
+
+	// Support OpenAI nested {"type": "file", "file": {"filename": "...", "file_data": "..."}}
+	if fileObj, ok := part["file"].(map[string]interface{}); ok {
+		if b64Body == "" {
+			b64Body, _ = fileObj["file_data"].(string)
+		}
+		if b64Body == "" {
+			b64Body, _ = fileObj["data"].(string)
+		}
+		if b64Body == "" {
+			b64Body, _ = fileObj["content"].(string)
+		}
+		if filename == "" {
+			filename, _ = fileObj["filename"].(string)
+		}
+		if filename == "" {
+			filename, _ = fileObj["name"].(string)
+		}
+		if mimeHeader == "" {
+			mimeHeader, _ = fileObj["mime_type"].(string)
+		}
+		if mimeHeader == "" {
+			mimeHeader, _ = fileObj["media_type"].(string)
+		}
+	}
+
+	// Support Anthropic/Claude nested {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": "..."}}
+	if srcObj, ok := part["source"].(map[string]interface{}); ok {
+		if b64Body == "" {
+			b64Body, _ = srcObj["data"].(string)
+		}
+		if b64Body == "" {
+			b64Body, _ = srcObj["content"].(string)
+		}
+		if filename == "" {
+			filename, _ = srcObj["filename"].(string)
+		}
+		if filename == "" {
+			filename, _ = srcObj["name"].(string)
+		}
+		if mimeHeader == "" {
+			mimeHeader, _ = srcObj["media_type"].(string)
+		}
+		if mimeHeader == "" {
+			mimeHeader, _ = srcObj["mime_type"].(string)
+		}
+	}
+
+	return b64Body, filename, mimeHeader
+}
+
+func decodeBase64Flexible(b64 string) ([]byte, error) {
+	raw := b64
+	if idx := strings.Index(raw, ";base64,"); idx != -1 {
+		raw = raw[idx+len(";base64,"):]
+	} else if idx := strings.Index(raw, ","); idx != -1 {
+		raw = raw[idx+1:]
+	}
+	data, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		data, err = base64.RawStdEncoding.DecodeString(raw)
+	}
+	return data, err
 }
 
 func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
@@ -73,11 +214,13 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 		if role == "system" {
 			switch c := rawContent.(type) {
 			case string:
-				systemPrompts = append(systemPrompts, &bedrockTypes.SystemContentBlockMemberText{Value: c})
+				if c != "" {
+					systemPrompts = append(systemPrompts, &bedrockTypes.SystemContentBlockMemberText{Value: c})
+				}
 			case []interface{}:
 				for _, part := range c {
 					if pMap, ok := part.(map[string]interface{}); ok {
-						if t, ok := pMap["text"].(string); ok {
+						if t, ok := pMap["text"].(string); ok && t != "" {
 							systemPrompts = append(systemPrompts, &bedrockTypes.SystemContentBlockMemberText{Value: t})
 						}
 					}
@@ -95,7 +238,9 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 
 		switch c := rawContent.(type) {
 		case string:
-			contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: c})
+			if c != "" {
+				contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: c})
+			}
 		case []interface{}:
 			for _, item := range c {
 				part, ok := item.(map[string]interface{})
@@ -107,7 +252,9 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 				switch partType {
 				case "text":
 					textVal, _ := part["text"].(string)
-					contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: textVal})
+					if textVal != "" {
+						contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: textVal})
+					}
 				case "image_url":
 					imgData, _ := part["image_url"].(map[string]interface{})
 					url, _ := imgData["url"].(string)
@@ -118,57 +265,59 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 							header = url[:idx]
 							b64Body = url[idx+1:]
 						}
-						fmtType := detectImageFormat(header)
-						rawBytes, err := base64.StdEncoding.DecodeString(b64Body)
-						if err == nil {
+						if fmtType, isImg := detectImageFormatWithSupport(header); isImg {
+							rawBytes, err := decodeBase64Flexible(b64Body)
+							if err == nil {
+								contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberImage{
+									Value: bedrockTypes.ImageBlock{
+										Format: fmtType,
+										Source: &bedrockTypes.ImageSourceMemberBytes{Value: rawBytes},
+									},
+								})
+							} else {
+								contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: "[Image decode error]"})
+							}
+						} else {
+							// Non-image data URI (e.g., application/pdf) sent via image_url
+							hintName, _ := part["name"].(string)
+							if hintName == "" {
+								hintName, _ = part["filename"].(string)
+							}
+							filename := inferFilenameFromHeaderOrData(header, hintName, b64Body)
+							extracted := s.xberg.ExtractContentFromBase64(ctx, url, filename)
+							contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{
+								Value: fmt.Sprintf("--- Attached Document: %s ---\n%s\n--- End of Document ---", filename, extracted),
+							})
+						}
+					} else {
+						contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: fmt.Sprintf("[Image URL: %s]", url)})
+					}
+				case "file", "document", "input_file":
+					b64Body, rawFilename, mimeHeader := extractAttachmentFields(part)
+					filename := inferFilenameFromHeaderOrData(mimeHeader, rawFilename, b64Body)
+					if fmtType, isImg := detectImageFormatWithSupport(mimeHeader + " " + filename); isImg {
+						if rawBytes, err := decodeBase64Flexible(b64Body); err == nil {
 							contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberImage{
 								Value: bedrockTypes.ImageBlock{
 									Format: fmtType,
 									Source: &bedrockTypes.ImageSourceMemberBytes{Value: rawBytes},
 								},
 							})
-						} else {
-							contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: "[Image decode error]"})
+							continue
 						}
-					} else {
-						contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: fmt.Sprintf("[Image URL: %s]", url)})
-					}
-				case "file", "document":
-					b64Body, _ := part["data"].(string)
-					if b64Body == "" {
-						b64Body, _ = part["content"].(string)
-					}
-					filename, _ := part["name"].(string)
-					if filename == "" {
-						filename, _ = part["filename"].(string)
-					}
-					if filename == "" {
-						filename = "document.bin"
 					}
 					extracted := s.xberg.ExtractContentFromBase64(ctx, b64Body, filename)
 					contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{
 						Value: fmt.Sprintf("--- Attached Document: %s ---\n%s\n--- End of Document ---", filename, extracted),
 					})
 				default:
-					if b64Body, ok := part["data"].(string); ok {
-						filename, _ := part["name"].(string)
-						if filename == "" {
-							filename, _ = part["filename"].(string)
-						}
-						if filename == "" {
-							filename = "file.bin"
-						}
-						// Image check
-						if strings.HasSuffix(strings.ToLower(filename), ".png") ||
-							strings.HasSuffix(strings.ToLower(filename), ".jpg") ||
-							strings.HasSuffix(strings.ToLower(filename), ".jpeg") ||
-							strings.HasSuffix(strings.ToLower(filename), ".gif") ||
-							strings.HasSuffix(strings.ToLower(filename), ".webp") {
-							rawBytes, err := base64.StdEncoding.DecodeString(b64Body)
-							if err == nil {
+					if b64Body, rawFilename, mimeHeader := extractAttachmentFields(part); b64Body != "" {
+						filename := inferFilenameFromHeaderOrData(mimeHeader, rawFilename, b64Body)
+						if fmtType, isImg := detectImageFormatWithSupport(mimeHeader + " " + filename); isImg {
+							if rawBytes, err := decodeBase64Flexible(b64Body); err == nil {
 								contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberImage{
 									Value: bedrockTypes.ImageBlock{
-										Format: detectImageFormat(filename),
+										Format: fmtType,
 										Source: &bedrockTypes.ImageSourceMemberBytes{Value: rawBytes},
 									},
 								})
@@ -185,7 +334,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 		}
 
 		if len(contentBlocks) == 0 {
-			contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: ""})
+			contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: " "})
 		}
 
 		bedrockMessages = append(bedrockMessages, bedrockTypes.Message{

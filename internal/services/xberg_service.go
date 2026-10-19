@@ -39,14 +39,29 @@ func NewXbergService(cfg *config.Config) *XbergService {
 func (s *XbergService) resolveXbergBinary() (string, error) {
 	// 1. Explicit path in config
 	if s.xbergPath != "" && s.xbergPath != "xberg" {
-		if _, err := os.Stat(s.xbergPath); err == nil {
-			return s.xbergPath, nil
+		if fi, err := os.Stat(s.xbergPath); err == nil {
+			if !fi.IsDir() {
+				if abs, err := filepath.Abs(s.xbergPath); err == nil {
+					return abs, nil
+				}
+				return s.xbergPath, nil
+			}
+			// Directory was specified: search for xberg.exe / xberg inside it
+			for _, name := range []string{"xberg.exe", "xberg"} {
+				candidate := filepath.Join(s.xbergPath, name)
+				if cfi, err := os.Stat(candidate); err == nil && !cfi.IsDir() {
+					if abs, err := filepath.Abs(candidate); err == nil {
+						return abs, nil
+					}
+					return candidate, nil
+				}
+			}
 		}
 	}
 
 	// 2. Check current working directory for xberg / xberg.exe
 	for _, candidate := range []string{"./xberg.exe", "xberg.exe", "./xberg", "xberg"} {
-		if _, err := os.Stat(candidate); err == nil {
+		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
 			abs, err := filepath.Abs(candidate)
 			if err == nil {
 				return abs, nil
@@ -66,6 +81,21 @@ func (s *XbergService) resolveXbergBinary() (string, error) {
 	}
 
 	return "", fmt.Errorf("xberg binary not found")
+}
+
+// cleanXbergOutput removes the CLI diagnostic footer ("--- extraction envelope ---") from stdout
+func cleanXbergOutput(raw string) string {
+	const marker = "--- extraction envelope ---"
+	if idx := strings.Index(raw, "\r\n"+marker); idx != -1 {
+		return strings.TrimSpace(raw[:idx])
+	}
+	if idx := strings.Index(raw, "\n"+marker); idx != -1 {
+		return strings.TrimSpace(raw[:idx])
+	}
+	if strings.HasPrefix(raw, marker) {
+		return ""
+	}
+	return strings.TrimSpace(raw)
 }
 
 // ExtractContentFromBytes extracts Markdown text from bytes using xberg CLI with UTF-8 fallback
@@ -96,6 +126,9 @@ func (s *XbergService) ExtractContentFromBytes(ctx context.Context, fileBytes []
 
 func (s *XbergService) runXbergExtract(ctx context.Context, binPath string, fileBytes []byte, filename string) (string, error) {
 	ext := filepath.Ext(filename)
+	if ext == "" && len(fileBytes) >= 5 && string(fileBytes[:5]) == "%PDF-" {
+		ext = ".pdf"
+	}
 	tmpFile, err := os.CreateTemp("", "aigw-doc-*"+ext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
@@ -113,7 +146,7 @@ func (s *XbergService) runXbergExtract(ctx context.Context, binPath string, file
 	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, binPath, "extract", tmpPath, "--format", "markdown")
+	cmd := exec.CommandContext(execCtx, binPath, "extract", tmpPath, "--content-format", "markdown")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -122,7 +155,7 @@ func (s *XbergService) runXbergExtract(ctx context.Context, binPath string, file
 		return "", fmt.Errorf("xberg exec error: %w (stderr: %s)", err, stderr.String())
 	}
 
-	return stdout.String(), nil
+	return cleanXbergOutput(stdout.String()), nil
 }
 
 // ExtractContentFromBase64 decodes Base64 (supporting data URLs) and extracts Markdown text
