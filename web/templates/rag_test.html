@@ -57,8 +57,19 @@
   <div class="tab-pane fade show active" id="retrieve-panel" role="tabpanel">
     <div class="modern-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold mb-0">ナレッジ検索単体テスト (Retrieve API)</h5>
-        <span class="text-muted small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
+        <div>
+          <h5 class="fw-bold mb-0">ナレッジ検索単体テスト (Retrieve API)</h5>
+          <span class="text-muted small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+          onclick="const box = document.getElementById('retrieve-results-box'); if (box) box.innerHTML = '';"
+          title="検索結果の表示をクリアします"
+        >
+          <i class="bi bi-eraser"></i>
+          <span>結果をクリア</span>
+        </button>
       </div>
       <form
         hx-post="{{basePath}}/rag-test/retrieve"
@@ -116,8 +127,19 @@
   <div class="tab-pane fade" id="chat-panel" role="tabpanel">
     <div class="modern-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold mb-0">RAG 対話シミュレーター</h5>
-        <span class="text-muted small">Bedrock Converse API + ナレッジ検索 (Tool Use) の対話テスト</span>
+        <div>
+          <h5 class="fw-bold mb-0">RAG 対話シミュレーター</h5>
+          <span class="text-muted small">Bedrock Converse API + ナレッジ検索 (Tool Use) の対話テスト</span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+          onclick="const box = document.getElementById('chat-history-box'); if (box) box.innerHTML = ''; const q = document.querySelector('#chat-panel input[name=\'query\']'); if (q) { q.value = ''; q.focus(); }"
+          title="表示されている対話履歴をクリアします"
+        >
+          <i class="bi bi-trash"></i>
+          <span>履歴をクリア</span>
+        </button>
       </div>
 
       <form
@@ -125,6 +147,7 @@
         hx-target="#chat-history-box"
         hx-swap="beforeend"
         hx-indicator="#chat-spinner"
+        hx-on::after-request="if (event.detail.successful) { const q = this.querySelector('input[name=\'query\']'); if (q) q.value = ''; }"
       >
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-4">

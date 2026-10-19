@@ -323,8 +323,69 @@ func (h *UsersHandler) DeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	groupID := chi.URLParam(r, "id")
-	if err := h.db.Delete(&models.Group{}, "id = ?", groupID).Error; err != nil {
-		http.Error(w, "Delete failed", http.StatusInternalServerError)
+
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		var group models.Group
+		if err := tx.First(&group, "id = ?", groupID).Error; err != nil {
+			return err
+		}
+
+		groupName := group.Name
+
+		// 1. 全ユーザーから該当グループを除外
+		var users []models.User
+		if err := tx.Find(&users).Error; err != nil {
+			return err
+		}
+		for _, u := range users {
+			currentGroups := u.GetGroups()
+			var newGroups []string
+			changed := false
+			for _, g := range currentGroups {
+				if g == groupName {
+					changed = true
+				} else {
+					newGroups = append(newGroups, g)
+				}
+			}
+			if changed {
+				u.SetGroups(newGroups)
+				if err := tx.Save(&u).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		// 2. 全APIキーから該当グループを除外
+		var apiKeys []models.ApiKey
+		if err := tx.Find(&apiKeys).Error; err != nil {
+			return err
+		}
+		for _, k := range apiKeys {
+			currentGroups := k.GetAllowedGroups()
+			var newGroups []string
+			changed := false
+			for _, g := range currentGroups {
+				if g == groupName {
+					changed = true
+				} else {
+					newGroups = append(newGroups, g)
+				}
+			}
+			if changed {
+				k.SetAllowedGroups(newGroups)
+				if err := tx.Save(&k).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		// 3. グループ本体を物理削除
+		return tx.Delete(&group).Error
+	})
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Delete failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 

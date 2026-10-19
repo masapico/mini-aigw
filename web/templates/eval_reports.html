@@ -178,90 +178,93 @@
   </div>
 
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead>
-        <tr class="table-light">
-          <th style="min-width: 180px;">レポートID / 実行日時</th>
+    <table class="table table-hover table-sm align-middle mb-0 table-compact" style="font-size: 0.84rem;">
+      <thead class="table-light border-bottom">
+        <tr class="text-secondary" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em;">
+          <th style="min-width: 170px;">レポートID / 実行日時</th>
           <th>データセット</th>
           <th>比較モデル</th>
           <th class="text-center">Hit@K</th>
           <th class="text-center">MRR</th>
           <th class="text-center">権限分離</th>
-          <th class="text-end" style="min-width: 220px;">操作</th>
+          <th class="text-end" style="min-width: 180px;">操作</th>
         </tr>
       </thead>
       <tbody>
         {{range .Reports}}
         <tr id="report-row-{{.ID}}">
           <td>
-            <a href="{{basePath}}/eval-reports/{{.ID}}" class="fw-bold text-decoration-none text-primary">
+            <a href="{{basePath}}/eval-reports/{{.ID}}" class="fw-semibold text-decoration-none text-primary" style="font-size: 0.88rem;">
               {{.ID}}
             </a>
-            <div class="text-muted small">
+            <div class="text-muted" style="font-size: 0.75rem;">
               <i class="bi bi-clock me-1"></i>{{formatTime .Timestamp}}
             </div>
           </td>
           <td>
-            <div class="fw-medium text-truncate" style="max-width: 240px;" title="{{.DatasetPath}}">
+            <div class="fw-medium text-truncate" style="max-width: 220px; font-size: 0.82rem;" title="{{.DatasetPath}}">
               {{.DatasetPath}}
             </div>
-            <div class="text-muted small">{{.TotalCases}} 件 (Top-K: {{.TopK}})</div>
+            <div class="text-muted" style="font-size: 0.75rem;">{{.TotalCases}} 件 (Top-K: {{.TopK}})</div>
           </td>
           <td>
             {{if .Models}}
             <div class="d-flex flex-wrap gap-1" style="max-width: 260px;">
               {{range .Models}}
-              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.72rem;">{{.}}</span>
+              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.70rem; padding: 0.2rem 0.45rem;">{{.}}</span>
               {{end}}
             </div>
             {{else}}
-            <span class="text-muted small">検索単体 (Retriever)</span>
+            <span class="text-muted" style="font-size: 0.78rem;">検索単体 (Retriever)</span>
             {{end}}
           </td>
           <td class="text-center">
-            <span class="badge {{if ge .HitAtKRate 80.0}}bg-success-subtle text-success{{else}}bg-warning-subtle text-warning{{end}} rounded-pill fw-bold">
+            <span class="badge {{if ge .HitAtKRate 80.0}}bg-success-subtle text-success{{else}}bg-warning-subtle text-warning{{end}} rounded-pill fw-bold" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
               {{formatPercent .HitAtKRate}}
             </span>
           </td>
           <td class="text-center">
-            <span class="fw-semibold text-secondary">
+            <span class="fw-semibold text-secondary" style="font-size: 0.82rem;">
               {{formatScore .MeanReciprocalRank}}
             </span>
           </td>
           <td class="text-center">
             {{if eq .TotalLeaks 0}}
-            <span class="badge bg-success-subtle text-success rounded-pill fw-semibold">
+            <span class="badge bg-success-subtle text-success rounded-pill fw-semibold" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
               <i class="bi bi-shield-check me-1"></i>0件 (完全分離)
             </span>
             {{else}}
-            <span class="badge bg-danger-subtle text-danger rounded-pill fw-semibold">
+            <span class="badge bg-danger-subtle text-danger rounded-pill fw-semibold" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
               <i class="bi bi-shield-x me-1"></i>{{.TotalLeaks}}件 リーク
             </span>
             {{end}}
           </td>
           <td class="text-end">
-            <div class="btn-group btn-group-sm">
+            <div class="btn-group btn-group-sm text-nowrap" role="group">
               <a
                 href="{{basePath}}/eval-reports/{{.ID}}"
-                class="btn btn-outline-primary"
+                class="btn btn-outline-primary text-nowrap px-2 py-1"
+                style="font-size: 0.78rem;"
                 title="ダッシュボード形式で詳細表示"
               >
-                <i class="bi bi-layout-text-window-reverse"></i> 詳細
+                <i class="bi bi-layout-text-window-reverse me-1"></i>詳細
               </a>
               {{if .HasHTML}}
               <a
                 href="{{basePath}}/eval-reports/{{.ID}}/raw"
                 target="_blank"
-                class="btn btn-outline-secondary"
+                class="btn btn-outline-secondary text-nowrap px-2 py-1"
+                style="font-size: 0.78rem;"
                 title="自己完結型 HTML レポートを別タブでプレビュー"
               >
-                <i class="bi bi-box-arrow-up-right"></i> HTML
+                <i class="bi bi-box-arrow-up-right me-1"></i>HTML
               </a>
               {{end}}
               <div class="btn-group btn-group-sm" role="group">
                 <button
                   type="button"
-                  class="btn btn-outline-secondary dropdown-toggle"
+                  class="btn btn-outline-secondary dropdown-toggle px-2 py-1"
+                  style="font-size: 0.78rem;"
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
                   title="ダウンロード"
@@ -293,7 +296,8 @@
                 </ul>
               </div>
               <button
-                class="btn btn-outline-danger"
+                class="btn btn-outline-danger px-2 py-1"
+                style="font-size: 0.78rem;"
                 title="削除"
                 hx-delete="{{basePath}}/eval-reports/{{.ID}}"
                 hx-confirm="レポート '{{.ID}}' を削除しますか？ (HTML, Markdown, JSON の全ファイルが削除されます)"

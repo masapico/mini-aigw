@@ -197,3 +197,73 @@ func TestUsersHandler_EditGroup(t *testing.T) {
 		t.Errorf("expected 403 Forbidden, got %d", wUnauth.Code)
 	}
 }
+
+func TestUsersHandler_DeleteGroup_CleanupsUserAndApiKey(t *testing.T) {
+	handler, r, adminUser, normalUser := setupTestUsersEnv(t)
+
+	var grp models.Group
+	handler.db.Where("name = ?", "dev").First(&grp)
+
+	// グループ "dev" に所属するユーザーを用意
+	userWithDev := models.User{
+		Username: "dev-member",
+		AuthType: "local",
+	}
+	userWithDev.SetGroups([]string{"dev", "sales"})
+	if err := handler.db.Create(&userWithDev).Error; err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	// グループ "dev" を許可する APIKey を用意
+	apiKeyWithDev := models.ApiKey{
+		Name:    "dev-key",
+		Prefix:  "sk-dev",
+		KeyHash: "dummyhash",
+	}
+	apiKeyWithDev.SetAllowedGroups([]string{"public", "dev"})
+	if err := handler.db.Create(&apiKeyWithDev).Error; err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+
+	// 1. 一般ユーザーは削除権限なし (403)
+	unauthReq := httptest.NewRequest("DELETE", "/groups/"+grp.ID, nil)
+	unauthReq = unauthReq.WithContext(context.WithValue(unauthReq.Context(), middleware.UserContextKey, normalUser))
+	wUnauth := httptest.NewRecorder()
+	r.ServeHTTP(wUnauth, unauthReq)
+	if wUnauth.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden, got %d", wUnauth.Code)
+	}
+
+	// 2. 管理者が削除実行 (200)
+	req := httptest.NewRequest("DELETE", "/groups/"+grp.ID, nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserContextKey, adminUser))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// グループが削除されていること
+	var count int64
+	handler.db.Model(&models.Group{}).Where("id = ?", grp.ID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected group to be deleted, count = %d", count)
+	}
+
+	// ユーザーの所属グループから "dev" が消え、"sales" のみ残っていること
+	var updatedUser models.User
+	handler.db.First(&updatedUser, "id = ?", userWithDev.ID)
+	userGroups := updatedUser.GetGroups()
+	if len(userGroups) != 1 || userGroups[0] != "sales" {
+		t.Errorf("expected user groups ['sales'], got %v", userGroups)
+	}
+
+	// APIKey の許可グループから "dev" が消え、"public" のみ残っていること
+	var updatedKey models.ApiKey
+	handler.db.First(&updatedKey, "id = ?", apiKeyWithDev.ID)
+	keyGroups := updatedKey.GetAllowedGroups()
+	if len(keyGroups) != 1 || keyGroups[0] != "public" {
+		t.Errorf("expected api key groups ['public'], got %v", keyGroups)
+	}
+}
+
