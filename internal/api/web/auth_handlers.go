@@ -90,7 +90,7 @@ func (h *AuthHandler) HandleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 	authURL, state, err := h.oidcService.GenerateAuthURL()
 	if err != nil {
 		log.Printf("Failed to generate OIDC auth URL: %v", err)
-		http.Redirect(w, r, "/login?error=OIDC認証の初期化に失敗しました", http.StatusSeeOther)
+		http.Redirect(w, r, h.cfg.BasePath+"/login?error=OIDC認証の初期化に失敗しました", http.StatusSeeOther)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h *AuthHandler) HandleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   600,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.cfg.SessionCookieSecure,
+		Secure:   h.isCookieSecure(r),
 	})
 
 	http.Redirect(w, r, authURL, http.StatusSeeOther)
@@ -114,7 +114,7 @@ func (h *AuthHandler) HandleOIDCCallback(w http.ResponseWriter, r *http.Request)
 
 	stateCookie, err := r.Cookie("aigw_oidc_state")
 	if err != nil || stateCookie.Value != state {
-		http.Redirect(w, r, "/login?error=不正な認証リクエストです (State不整合)", http.StatusSeeOther)
+		http.Redirect(w, r, h.cfg.BasePath+"/login?error=不正な認証リクエストです (State不整合)", http.StatusSeeOther)
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *AuthHandler) HandleOIDCCallback(w http.ResponseWriter, r *http.Request)
 	userInfo, err := h.oidcService.ExchangeCode(r.Context(), state, code)
 	if err != nil {
 		log.Printf("OIDC exchange error: %v", err)
-		http.Redirect(w, r, "/login?error=IDトークンの検証に失敗しました", http.StatusSeeOther)
+		http.Redirect(w, r, h.cfg.BasePath+"/login?error=IDトークンの検証に失敗しました", http.StatusSeeOther)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *AuthHandler) HandleOIDCCallback(w http.ResponseWriter, r *http.Request)
 		user.SetGroups(userInfo.Groups)
 		if err := h.db.Create(&user).Error; err != nil {
 			log.Printf("Failed to provision OIDC user: %v", err)
-			http.Redirect(w, r, "/login?error=ユーザーの登録に失敗しました", http.StatusSeeOther)
+			http.Redirect(w, r, h.cfg.BasePath+"/login?error=ユーザーの登録に失敗しました", http.StatusSeeOther)
 			return
 		}
 	} else {
@@ -186,19 +186,23 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.cfg.SessionCookieSecure,
+		Secure:   h.isCookieSecure(r),
 	})
 
 	// RP-Initiated Logout if available
 	if rawIDToken != nil && h.oidcService.IsEnabled() {
-		logoutURL := h.oidcService.GetEndSessionURL(*rawIDToken, h.cfg.PublicBaseURL+"/login")
+		logoutURL := h.oidcService.GetEndSessionURL(*rawIDToken, middleware.ResolveBaseURL(r, h.cfg)+"/login")
 		if logoutURL != "" {
 			http.Redirect(w, r, logoutURL, http.StatusSeeOther)
 			return
 		}
 	}
 
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, h.cfg.BasePath+"/login", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) isCookieSecure(r *http.Request) bool {
+	return h.cfg.SessionCookieSecure || middleware.IsRequestHTTPS(r)
 }
 
 func (h *AuthHandler) createSessionAndRedirect(w http.ResponseWriter, r *http.Request, userID string, rawIDToken *string) {
@@ -214,7 +218,7 @@ func (h *AuthHandler) createSessionAndRedirect(w http.ResponseWriter, r *http.Re
 	}
 	if err := h.db.Create(&session).Error; err != nil {
 		log.Printf("Failed to create session: %v", err)
-		http.Redirect(w, r, "/login?error=セッション生成に失敗しました", http.StatusSeeOther)
+		http.Redirect(w, r, h.cfg.BasePath+"/login?error=セッション生成に失敗しました", http.StatusSeeOther)
 		return
 	}
 
@@ -225,10 +229,14 @@ func (h *AuthHandler) createSessionAndRedirect(w http.ResponseWriter, r *http.Re
 		MaxAge:   h.cfg.SessionMaxAgeSeconds,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   h.cfg.SessionCookieSecure,
+		Secure:   h.isCookieSecure(r),
 	})
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	target := h.cfg.BasePath + "/"
+	if target == "" {
+		target = "/"
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
 func (h *AuthHandler) renderLoginError(w http.ResponseWriter, errMsg string) {

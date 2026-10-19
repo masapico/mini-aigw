@@ -61,7 +61,7 @@
           <button
             class="btn btn-sm btn-outline-secondary py-0 px-2"
             style="font-size: 0.75rem;"
-            hx-post="/models/{{$m.ID}}/default"
+            hx-post="{{basePath}}/models/{{$m.ID}}/default"
             hx-target="#models-container"
             hx-swap="innerHTML"
           >
@@ -82,7 +82,7 @@
             <button
               class="btn-modern-secondary py-1 px-2"
               style="font-size: 0.8rem;"
-              hx-post="/models/{{$m.ID}}/toggle"
+              hx-post="{{basePath}}/models/{{$m.ID}}/toggle"
               hx-target="#models-container"
               hx-swap="innerHTML"
             >
@@ -91,7 +91,7 @@
             <button
               class="btn-modern-danger py-1 px-2"
               style="font-size: 0.8rem;"
-              hx-delete="/models/{{$m.ID}}"
+              hx-delete="{{basePath}}/models/{{$m.ID}}"
               hx-confirm="モデル「{{$m.Name}}」を削除しますか？"
               hx-target="#model-row-{{$i}}"
               hx-swap="outerHTML"
@@ -105,7 +105,7 @@
             <div class="modal-dialog modal-dialog-centered text-start">
               <div class="modal-content border-0 shadow-lg rounded-4">
                 <form
-                  hx-post="/models/{{$m.ID}}/edit"
+                  hx-post="{{basePath}}/models/{{$m.ID}}/edit"
                   hx-target="#models-container"
                   hx-swap="innerHTML"
                   onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editModelModal-{{$i}}')); if(m) m.hide();"

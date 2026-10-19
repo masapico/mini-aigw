@@ -59,7 +59,7 @@
           <div class="d-inline-flex flex-nowrap align-items-center gap-1">
             <!-- 🔍 RAGテストで確認 -->
             <a
-              href="/rag-test?query={{.Query}}&group={{.GroupName}}"
+              href="{{basePath}}/rag-test?query={{.Query}}&group={{.GroupName}}"
               class="btn btn-sm btn-outline-primary py-1 px-2 d-inline-flex align-items-center gap-1 text-nowrap"
               title="RAGテスト画面でこのクエリを事前入力して検索確認"
               style="font-size: 0.78rem;"
@@ -73,7 +73,7 @@
               class="btn btn-sm btn-outline-success py-1 px-2 d-inline-flex align-items-center gap-1 text-nowrap"
               title="ナレッジ追加完了・解決済みに変更"
               style="font-size: 0.78rem;"
-              hx-post="/zero-hit-queries/{{.ID}}/status"
+              hx-post="{{basePath}}/zero-hit-queries/{{.ID}}/status"
               hx-vals='{"status": "resolved", "current_filter": "{{$.StatusFilter}}"}'
               hx-target="#query-row-{{.ID}}"
               hx-swap="outerHTML"
@@ -86,7 +86,7 @@
               class="btn btn-sm btn-outline-warning py-1 px-2 d-inline-flex align-items-center gap-1 text-nowrap"
               title="未解決ステータスに戻す"
               style="font-size: 0.78rem;"
-              hx-post="/zero-hit-queries/{{.ID}}/status"
+              hx-post="{{basePath}}/zero-hit-queries/{{.ID}}/status"
               hx-vals='{"status": "unresolved", "current_filter": "{{$.StatusFilter}}"}'
               hx-target="#zero-hit-table-container"
               hx-swap="innerHTML"
@@ -100,7 +100,7 @@
               class="btn btn-sm btn-outline-danger py-1 px-2 text-nowrap"
               title="誤入力等の記録を削除"
               style="font-size: 0.78rem;"
-              hx-delete="/zero-hit-queries/{{.ID}}"
+              hx-delete="{{basePath}}/zero-hit-queries/{{.ID}}"
               hx-confirm="この未解決クエリ記録を削除しますか？"
               hx-target="#query-row-{{.ID}}"
               hx-swap="outerHTML"

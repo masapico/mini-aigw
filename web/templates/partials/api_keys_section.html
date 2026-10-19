@@ -125,7 +125,7 @@
             <button
               class="btn-modern-danger py-1 px-2"
               style="font-size: 0.82rem;"
-              hx-delete="/api-keys/{{$k.ID}}"
+              hx-delete="{{basePath}}/api-keys/{{$k.ID}}"
               hx-confirm="APIキー「{{$k.Name}}」を失効しますか？失効すると元に戻せません。"
               hx-target="#key-row-{{$k.ID}}"
               hx-swap="outerHTML"
@@ -143,7 +143,7 @@
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form
-                  hx-post="/api-keys/{{$k.ID}}/edit"
+                  hx-post="{{basePath}}/api-keys/{{$k.ID}}/edit"
                   hx-target="#api-keys-container"
                   hx-swap="innerHTML"
                   onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editKeyModal-{{$k.ID}}')); if (m) m.hide();"

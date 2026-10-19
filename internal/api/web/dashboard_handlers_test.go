@@ -28,6 +28,11 @@ func setupTestDashboardEnv(t *testing.T) (*DashboardHandler, *models.User) {
 	if err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
+	t.Cleanup(func() {
+		if sqlDB, err := database.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	})
 
 	renderer, err := views.InitRenderer()
 	if err != nil {

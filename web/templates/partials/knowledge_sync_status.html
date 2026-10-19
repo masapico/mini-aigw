@@ -2,7 +2,7 @@
 <div
   class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-light rounded-3 border"
   {{if .IsSyncing}}
-  hx-get="/knowledge/sync/status"
+  hx-get="{{basePath}}/knowledge/sync/status"
   hx-trigger="every 10s"
   hx-target="#kb-sync-status-container"
   hx-swap="innerHTML"
@@ -72,7 +72,7 @@
       disabled
       title="同期ジョブ実行中のため再同期できません"
       {{else}}
-      hx-post="/knowledge/sync"
+      hx-post="{{basePath}}/knowledge/sync"
       hx-target="#kb-sync-status-container"
       hx-swap="innerHTML"
       hx-indicator="#sync-spinner"

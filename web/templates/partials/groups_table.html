@@ -38,7 +38,7 @@
             <button
               class="btn-modern-danger py-1 px-2"
               style="font-size: 0.82rem;"
-              hx-delete="/groups/{{$g.ID}}"
+              hx-delete="{{basePath}}/groups/{{$g.ID}}"
               hx-confirm="グループ「{{$g.DisplayName}} ({{$g.Name}})」を削除しますか？"
               hx-target="#group-row-{{$g.ID}}"
               hx-swap="outerHTML"
@@ -56,7 +56,7 @@
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form
-                  hx-post="/groups/{{$g.ID}}/edit"
+                  hx-post="{{basePath}}/groups/{{$g.ID}}/edit"
                   hx-target="#groups-table-container"
                   hx-swap="innerHTML"
                   onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editGroupModal-{{$g.ID}}')); if (m) m.hide();"

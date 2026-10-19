@@ -193,27 +193,120 @@ nssm status mini-aigw
 
 ---
 
-## 6. 稼働確認
+## 6. Nginx リバースプロキシ連携設定 (サブパス / 専用ドメイン対応)
+
+`mini-aigw` を既存の社内 Web サーバー（Nginx）配下に配置する場合や、サブパス（例: `https://sample.com/aigw/`）で運用する場合の設定手順です。
+
+### 6.1 サブパス運用 (`/aigw/`) とルートパス運用の切り替え
+
+`mini-aigw` は、`.env` の設定によって自身のベースパスを認識し、Web 画面のリンク、HTMX リクエスト先、リダイレクトヘッダーを自動調整します。
+また、ルーティングは**ルート (`/`) とサブパス (`/aigw/`) の両方にデュアルマウント**されるため、Nginx 側でパスを維持しても除去しても安全に動作します。
+
+#### パターン A: サブパスで運用する場合 (`https://sample.com/aigw/`)
+1. `mini-aigw` の `.env` を設定:
+   ```env
+   BASE_PATH=/aigw
+   PUBLIC_BASE_URL=https://sample.com/aigw
+   ```
+2. Nginx 設定ファイル: `deploy/nginx/mini-aigw-subpath.conf` を参照・適用。
+
+#### パターン B: 専用ドメイン・ルートパスで運用する場合 (`https://aigw.sample.com/`)
+1. `mini-aigw` の `.env` を設定:
+   ```env
+   # BASE_PATH は未指定（既定で /）
+   PUBLIC_BASE_URL=https://aigw.sample.com
+   ```
+2. Nginx 設定ファイル: `deploy/nginx/mini-aigw-root.conf` を参照・適用。
+
+### 6.2 Nginx 必須設定ディレクティブの解説
+
+AI ゲートウェイ特有の通信（リアルタイムストリーミングや大容量添付ファイル）を安定動作させるため、以下のディレクティブを必ず指定してください。
+
+1. **リアルタイム SSE ストリーミングのバッファリング無効化**:
+   ```nginx
+   proxy_buffering off;
+   proxy_cache off;
+   chunked_transfer_encoding off;
+   ```
+   *解説*: Nginx がレスポンスをバッファリングしてしまうと、OpenAI 互換 API (`stream=true`) の逐次トークン表示がクライアント側でブロックされ、全体の完了まで応答が止まってしまいます。
+2. **推論処理タイムアウトの延長 (300秒)**:
+   ```nginx
+   proxy_connect_timeout 60s;
+   proxy_send_timeout 300s;
+   proxy_read_timeout 300s;
+   ```
+   *解説*: Bedrock による長文推論や、ドキュメント解析（RAG）を伴うリクエストでは数十秒〜数分を要する場合があります。Nginx 既定値（60秒）のままだと `504 Gateway Timeout` が発生するため、300秒（5分）への延長を推奨します。
+3. **添付ファイルアップロード上限の引き上げ (50MB)**:
+   ```nginx
+   client_max_body_size 50M;
+   ```
+   *解説*: ナレッジベースへの PDF/DOCX アップロードや、チャットでの画像添付リクエストを許容するために拡張します。
+4. **プロキシヘッダー転送**:
+   ```nginx
+   proxy_set_header Host $host;
+   proxy_set_header X-Real-IP $remote_addr;
+   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   proxy_set_header X-Forwarded-Proto $scheme;
+   proxy_set_header X-Forwarded-Host $host;
+   proxy_set_header X-Forwarded-Prefix /aigw;  # サブパス運用の場合は指定
+   ```
+   *解説*: `mini-aigw` は `X-Forwarded-Proto` を検知してセッション Cookie の `Secure` 属性を動的に付与し、`X-Forwarded-Host` / `X-Forwarded-Prefix` を用いて原本ダウンロード URL やリダイレクト先を自動解決します。
+
+### 6.3 Linux 環境でのセキュリティ・ネットワーク考慮事項 (SELinux / firewalld)
+
+RHEL / Amazon Linux 2023 / CentOS 等で SELinux が有効な場合、Nginx が内部ポート（`8000`）へプロキシ接続することを SELinux がブロックすることがあります（`502 Bad Gateway` となり、`/var/log/audit/audit.log` に拒否ログが出力される）。
+
+以下のコマンドで Nginx によるネットワーク接続を許可してください：
+
+```bash
+# Nginx からバックエンドへのプロキシ接続を SELinux で恒久許可
+sudo setsebool -P httpd_can_network_connect 1
+```
+
+ファイアウォール（firewalld）設定：
+```bash
+# 外部からの HTTP/HTTPS ポートを開放（8000ポートは直接開放せず 127.0.0.1 経由で保護）
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+```
+
+---
+
+## 7. 稼働確認
 
 デプロイ完了後、以下の導通を確認します：
 
 1. **管理画面アクセス**:
-   - ブラウザで `http://<server-ip>:8000/login` へアクセスし、初期管理者アカウント（`admin` / `Password1234`）でログインできることを確認。
+   - ブラウザで `https://<server-domain>/<base-path>/login`（例: `https://sample.com/aigw/login`）へアクセスし、初期管理者アカウント（`admin` / `Password1234`）でログインできることを確認。
    - ブラウザの開発者ツールで外部 CDN（`cdn.jsdelivr.net` 等）への通信が一切発生せず、内包アセット（Bootstrap 5.3 + htmx 2.x）がローカルから 200 OK でロードされていることを確認。
+   - 画面遷移（ナレッジ管理、APIキー管理、ユーザー管理等）および HTMX 操作が正常にサブパス配下で動作することを確認。
 2. **Bedrock / S3 導通**:
    - ナレッジ管理画面（`/knowledge`）でドキュメントのアップロードと Bedrock KB 同期ジョブの開始を確認。
    - RAG テスト画面（`/rag-test`）で検索クエリの Retrieve が正常に結果を返すことを確認。
 3. **LLM 基盤モデルの登録と有効化**:
    - Web 管理画面の「モデル管理 (`/models`)」にて、運用で利用する Bedrock モデル ID / 推論プロファイル ID（例: `jp.amazon.nova-2-lite-v1:0` 等）を登録・有効化・既定設定。
    - 登録可能なモデル情報の確認方法や IAM 権限・前提条件については、[Bedrock モデル情報取得・登録ガイド (GET_FOUNDATION_MODELS.md)](GET_FOUNDATION_MODELS.md) を参照。
-4. **OpenAI 互換 API 呼び出し**:
-   - `curl` コマンドで `/v1/chat/completions` にリクエストを送信し、登録したモデルでの正常な推論応答が得られることを確認。
+4. **OpenAI 互換 API 呼び出し (CORS & ストリーミング確認)**:
+   - `curl` コマンドで `https://sample.com/aigw/v1/chat/completions` にリクエストを送信し、登録したモデルでの正常な推論応答およびリアルタイムストリーミングが得られることを確認。
+   ```bash
+   curl -N -X POST "https://sample.com/aigw/v1/chat/completions" \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer sk-live-..." \
+     -d '{
+       "model": "jp.amazon.nova-2-lite-v1:0",
+       "messages": [{"role": "user", "content": "こんにちは！"}],
+       "stream": true
+     }'
+   ```
 
 ---
 
-## 7. 関連ドキュメント
+## 8. 関連ドキュメント
 
 - [README.md - mini-aigw 全体仕様・起動手順](../README.md)
+- [deploy/nginx/mini-aigw-subpath.conf - Nginx サブパス配下リバースプロキシ設定テンプレート](../deploy/nginx/mini-aigw-subpath.conf)
+- [deploy/nginx/mini-aigw-root.conf - Nginx ルートパス/専用ホストリバースプロキシ設定テンプレート](../deploy/nginx/mini-aigw-root.conf)
 - [docs/GET_FOUNDATION_MODELS.md - Bedrock モデル情報取得・登録ガイド](GET_FOUNDATION_MODELS.md)
 - [docs/BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md - Bedrock Managed Knowledge Base 検索仕様・トラブルシューティング](BEDROCK_KB_SPEC_AND_TROUBLESHOOTING.md)
 

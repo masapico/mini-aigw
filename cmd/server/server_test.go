@@ -22,8 +22,6 @@ func TestFullRouterEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
-
 	dbPath := filepath.Join(tmpDir, "test.db")
 	cfg := &config.Config{
 		DatabaseURL:       "sqlite:///" + dbPath,
@@ -37,6 +35,12 @@ func TestFullRouterEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
+	t.Cleanup(func() {
+		if sqlDB, err := database.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+		_ = os.RemoveAll(tmpDir)
+	})
 
 	if err := db.SeedInitialData(database, cfg); err != nil {
 		t.Fatalf("SeedInitialData failed: %v", err)
@@ -219,6 +223,57 @@ func TestFullRouterEndpoints(t *testing.T) {
 
 		if rec.Code != http.StatusSeeOther {
 			t.Errorf("expected 303 redirect, got %d", rec.Code)
+		}
+	})
+
+	// 12. Test BasePath subpath routing
+	t.Run("GET with BasePath", func(t *testing.T) {
+		cfgWithBase := *cfg
+		cfgWithBase.BasePath = "/aigw"
+		rendererWithBase, err := views.InitRenderer(cfgWithBase.BasePath)
+		if err != nil {
+			t.Fatalf("InitRenderer with BasePath failed: %v", err)
+		}
+		routerWithBase := SetupRouter(&cfgWithBase, database, rendererWithBase, bedrockSvc, knowledgeSvc, oidcSvc)
+
+		// Test /aigw/health
+		req1 := httptest.NewRequest(http.MethodGet, "/aigw/health", nil)
+		rec1 := httptest.NewRecorder()
+		routerWithBase.ServeHTTP(rec1, req1)
+		if rec1.Code != http.StatusOK {
+			t.Errorf("expected 200 for /aigw/health, got %d", rec1.Code)
+		}
+
+		// Test /health still works
+		req2 := httptest.NewRequest(http.MethodGet, "/health", nil)
+		rec2 := httptest.NewRecorder()
+		routerWithBase.ServeHTTP(rec2, req2)
+		if rec2.Code != http.StatusOK {
+			t.Errorf("expected 200 for /health, got %d", rec2.Code)
+		}
+
+		// Test /aigw/static/vendor/bootstrap/css/bootstrap.min.css
+		req3 := httptest.NewRequest(http.MethodGet, "/aigw/static/vendor/bootstrap/css/bootstrap.min.css", nil)
+		rec3 := httptest.NewRecorder()
+		routerWithBase.ServeHTTP(rec3, req3)
+		if rec3.Code != http.StatusOK {
+			t.Errorf("expected 200 for /aigw/static, got %d", rec3.Code)
+		}
+
+		// Test /aigw/login renders
+		req4 := httptest.NewRequest(http.MethodGet, "/aigw/login", nil)
+		rec4 := httptest.NewRecorder()
+		routerWithBase.ServeHTTP(rec4, req4)
+		if rec4.Code != http.StatusOK {
+			t.Errorf("expected 200 for /aigw/login, got %d", rec4.Code)
+		}
+
+		// Test OPTIONS /aigw/v1/chat/completions (CORS)
+		req5 := httptest.NewRequest(http.MethodOptions, "/aigw/v1/chat/completions", nil)
+		rec5 := httptest.NewRecorder()
+		routerWithBase.ServeHTTP(rec5, req5)
+		if rec5.Code != http.StatusNoContent {
+			t.Errorf("expected 204 for OPTIONS /aigw/v1/chat/completions, got %d", rec5.Code)
 		}
 	})
 }

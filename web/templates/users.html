@@ -46,7 +46,7 @@
       <h5 class="fw-bold mb-3">新規ローカルユーザー作成</h5>
       <form
         id="create-user-form"
-        hx-post="/users/create"
+        hx-post="{{basePath}}/users/create"
         hx-target="#users-table-container"
         hx-swap="innerHTML"
         hx-indicator="#create-user-spinner"
@@ -140,7 +140,7 @@
     <div class="modern-card mb-4">
       <h5 class="fw-bold mb-3">新規グループ作成</h5>
       <form
-        hx-post="/groups/create"
+        hx-post="{{basePath}}/groups/create"
         hx-target="#groups-table-container"
         hx-swap="innerHTML"
         hx-indicator="#group-spinner"

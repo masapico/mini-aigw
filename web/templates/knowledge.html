@@ -30,7 +30,7 @@
 <div
   class="mb-4"
   id="kb-sync-status-container"
-  hx-get="/knowledge/sync/status"
+  hx-get="{{basePath}}/knowledge/sync/status"
   hx-trigger="load"
   hx-swap="innerHTML"
 >
@@ -66,7 +66,7 @@
     {{else}}
     <form
       id="upload-form"
-      hx-post="/knowledge/upload"
+      hx-post="{{basePath}}/knowledge/upload"
       hx-target="#knowledge-table-container"
       hx-swap="innerHTML"
       hx-encoding="multipart/form-data"
@@ -155,7 +155,7 @@
     <!-- 検索フィルターフォーム -->
     <form
       id="knowledge-filter-form"
-      hx-get="/knowledge/table"
+      hx-get="{{basePath}}/knowledge/table"
       hx-target="#knowledge-table-container"
       hx-swap="innerHTML"
       hx-indicator="#search-spinner"
@@ -210,7 +210,7 @@
           <i class="bi bi-search"></i> 検索
         </button>
         <a
-          href="/knowledge"
+          href="{{basePath}}/knowledge"
           class="btn btn-outline-secondary btn-sm px-2 d-inline-flex align-items-center gap-1 text-decoration-none"
         >
           <i class="bi bi-arrow-counterclockwise"></i> クリア
@@ -221,7 +221,7 @@
 
   <div
     id="knowledge-table-container"
-    hx-get="/knowledge/table"
+    hx-get="{{basePath}}/knowledge/table"
     hx-trigger="refreshKnowledgeTable from:body"
     hx-include="#knowledge-filter-form"
   >

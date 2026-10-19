@@ -68,12 +68,24 @@ func SessionAuthMiddleware(db *gorm.DB, cfg *config.Config) func(http.Handler) h
 	}
 }
 
-// RequireAuth redirects unauthenticated users to /login
+// RequireAuth redirects unauthenticated users to /login (respecting BasePath)
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u := GetUserFromContext(r.Context())
 		if u == nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			loginURL := "/login"
+			if config.AppConfig != nil && config.AppConfig.BasePath != "" {
+				loginURL = config.AppConfig.BasePath + "/login"
+			} else if prefix := r.Header.Get("X-Forwarded-Prefix"); prefix != "" {
+				cleanPrefix := strings.TrimRight(strings.TrimSpace(strings.Split(prefix, ",")[0]), "/")
+				if cleanPrefix != "" {
+					if !strings.HasPrefix(cleanPrefix, "/") {
+						cleanPrefix = "/" + cleanPrefix
+					}
+					loginURL = cleanPrefix + "/login"
+				}
+			}
+			http.Redirect(w, r, loginURL, http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)

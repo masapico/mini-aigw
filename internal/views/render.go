@@ -19,14 +19,29 @@ type Renderer struct {
 	fs        fs.FS
 	funcMap   template.FuncMap
 	templates map[string]*template.Template
+	basePath  string
 }
 
 var GlobalRenderer *Renderer
 
-func InitRenderer() (*Renderer, error) {
+func InitRenderer(basePaths ...string) (*Renderer, error) {
 	tfs := web.TemplateFS()
 
+	initialBasePath := ""
+	if len(basePaths) > 0 {
+		initialBasePath = basePaths[0]
+	}
+
+	r := &Renderer{
+		fs:        tfs,
+		basePath:  initialBasePath,
+		templates: make(map[string]*template.Template),
+	}
+
 	funcMap := template.FuncMap{
+		"basePath": func() string {
+			return r.basePath
+		},
 		"hasRole": func(u *models.User, role string) bool {
 			if u == nil {
 				return false
@@ -145,11 +160,7 @@ func InitRenderer() (*Renderer, error) {
 		},
 	}
 
-	r := &Renderer{
-		fs:        tfs,
-		funcMap:   funcMap,
-		templates: make(map[string]*template.Template),
-	}
+	r.funcMap = funcMap
 
 	// Pre-compile templates
 	pages := []string{
@@ -245,3 +256,12 @@ func (r *Renderer) RenderPartial(w http.ResponseWriter, partialName string, data
 	_, err = io.Copy(w, &buf)
 	return err
 }
+
+func (r *Renderer) SetBasePath(basePath string) {
+	r.basePath = basePath
+}
+
+func (r *Renderer) GetBasePath() string {
+	return r.basePath
+}
+

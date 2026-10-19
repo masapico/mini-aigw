@@ -16,7 +16,7 @@
 <div class="modern-card mb-4">
   <h5 class="fw-bold mb-3">新規モデルの登録</h5>
   <form
-    hx-post="/models/create"
+    hx-post="{{basePath}}/models/create"
     hx-target="#models-container"
     hx-swap="innerHTML"
     hx-indicator="#model-spinner"

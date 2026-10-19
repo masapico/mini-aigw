@@ -9,10 +9,10 @@
     <p class="text-muted small mb-0">Amazon Bedrock & S3 Vectors AI Gateway ステータス</p>
   </div>
   <div class="d-flex gap-2">
-    <a href="/knowledge" class="btn-modern-secondary text-decoration-none py-2">
+    <a href="{{basePath}}/knowledge" class="btn-modern-secondary text-decoration-none py-2">
       ナレッジ管理
     </a>
-    <a href="/rag-test" class="btn-modern-primary text-decoration-none py-2">
+    <a href="{{basePath}}/rag-test" class="btn-modern-primary text-decoration-none py-2">
       ナレッジ検索テスト
     </a>
   </div>
@@ -160,10 +160,10 @@ for chunk in response:
         </li>
       </ul>
       <div class="mt-4 pt-2 border-top d-flex gap-2">
-        <a href="/knowledge" class="btn-modern-primary text-decoration-none py-2 px-3 small">
+        <a href="{{basePath}}/knowledge" class="btn-modern-primary text-decoration-none py-2 px-3 small">
           ナレッジを登録
         </a>
-        <a href="/rag-test" class="btn-modern-secondary text-decoration-none py-2 px-3 small">
+        <a href="{{basePath}}/rag-test" class="btn-modern-secondary text-decoration-none py-2 px-3 small">
           RAGテスト(検索確認)
         </a>
       </div>
@@ -175,7 +175,7 @@ for chunk in response:
     <div class="modern-card h-100">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="fw-bold mb-0">最近登録されたナレッジ資料</h5>
-        <a href="/knowledge" class="text-decoration-none small text-primary fw-semibold">すべて表示 &rarr;</a>
+        <a href="{{basePath}}/knowledge" class="text-decoration-none small text-primary fw-semibold">すべて表示 &rarr;</a>
       </div>
 
       {{if .RecentDocs}}
@@ -233,7 +233,7 @@ for chunk in response:
         </div>
         <div class="d-flex align-items-center gap-2">
           <span class="badge bg-danger rounded-pill px-3 py-2">未対応: {{.UnresolvedZeroHitCount}} 件</span>
-          <a href="/zero-hit-queries" class="btn-modern-secondary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
+          <a href="{{basePath}}/zero-hit-queries" class="btn-modern-secondary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
             すべて表示 &rarr;
           </a>
         </div>
@@ -278,10 +278,10 @@ for chunk in response:
               <td class="text-secondary small">{{formatTime .LastOccurredAt}}</td>
               <td class="text-end">
                 <div class="d-inline-flex gap-1">
-                  <a href="/rag-test?query={{.Query}}&group={{.GroupName}}" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 0.78rem;">
+                  <a href="{{basePath}}/rag-test?query={{.Query}}&group={{.GroupName}}" class="btn btn-sm btn-outline-primary py-1 px-2" style="font-size: 0.78rem;">
                     <i class="bi bi-search"></i> テスト
                   </a>
-                  <a href="/knowledge" class="btn btn-sm btn-outline-success py-1 px-2" style="font-size: 0.78rem;">
+                  <a href="{{basePath}}/knowledge" class="btn btn-sm btn-outline-success py-1 px-2" style="font-size: 0.78rem;">
                     <i class="bi bi-cloud-arrow-up"></i> 登録
                   </a>
                 </div>
@@ -312,7 +312,7 @@ for chunk in response:
           <p class="text-muted small mb-0">日次の消費トークン数（バー）および概算コスト（折れ線）の推移</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-          <a href="/dashboard/export-csv" class="btn-modern-secondary py-1 px-3 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.85rem;">
+          <a href="{{basePath}}/dashboard/export-csv" class="btn-modern-secondary py-1 px-3 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.85rem;">
             <i class="bi bi-file-earmark-spreadsheet"></i> CSVエクスポート
           </a>
         </div>

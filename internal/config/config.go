@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ type Config struct {
 	Host          string
 	Port          int
 	PublicBaseURL string
+	BasePath      string
 	SecretKey     string
 
 	// SQLite
@@ -115,6 +117,20 @@ func LoadConfig() *Config {
 			cfg.DefaultTemperature = &val
 		}
 	}
+
+	basePath := strings.TrimSpace(getEnv("BASE_PATH", ""))
+	if basePath == "" && cfg.PublicBaseURL != "" {
+		if u, err := url.Parse(cfg.PublicBaseURL); err == nil && u.Path != "" && u.Path != "/" {
+			basePath = u.Path
+		}
+	}
+	if basePath != "" {
+		if !strings.HasPrefix(basePath, "/") {
+			basePath = "/" + basePath
+		}
+		basePath = strings.TrimRight(basePath, "/")
+	}
+	cfg.BasePath = basePath
 
 	AppConfig = cfg
 	return cfg

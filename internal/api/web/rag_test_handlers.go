@@ -192,14 +192,7 @@ func (h *RAGTestHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 	filtered := services.FilterKnowledgeResultsByScore(results, h.cfg.RAGScoreThreshold)
 
-	baseURL := h.cfg.PublicBaseURL
-	if baseURL == "" {
-		scheme := "http"
-		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		baseURL = fmt.Sprintf("%s://%s", scheme, r.Host)
-	}
+	baseURL := middleware.ResolveBaseURL(r, h.cfg)
 
 	var formattedContext []string
 	var citations []services.CitationItem

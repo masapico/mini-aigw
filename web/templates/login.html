@@ -28,7 +28,7 @@
 
       {{if .OIDCEnabled}}
       <div class="mb-4">
-        <a href="/auth/oidc/login" class="btn-modern-primary w-100 justify-content-center text-decoration-none py-2 mb-2">
+        <a href="{{basePath}}/auth/oidc/login" class="btn-modern-primary w-100 justify-content-center text-decoration-none py-2 mb-2">
           <span>🔑</span> mini-id でログイン (SSO)
         </a>
         <div class="d-flex align-items-center my-3">
@@ -39,7 +39,7 @@
       </div>
       {{end}}
 
-      <form method="POST" action="/login">
+      <form method="POST" action="{{basePath}}/login">
         <div class="mb-3">
           <label for="username" class="form-label small fw-semibold text-secondary">ユーザー名</label>
           <input

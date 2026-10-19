@@ -65,7 +65,7 @@
             <button
               class="btn-modern-danger py-1 px-2"
               style="font-size: 0.82rem;"
-              hx-delete="/users/{{$u.ID}}"
+              hx-delete="{{basePath}}/users/{{$u.ID}}"
               hx-confirm="ユーザー「{{$u.Username}}」を削除しますか？"
               hx-target="#user-row-{{$u.ID}}"
               hx-swap="outerHTML"
@@ -86,7 +86,7 @@
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form
-                  hx-post="/users/{{$u.ID}}/edit"
+                  hx-post="{{basePath}}/users/{{$u.ID}}/edit"
                   hx-target="#users-table-container"
                   hx-swap="innerHTML"
                   onsubmit="const m = bootstrap.Modal.getInstance(document.getElementById('editUserModal-{{$u.ID}}')); if (m) m.hide();"

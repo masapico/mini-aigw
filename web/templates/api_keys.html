@@ -16,7 +16,7 @@
 <div class="modern-card mb-4">
   <h5 class="fw-bold mb-3">新規 API キーの発行</h5>
   <form
-    hx-post="/api-keys/create"
+    hx-post="{{basePath}}/api-keys/create"
     hx-target="#api-keys-container"
     hx-swap="innerHTML"
     hx-indicator="#key-spinner"

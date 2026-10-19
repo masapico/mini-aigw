@@ -61,7 +61,7 @@
         <span class="text-muted small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
       </div>
       <form
-        hx-post="/rag-test/retrieve"
+        hx-post="{{basePath}}/rag-test/retrieve"
         hx-target="#retrieve-results-box"
         hx-indicator="#retrieve-spinner"
       >
@@ -121,7 +121,7 @@
       </div>
 
       <form
-        hx-post="/rag-test/chat"
+        hx-post="{{basePath}}/rag-test/chat"
         hx-target="#chat-history-box"
         hx-swap="beforeend"
         hx-indicator="#chat-spinner"

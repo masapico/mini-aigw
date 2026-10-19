@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -54,7 +56,7 @@ func main() {
 	middleware.PurgeExpiredSessions(database)
 
 	// 4. Initialize template renderer
-	renderer, err := views.InitRenderer()
+	renderer, err := views.InitRenderer(cfg.BasePath)
 	if err != nil {
 		log.Fatalf("Renderer initialization failed: %v", err)
 	}
@@ -141,106 +143,126 @@ func SetupRouter(
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.SessionAuthMiddleware(database, cfg))
 
-	// Health check (ALB / EC2 AutoRecovery)
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		resp := fmt.Sprintf(`{"status":"healthy","database":"ok","version":"%s"}`, version.Version)
-		_, _ = w.Write([]byte(resp))
-	})
-
-	// Static files & Favicon via embed.FS
-	staticFS := http.FS(web.StaticFS())
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(staticFS)))
-	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		data, err := web.Files.ReadFile("static/favicon.svg")
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "image/svg+xml")
-		_, _ = w.Write(data)
-	})
-
-	// OpenAI-compatible v1 API
-	r.Route("/v1", func(v1Router chi.Router) {
-		v1Router.Get("/models", modelsHandler.ListModels)
-		v1Router.Get("/knowledge/files/{doc_id}/download", downloadHandler.DownloadFile)
-		v1Router.Get("/knowledge/download/{doc_id}", downloadHandler.DownloadFile)
-
-		// API Key Protected
-		v1Router.Group(func(authRouter chi.Router) {
-			authRouter.Use(middleware.VerifyAPIKey(database))
-			authRouter.Use(middleware.CheckAPIRateLimit(nil))
-			authRouter.Post("/chat/completions", chatHandler.HandleChatCompletions)
+	registerAppRoutes := func(sub chi.Router) {
+		// Health check (ALB / EC2 AutoRecovery)
+		sub.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := fmt.Sprintf(`{"status":"healthy","database":"ok","version":"%s"}`, version.Version)
+			_, _ = w.Write([]byte(resp))
 		})
-	})
 
-	// Web UI Auth Routes
-	r.Get("/login", authHandler.ShowLogin)
-	r.Post("/login", authHandler.HandleLocalLogin)
-	r.Get("/logout", authHandler.HandleLogout)
-	r.Get("/auth/oidc/login", authHandler.HandleOIDCLogin)
-	r.Get("/auth/oidc/callback", authHandler.HandleOIDCCallback)
-
-	// Web UI Protected Routes (RequireAuth)
-	r.Group(func(webRouter chi.Router) {
-		webRouter.Use(middleware.RequireAuth)
-
-		// Dashboard
-		webRouter.Get("/", dashboardHandler.ShowDashboard)
-		webRouter.Get("/dashboard", dashboardHandler.ShowDashboard)
-
-		// Knowledge
-		webRouter.Get("/knowledge", knowledgeHandler.ShowKnowledge)
-		webRouter.Get("/knowledge/table", knowledgeHandler.RenderTable)
-		webRouter.Post("/knowledge/upload", knowledgeHandler.HandleUpload)
-		webRouter.Delete("/knowledge/{id}", knowledgeHandler.HandleDelete)
-		webRouter.Get("/knowledge/sync/status", knowledgeHandler.GetSyncStatus)
-		webRouter.Post("/knowledge/sync", knowledgeHandler.HandleSync)
-		webRouter.Get("/knowledge/{id}/download", knowledgeHandler.HandleDownload)
-
-		// RAG Test
-		webRouter.Get("/rag-test", ragTestHandler.ShowRAGTest)
-		webRouter.Post("/rag-test/retrieve", ragTestHandler.HandleRetrieve)
-		webRouter.Post("/rag-test/chat", ragTestHandler.HandleChat)
-
-		// Zero-Hit Queries
-		webRouter.Get("/zero-hit-queries", zeroHitHandler.ShowZeroHitQueries)
-		webRouter.Post("/zero-hit-queries/{id}/status", zeroHitHandler.HandleUpdateStatus)
-		webRouter.Delete("/zero-hit-queries/{id}", zeroHitHandler.HandleDelete)
-		webRouter.Get("/zero-hit-queries/export-csv", zeroHitHandler.HandleExportCSV)
-
-		// Admin Only Routes
-		webRouter.Group(func(adminRouter chi.Router) {
-			adminRouter.Use(middleware.RequireAdmin)
-
-			// Dashboard export
-			adminRouter.Get("/dashboard/export-csv", dashboardHandler.ExportCSV)
-
-			// API Keys
-			adminRouter.Get("/api-keys", apiKeysHandler.ShowAPIKeys)
-			adminRouter.Post("/api-keys/create", apiKeysHandler.CreateKey)
-			adminRouter.Post("/api-keys/{id}/edit", apiKeysHandler.EditKey)
-			adminRouter.Delete("/api-keys/{id}", apiKeysHandler.DeleteKey)
-
-			// Models
-			adminRouter.Get("/models", webModelsHandler.ShowModels)
-			adminRouter.Post("/models/create", webModelsHandler.CreateModel)
-			adminRouter.Post("/models/{id}/edit", webModelsHandler.EditModel)
-			adminRouter.Post("/models/{id}/toggle", webModelsHandler.ToggleModel)
-			adminRouter.Post("/models/{id}/default", webModelsHandler.SetDefaultModel)
-			adminRouter.Delete("/models/{id}", webModelsHandler.DeleteModel)
-
-			// Users & Groups
-			adminRouter.Get("/users", usersHandler.ShowUsers)
-			adminRouter.Post("/users/create", usersHandler.CreateUser)
-			adminRouter.Post("/users/{id}/edit", usersHandler.EditUser)
-			adminRouter.Delete("/users/{id}", usersHandler.DeleteUser)
-			adminRouter.Post("/groups/create", usersHandler.CreateGroup)
-			adminRouter.Post("/groups/{id}/edit", usersHandler.EditGroup)
-			adminRouter.Delete("/groups/{id}", usersHandler.DeleteGroup)
+		staticFS := http.FS(web.StaticFS())
+		fileServer := http.FileServer(staticFS)
+		sub.Handle("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			idx := strings.Index(r.URL.Path, "/static/")
+			if idx == -1 {
+				http.NotFound(w, r)
+				return
+			}
+			r2 := new(http.Request)
+			*r2 = *r
+			r2.URL = new(url.URL)
+			*r2.URL = *r.URL
+			r2.URL.Path = r.URL.Path[idx+len("/static/"):]
+			fileServer.ServeHTTP(w, r2)
+		}))
+		sub.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+			data, err := web.Files.ReadFile("static/favicon.svg")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "image/svg+xml")
+			_, _ = w.Write(data)
 		})
-	})
+
+		// OpenAI-compatible v1 API (with CORS)
+		sub.Route("/v1", func(v1Router chi.Router) {
+			v1Router.Use(middleware.CORSMiddleware)
+			v1Router.Get("/models", modelsHandler.ListModels)
+			v1Router.Get("/knowledge/files/{doc_id}/download", downloadHandler.DownloadFile)
+			v1Router.Get("/knowledge/download/{doc_id}", downloadHandler.DownloadFile)
+
+			// API Key Protected
+			v1Router.Group(func(authRouter chi.Router) {
+				authRouter.Use(middleware.VerifyAPIKey(database))
+				authRouter.Use(middleware.CheckAPIRateLimit(nil))
+				authRouter.Post("/chat/completions", chatHandler.HandleChatCompletions)
+			})
+		})
+
+		// Web UI Auth Routes
+		sub.Get("/login", authHandler.ShowLogin)
+		sub.Post("/login", authHandler.HandleLocalLogin)
+		sub.Get("/logout", authHandler.HandleLogout)
+		sub.Get("/auth/oidc/login", authHandler.HandleOIDCLogin)
+		sub.Get("/auth/oidc/callback", authHandler.HandleOIDCCallback)
+
+		// Web UI Protected Routes (RequireAuth)
+		sub.Group(func(webRouter chi.Router) {
+			webRouter.Use(middleware.RequireAuth)
+
+			// Dashboard
+			webRouter.Get("/", dashboardHandler.ShowDashboard)
+			webRouter.Get("/dashboard", dashboardHandler.ShowDashboard)
+
+			// Knowledge
+			webRouter.Get("/knowledge", knowledgeHandler.ShowKnowledge)
+			webRouter.Get("/knowledge/table", knowledgeHandler.RenderTable)
+			webRouter.Post("/knowledge/upload", knowledgeHandler.HandleUpload)
+			webRouter.Delete("/knowledge/{id}", knowledgeHandler.HandleDelete)
+			webRouter.Get("/knowledge/sync/status", knowledgeHandler.GetSyncStatus)
+			webRouter.Post("/knowledge/sync", knowledgeHandler.HandleSync)
+			webRouter.Get("/knowledge/{id}/download", knowledgeHandler.HandleDownload)
+
+			// RAG Test
+			webRouter.Get("/rag-test", ragTestHandler.ShowRAGTest)
+			webRouter.Post("/rag-test/retrieve", ragTestHandler.HandleRetrieve)
+			webRouter.Post("/rag-test/chat", ragTestHandler.HandleChat)
+
+			// Zero-Hit Queries
+			webRouter.Get("/zero-hit-queries", zeroHitHandler.ShowZeroHitQueries)
+			webRouter.Post("/zero-hit-queries/{id}/status", zeroHitHandler.HandleUpdateStatus)
+			webRouter.Delete("/zero-hit-queries/{id}", zeroHitHandler.HandleDelete)
+			webRouter.Get("/zero-hit-queries/export-csv", zeroHitHandler.HandleExportCSV)
+
+			// Admin Only Routes
+			webRouter.Group(func(adminRouter chi.Router) {
+				adminRouter.Use(middleware.RequireAdmin)
+
+				// Dashboard export
+				adminRouter.Get("/dashboard/export-csv", dashboardHandler.ExportCSV)
+
+				// API Keys
+				adminRouter.Get("/api-keys", apiKeysHandler.ShowAPIKeys)
+				adminRouter.Post("/api-keys/create", apiKeysHandler.CreateKey)
+				adminRouter.Post("/api-keys/{id}/edit", apiKeysHandler.EditKey)
+				adminRouter.Delete("/api-keys/{id}", apiKeysHandler.DeleteKey)
+
+				// Models
+				adminRouter.Get("/models", webModelsHandler.ShowModels)
+				adminRouter.Post("/models/create", webModelsHandler.CreateModel)
+				adminRouter.Post("/models/{id}/edit", webModelsHandler.EditModel)
+				adminRouter.Post("/models/{id}/toggle", webModelsHandler.ToggleModel)
+				adminRouter.Post("/models/{id}/default", webModelsHandler.SetDefaultModel)
+				adminRouter.Delete("/models/{id}", webModelsHandler.DeleteModel)
+
+				// Users & Groups
+				adminRouter.Get("/users", usersHandler.ShowUsers)
+				adminRouter.Post("/users/create", usersHandler.CreateUser)
+				adminRouter.Post("/users/{id}/edit", usersHandler.EditUser)
+				adminRouter.Delete("/users/{id}", usersHandler.DeleteUser)
+				adminRouter.Post("/groups/create", usersHandler.CreateGroup)
+				adminRouter.Post("/groups/{id}/edit", usersHandler.EditGroup)
+				adminRouter.Delete("/groups/{id}", usersHandler.DeleteGroup)
+			})
+		})
+	}
+
+	r.Group(registerAppRoutes)
+	if cfg.BasePath != "" {
+		r.Route(cfg.BasePath, registerAppRoutes)
+	}
 
 	return r
 }

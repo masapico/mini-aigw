@@ -43,6 +43,9 @@ CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI 
 - **完全閉域・オフライン対応 Web UI**:
   - 外部 CDN への依存を完全排除（Bootstrap 5.3 + Bootstrap Icons + htmx 2.x をバイナリ内に完全内包）。
   - UX に配慮した洗練されたモダンデザイン。
+- **リバースプロキシ & サブパス配下運用対応**:
+  - `BASE_PATH`（例: `/aigw`）指定や `PUBLIC_BASE_URL` からの自動抽出により、既存 Web サイトのサブパス（`https://sample.com/aigw/`）や専用ドメインでの公開に柔軟に対応。
+  - ルートとサブパスのデュアルマウント、API CORS プリフライト、動的 HTTPS Cookie `Secure` 判定を内包（Nginx 設定テンプレート `deploy/nginx/` を同梱）。
 
 ---
 

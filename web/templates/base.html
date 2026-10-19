@@ -6,14 +6,14 @@
   <title>{{block "title" .}}mini-aigw{{end}}</title>
   
   <!-- 完全閉域ローカル静的配信 (外部CDN禁止) -->
-  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-  <link rel="stylesheet" href="/static/vendor/bootstrap/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="icon" type="image/svg+xml" href="{{basePath}}/static/favicon.svg">
+  <link rel="stylesheet" href="{{basePath}}/static/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{basePath}}/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{{basePath}}/static/css/app.css">
   
-  <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js" defer></script>
-  <script src="/static/vendor/htmx/htmx.min.js"></script>
-  <script src="/static/vendor/chartjs/chart.umd.min.js"></script>
+  <script src="{{basePath}}/static/vendor/bootstrap/js/bootstrap.bundle.min.js" defer></script>
+  <script src="{{basePath}}/static/vendor/htmx/htmx.min.js"></script>
+  <script src="{{basePath}}/static/vendor/chartjs/chart.umd.min.js"></script>
   {{block "extra_head" .}}{{end}}
 </head>
 <body>
@@ -21,7 +21,7 @@
   <header class="app-navbar">
     <div class="container-fluid d-flex align-items-center justify-content-between">
       <div class="d-flex align-items-center gap-4">
-        <a href="/" class="brand-badge">
+        <a href="{{basePath}}/" class="brand-badge">
           <div class="brand-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
@@ -35,14 +35,14 @@
         </a>
         {{if .User}}
         <nav class="d-flex align-items-center gap-1">
-          <a href="/" class="nav-pill-link {{if eq .CurrentPath "/"}}active{{end}}">ダッシュボード</a>
-          <a href="/knowledge" class="nav-pill-link {{if eq .CurrentPath "/knowledge"}}active{{end}}">ナレッジ管理</a>
-          <a href="/rag-test" class="nav-pill-link {{if eq .CurrentPath "/rag-test"}}active{{end}}">RAGテスト</a>
-          <a href="/zero-hit-queries" class="nav-pill-link {{if eq .CurrentPath "/zero-hit-queries"}}active{{end}}">未解決クエリ</a>
+          <a href="{{basePath}}/" class="nav-pill-link {{if eq .CurrentPath "/"}}active{{end}}">ダッシュボード</a>
+          <a href="{{basePath}}/knowledge" class="nav-pill-link {{if eq .CurrentPath "/knowledge"}}active{{end}}">ナレッジ管理</a>
+          <a href="{{basePath}}/rag-test" class="nav-pill-link {{if eq .CurrentPath "/rag-test"}}active{{end}}">RAGテスト</a>
+          <a href="{{basePath}}/zero-hit-queries" class="nav-pill-link {{if eq .CurrentPath "/zero-hit-queries"}}active{{end}}">未解決クエリ</a>
           {{if hasRole .User "admin"}}
-          <a href="/api-keys" class="nav-pill-link {{if eq .CurrentPath "/api-keys"}}active{{end}}">APIキー</a>
-          <a href="/models" class="nav-pill-link {{if eq .CurrentPath "/models"}}active{{end}}">モデル管理</a>
-          <a href="/users" class="nav-pill-link {{if eq .CurrentPath "/users"}}active{{end}}">ユーザー・グループ管理</a>
+          <a href="{{basePath}}/api-keys" class="nav-pill-link {{if eq .CurrentPath "/api-keys"}}active{{end}}">APIキー</a>
+          <a href="{{basePath}}/models" class="nav-pill-link {{if eq .CurrentPath "/models"}}active{{end}}">モデル管理</a>
+          <a href="{{basePath}}/users" class="nav-pill-link {{if eq .CurrentPath "/users"}}active{{end}}">ユーザー・グループ管理</a>
           {{end}}
         </nav>
         {{end}}
@@ -59,12 +59,12 @@
               {{.User.GetEffectiveName}}
             </span>
           </div>
-          <a href="/logout" class="btn-modern-secondary text-decoration-none px-3" style="font-size: 0.85rem;">
+          <a href="{{basePath}}/logout" class="btn-modern-secondary text-decoration-none px-3" style="font-size: 0.85rem;">
             ログアウト
           </a>
         </div>
         {{else}}
-        <a href="/login" class="btn-modern-primary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
+        <a href="{{basePath}}/login" class="btn-modern-primary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
           ログイン
         </a>
         {{end}}
