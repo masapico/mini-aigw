@@ -75,7 +75,7 @@ func (h *KnowledgeHandler) ShowKnowledge(w http.ResponseWriter, r *http.Request)
 		filterGroups = append(filterGroups, user.GetGroups()...)
 	}
 
-	data := h.buildTableData(r, user, isAdmin, filterGroups)
+	data := h.buildTableData(r, user, isAdmin)
 	data["User"] = user
 	data["IsAdmin"] = isAdmin
 	data["CurrentPath"] = "/knowledge"
@@ -97,20 +97,7 @@ func (h *KnowledgeHandler) RenderTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isAdmin := user.HasRole("admin")
-	var filterGroups []string
-	if isAdmin {
-		filterGroups = append(filterGroups, "public")
-		var allGroups []models.Group
-		h.db.Find(&allGroups)
-		for _, g := range allGroups {
-			filterGroups = append(filterGroups, g.Name)
-		}
-	} else {
-		filterGroups = append(filterGroups, "public")
-		filterGroups = append(filterGroups, user.GetGroups()...)
-	}
-
-	data := h.buildTableData(r, user, isAdmin, filterGroups)
+	data := h.buildTableData(r, user, isAdmin)
 	data["User"] = user
 	data["IsAdmin"] = isAdmin
 
@@ -120,7 +107,7 @@ func (h *KnowledgeHandler) RenderTable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *KnowledgeHandler) buildTableData(r *http.Request, user *models.User, isAdmin bool, filterGroups []string) map[string]interface{} {
+func (h *KnowledgeHandler) buildTableData(r *http.Request, user *models.User, isAdmin bool) map[string]interface{} {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {
 		page = 1
