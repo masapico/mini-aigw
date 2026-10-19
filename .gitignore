@@ -2,8 +2,8 @@
 bin/
 dist/
 *.exe
-mini-aigw
-miniaigw
+/mini-aigw
+/miniaigw
 xberg-cli/
 
 # Environment files

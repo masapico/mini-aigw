@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -26,8 +27,17 @@ func LoadDataset(filePath string) ([]TestCase, error) {
 	}
 	defer file.Close()
 
+	cases, err := ParseDataset(file)
+	if err != nil {
+		return nil, fmt.Errorf("error in dataset file '%s': %w", filePath, err)
+	}
+	return cases, nil
+}
+
+// ParseDataset は io.Reader から JSONL 形式の評価データセットを読み込み・検証します
+func ParseDataset(r io.Reader) ([]TestCase, error) {
 	var testCases []TestCase
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	lineNum := 0
 
 	for scanner.Scan() {
@@ -58,11 +68,11 @@ func LoadDataset(filePath string) ([]TestCase, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading dataset file: %w", err)
+		return nil, fmt.Errorf("error reading dataset: %w", err)
 	}
 
 	if len(testCases) == 0 {
-		return nil, fmt.Errorf("dataset file '%s' contains no valid test cases", filePath)
+		return nil, fmt.Errorf("dataset contains no valid test cases")
 	}
 
 	return testCases, nil

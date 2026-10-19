@@ -1,0 +1,320 @@
+{{template "base" .}}
+
+{{define "title"}}品質評価レポート - mini-aigw{{end}}
+
+{{define "content"}}
+<div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+  <div>
+    <h3 class="fw-bold mb-1">RAG 品質評価・モデル比較 (Evaluation Reports)</h3>
+    <p class="text-muted small mb-0">ナレッジ検索精度 (Hit@K, MRR, 権限分離) と LLM 回答品質 (忠実度・引用遵守率) の評価レポート管理</p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button
+      class="btn-modern-primary py-2 px-3 d-inline-flex align-items-center gap-2"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#runEvalCollapse"
+      aria-expanded="false"
+      aria-controls="runEvalCollapse"
+    >
+      <i class="bi bi-play-circle-fill"></i>
+      <span>新規評価を実行</span>
+    </button>
+  </div>
+</div>
+
+<!-- ジョブ進捗ステータス (HTMX ポーリング) -->
+{{template "eval_job_status.html" .}}
+
+<!-- 新規評価実行フォーム (折りたたみパネル) -->
+<div class="collapse mb-4" id="runEvalCollapse">
+  <div class="modern-card border-primary border-opacity-25 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+      <h5 class="fw-bold mb-0 text-primary-emphasis d-flex align-items-center gap-2">
+        <i class="bi bi-sliders"></i> 新規 RAG 評価ジョブの設定
+      </h5>
+      <span class="text-muted small">バックグラウンドでテストケースを順次検証し、レポートを生成します</span>
+    </div>
+
+    <form
+      hx-post="{{basePath}}/eval-reports/run"
+      hx-target="#eval-job-status-container"
+      hx-swap="outerHTML"
+      enctype="multipart/form-data"
+      hx-indicator="#eval-run-spinner"
+    >
+      <div class="row g-3">
+        <!-- 評価モード -->
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-secondary">評価モード</label>
+          <select class="form-select form-select-modern" name="mode" id="evalModeSelect">
+            <option value="e2e" selected>E2E 評価 (検索 + モデル回答生成 & 採点)</option>
+            <option value="retrieve">検索単体評価 (Retriever Hit@K & 権限分離のみ)</option>
+          </select>
+          <div class="form-text small text-muted">E2E では複数モデルのレイテンシ・トークン・忠実度を比較します</div>
+        </div>
+
+        <!-- データセット指定方式 -->
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-secondary">既存データセット選択</label>
+          <select class="form-select form-select-modern" name="selected_dataset">
+            {{range .Datasets}}
+            <option value="{{.}}">{{.}}</option>
+            {{else}}
+            <option value="">(サーバー内に .jsonl なし)</option>
+            {{end}}
+          </select>
+          <div class="form-text small text-muted"><code>{{.Config.EvalDatasetsDir}}/</code> 内の JSONL</div>
+        </div>
+
+        <!-- データセットアップロード -->
+        <div class="col-12 col-md-4">
+          <label class="form-label small fw-semibold text-secondary">または JSONL ファイルをアップロード</label>
+          <input
+            type="file"
+            class="form-control form-control-modern"
+            name="dataset_file"
+            accept=".jsonl"
+          >
+          <div class="form-text small text-muted">指定した場合はこちらを優先して実行します</div>
+        </div>
+
+        <!-- 比較対象モデル (E2E用) -->
+        <div class="col-12 col-md-6" id="modelsSelectGroup">
+          <label class="form-label small fw-semibold text-secondary">比較対象モデル (複数選択可)</label>
+          <div class="d-flex flex-wrap gap-3 p-2 bg-light rounded border">
+            {{range .Models}}
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                name="models"
+                value="{{.ID}}"
+                id="model_{{.ID}}"
+                checked
+              >
+              <label class="form-check-label small fw-medium" for="model_{{.ID}}">
+                {{.Name}} <span class="text-muted" style="font-size: 0.75rem;">({{.ID}})</span>
+              </label>
+            </div>
+            {{end}}
+          </div>
+        </div>
+
+        <!-- Judge モデル -->
+        <div class="col-12 col-md-6" id="judgeModelGroup">
+          <label class="form-label small fw-semibold text-secondary">LLM-as-a-Judge 採点モデル</label>
+          <select class="form-select form-select-modern" name="judge_model">
+            <option value="">ルールベース自動採点 (追加LLMコストゼロ・高速)</option>
+            {{range .Models}}
+            <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
+            {{end}}
+          </select>
+          <div class="form-text small text-muted">未指定時は忠実度・適合度・正確性をルールベースで自動採点</div>
+        </div>
+
+        <!-- 検索パラメータ & Dry-run -->
+        <div class="col-6 col-md-3">
+          <label class="form-label small fw-semibold text-secondary">取得件数 (Top-K)</label>
+          <input
+            type="number"
+            class="form-control form-control-modern"
+            name="top_k"
+            value="{{.DefaultTopK}}"
+            min="1"
+            max="20"
+          >
+        </div>
+
+        <div class="col-6 col-md-3">
+          <label class="form-label small fw-semibold text-secondary">スコア閾値 (Threshold)</label>
+          <input
+            type="number"
+            class="form-control form-control-modern"
+            name="score_threshold"
+            value="{{.DefaultScore}}"
+            step="0.05"
+            min="0"
+            max="1"
+          >
+        </div>
+
+        <div class="col-12 col-md-6 d-flex align-items-center">
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" role="switch" name="dry_run" id="dryRunSwitch">
+            <label class="form-check-label small fw-semibold" for="dryRunSwitch">
+              Dry-Run モード (AWS API を呼び出さずモックで即時検証)
+            </label>
+            <div class="text-muted" style="font-size: 0.75rem;">画面表示やフロー確認用（AWS課金ゼロ）</div>
+          </div>
+        </div>
+
+        <!-- 送信ボタン -->
+        <div class="col-12 d-flex justify-content-end gap-2 pt-2 border-top">
+          <button
+            type="button"
+            class="btn-modern-secondary px-3 py-2"
+            data-bs-toggle="collapse"
+            data-bs-target="#runEvalCollapse"
+          >
+            キャンセル
+          </button>
+          <button type="submit" class="btn-modern-primary px-4 py-2 d-inline-flex align-items-center gap-2">
+            <span class="spinner-border spinner-border-sm d-none" id="eval-run-spinner" role="status"></span>
+            <i class="bi bi-play-fill fs-5"></i>
+            <span>評価ジョブを開始</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- レポート一覧テーブル -->
+<div class="modern-card">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">過去の評価レポート一覧</h5>
+    <span class="text-muted small">全 {{len .Reports}} 件</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr class="table-light">
+          <th style="min-width: 180px;">レポートID / 実行日時</th>
+          <th>データセット</th>
+          <th>比較モデル</th>
+          <th class="text-center">Hit@K</th>
+          <th class="text-center">MRR</th>
+          <th class="text-center">権限分離</th>
+          <th class="text-end" style="min-width: 220px;">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Reports}}
+        <tr id="report-row-{{.ID}}">
+          <td>
+            <a href="{{basePath}}/eval-reports/{{.ID}}" class="fw-bold text-decoration-none text-primary">
+              {{.ID}}
+            </a>
+            <div class="text-muted small">
+              <i class="bi bi-clock me-1"></i>{{formatTime .Timestamp}}
+            </div>
+          </td>
+          <td>
+            <div class="fw-medium text-truncate" style="max-width: 240px;" title="{{.DatasetPath}}">
+              {{.DatasetPath}}
+            </div>
+            <div class="text-muted small">{{.TotalCases}} 件 (Top-K: {{.TopK}})</div>
+          </td>
+          <td>
+            {{if .Models}}
+            <div class="d-flex flex-wrap gap-1" style="max-width: 260px;">
+              {{range .Models}}
+              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.72rem;">{{.}}</span>
+              {{end}}
+            </div>
+            {{else}}
+            <span class="text-muted small">検索単体 (Retriever)</span>
+            {{end}}
+          </td>
+          <td class="text-center">
+            <span class="badge {{if ge .HitAtKRate 80.0}}bg-success-subtle text-success{{else}}bg-warning-subtle text-warning{{end}} rounded-pill fw-bold">
+              {{formatPercent .HitAtKRate}}
+            </span>
+          </td>
+          <td class="text-center">
+            <span class="fw-semibold text-secondary">
+              {{formatScore .MeanReciprocalRank}}
+            </span>
+          </td>
+          <td class="text-center">
+            {{if eq .TotalLeaks 0}}
+            <span class="badge bg-success-subtle text-success rounded-pill fw-semibold">
+              <i class="bi bi-shield-check me-1"></i>0件 (完全分離)
+            </span>
+            {{else}}
+            <span class="badge bg-danger-subtle text-danger rounded-pill fw-semibold">
+              <i class="bi bi-shield-x me-1"></i>{{.TotalLeaks}}件 リーク
+            </span>
+            {{end}}
+          </td>
+          <td class="text-end">
+            <div class="btn-group btn-group-sm">
+              <a
+                href="{{basePath}}/eval-reports/{{.ID}}"
+                class="btn btn-outline-primary"
+                title="ダッシュボード形式で詳細表示"
+              >
+                <i class="bi bi-layout-text-window-reverse"></i> 詳細
+              </a>
+              {{if .HasHTML}}
+              <a
+                href="{{basePath}}/eval-reports/{{.ID}}/raw"
+                target="_blank"
+                class="btn btn-outline-secondary"
+                title="自己完結型 HTML レポートを別タブでプレビュー"
+              >
+                <i class="bi bi-box-arrow-up-right"></i> HTML
+              </a>
+              {{end}}
+              <div class="btn-group btn-group-sm" role="group">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary dropdown-toggle"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  title="ダウンロード"
+                >
+                  <i class="bi bi-download"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                  {{if .HasHTML}}
+                  <li>
+                    <a class="dropdown-item small" href="{{basePath}}/eval-reports/{{.ID}}/download?format=html">
+                      <i class="bi bi-filetype-html me-2 text-primary"></i>HTML レポート (.html)
+                    </a>
+                  </li>
+                  {{end}}
+                  {{if .HasMD}}
+                  <li>
+                    <a class="dropdown-item small" href="{{basePath}}/eval-reports/{{.ID}}/download?format=md">
+                      <i class="bi bi-markdown me-2 text-info"></i>Markdown レポート (.md)
+                    </a>
+                  </li>
+                  {{end}}
+                  {{if .HasJSON}}
+                  <li>
+                    <a class="dropdown-item small" href="{{basePath}}/eval-reports/{{.ID}}/download?format=json">
+                      <i class="bi bi-filetype-json me-2 text-warning"></i>生データ JSON (.json)
+                    </a>
+                  </li>
+                  {{end}}
+                </ul>
+              </div>
+              <button
+                class="btn btn-outline-danger"
+                title="削除"
+                hx-delete="{{basePath}}/eval-reports/{{.ID}}"
+                hx-confirm="レポート '{{.ID}}' を削除しますか？ (HTML, Markdown, JSON の全ファイルが削除されます)"
+                hx-target="#report-row-{{.ID}}"
+                hx-swap="outerHTML"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {{else}}
+        <tr>
+          <td colspan="7" class="text-center py-5 text-muted">
+            <i class="bi bi-file-earmark-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
+            まだ評価レポートがありません。「新規評価を実行」から評価を開始してください。
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}

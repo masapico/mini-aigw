@@ -158,6 +158,12 @@ func InitRenderer(basePaths ...string) (*Renderer, error) {
 			}
 			return clean
 		},
+		"formatPercent": func(v float64) string {
+			return fmt.Sprintf("%.1f%%", v)
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
 	}
 
 	r.funcMap = funcMap
@@ -172,6 +178,8 @@ func InitRenderer(basePaths ...string) (*Renderer, error) {
 		"users.html",
 		"login.html",
 		"zero_hit_queries.html",
+		"eval_reports.html",
+		"eval_report_detail.html",
 	}
 
 	for _, page := range pages {

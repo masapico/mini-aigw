@@ -89,8 +89,9 @@ type RunOptions struct {
 	JudgeModelID   string
 	TopK           int
 	ScoreThreshold float64
-	Mode           string // "retrieve" or "e2e"
-	DryRun         bool   // AWS 呼び出しを行わずモック動作
+	Mode           string                                     // "retrieve" or "e2e"
+	DryRun         bool                                       // AWS 呼び出しを行わずモック動作
+	OnProgress     func(current, total int, query string)     // 進捗通知コールバック
 }
 
 // Run は指定されたオプションに従って評価を実行します
@@ -115,6 +116,9 @@ func (r *Runner) Run(ctx context.Context, opts RunOptions) (*EvalReportData, err
 	var totalLeaksCount int
 
 	for i, tc := range opts.TestCases {
+		if opts.OnProgress != nil {
+			opts.OnProgress(i+1, len(opts.TestCases), tc.Query)
+		}
 		log.Printf("[%d/%d] Evaluating query: '%s' (Group: %s)", i+1, len(opts.TestCases), tc.Query, tc.Group)
 
 		caseRes := &TestCaseResult{

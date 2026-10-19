@@ -196,7 +196,7 @@ func buildAndPackage(
 	ldflags := fmt.Sprintf("-s -w -X mini-aigw/internal/version.Version=%s -X mini-aigw/internal/version.GitCommit=%s -X mini-aigw/internal/version.BuildTime=%s",
 		version, gitCommit, buildTime)
 
-	cmd := exec.Command("go", "build", "-ldflags", ldflags, "-o", binPath, "./cmd/server")
+	cmd := exec.Command("go", "build", "-ldflags", ldflags, "-o", binPath, "./cmd/mini-aigw")
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
 		"GOOS="+target.OS,

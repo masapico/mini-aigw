@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"mini-aigw/internal/config"
 	"mini-aigw/internal/db"
+	"mini-aigw/internal/eval"
 	"mini-aigw/internal/services"
 	"mini-aigw/internal/version"
 	"mini-aigw/internal/views"
@@ -55,9 +56,11 @@ func TestFullRouterEndpoints(t *testing.T) {
 	awsBundle, _ := services.NewAWSClientBundle(context.Background(), cfg)
 	bedrockSvc := services.NewBedrockService(awsBundle, xberg, cfg)
 	knowledgeSvc := services.NewKnowledgeService(awsBundle, database, cfg)
+	ragPipeline := services.NewRAGPipeline(bedrockSvc, knowledgeSvc, cfg)
+	evalSvc := eval.NewService(cfg, ragPipeline, bedrockSvc)
 	oidcSvc, _ := services.NewOIDCService(context.Background(), cfg)
 
-	router := SetupRouter(cfg, database, renderer, bedrockSvc, knowledgeSvc, oidcSvc)
+	router := SetupRouter(cfg, database, renderer, bedrockSvc, knowledgeSvc, oidcSvc, evalSvc)
 
 	// 1. Test /health
 	t.Run("GET /health", func(t *testing.T) {
@@ -234,7 +237,7 @@ func TestFullRouterEndpoints(t *testing.T) {
 		if err != nil {
 			t.Fatalf("InitRenderer with BasePath failed: %v", err)
 		}
-		routerWithBase := SetupRouter(&cfgWithBase, database, rendererWithBase, bedrockSvc, knowledgeSvc, oidcSvc)
+		routerWithBase := SetupRouter(&cfgWithBase, database, rendererWithBase, bedrockSvc, knowledgeSvc, oidcSvc, evalSvc)
 
 		// Test /aigw/health
 		req1 := httptest.NewRequest(http.MethodGet, "/aigw/health", nil)

@@ -61,6 +61,10 @@ type Config struct {
 
 	// Document Extraction (xberg)
 	XbergPath string
+
+	// RAG Evaluation
+	EvalReportsDir  string
+	EvalDatasetsDir string
 }
 
 var AppConfig *Config
@@ -110,6 +114,8 @@ func LoadConfig() *Config {
 		OIDCEndSessionEndpoint: getEnv("OIDC_END_SESSION_ENDPOINT", ""),
 
 		XbergPath: getEnv("XBERG_PATH", "xberg"),
+		EvalReportsDir:  getEnv("EVAL_REPORTS_DIR", "eval_reports"),
+		EvalDatasetsDir: getEnv("EVAL_DATASETS_DIR", "testdata/eval"),
 	}
 
 	if tempStr := os.Getenv("DEFAULT_TEMPERATURE"); tempStr != "" {

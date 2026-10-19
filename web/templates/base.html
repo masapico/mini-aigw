@@ -17,40 +17,80 @@
   {{block "extra_head" .}}{{end}}
 </head>
 <body>
-  <!-- ナビゲーションバー -->
-  <header class="app-navbar">
-    <div class="container-fluid d-flex align-items-center justify-content-between">
-      <div class="d-flex align-items-center gap-4">
-        <a href="{{basePath}}/" class="brand-badge">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
-              <circle cx="19" cy="6" r="2" fill="currentColor" stroke="none" />
-              <circle cx="19" cy="18" r="2" fill="currentColor" stroke="none" />
-              <path d="M7.5 12h3c2 0 3.5-5 5.5-6h2" />
-              <path d="M7.5 12h3c2 0 3.5 5 5.5 6h2" />
-            </svg>
-          </div>
-          <span>mini-aigw</span>
-        </a>
-        {{if .User}}
-        <nav class="d-flex align-items-center gap-1">
+  <!-- ナビゲーションバー (レスポンシブ最適化) -->
+  <nav class="navbar navbar-expand-lg app-navbar">
+    <div class="container-fluid">
+      <a href="{{basePath}}/" class="brand-badge me-3">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
+            <circle cx="19" cy="6" r="2" fill="currentColor" stroke="none" />
+            <circle cx="19" cy="18" r="2" fill="currentColor" stroke="none" />
+            <path d="M7.5 12h3c2 0 3.5-5 5.5-6h2" />
+            <path d="M7.5 12h3c2 0 3.5 5 5.5 6h2" />
+          </svg>
+        </div>
+        <span>mini-aigw</span>
+      </a>
+
+      {{if .User}}
+      <button
+        class="navbar-toggler border-0 shadow-none px-2"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#appNavbarCollapse"
+        aria-controls="appNavbarCollapse"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse mt-2 mt-lg-0" id="appNavbarCollapse">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-1 me-auto">
           <a href="{{basePath}}/" class="nav-pill-link {{if eq .CurrentPath "/"}}active{{end}}">ダッシュボード</a>
           <a href="{{basePath}}/knowledge" class="nav-pill-link {{if eq .CurrentPath "/knowledge"}}active{{end}}">ナレッジ管理</a>
           <a href="{{basePath}}/rag-test" class="nav-pill-link {{if eq .CurrentPath "/rag-test"}}active{{end}}">RAGテスト</a>
           <a href="{{basePath}}/zero-hit-queries" class="nav-pill-link {{if eq .CurrentPath "/zero-hit-queries"}}active{{end}}">未解決クエリ</a>
+
           {{if hasRole .User "admin"}}
-          <a href="{{basePath}}/api-keys" class="nav-pill-link {{if eq .CurrentPath "/api-keys"}}active{{end}}">APIキー</a>
-          <a href="{{basePath}}/models" class="nav-pill-link {{if eq .CurrentPath "/models"}}active{{end}}">モデル管理</a>
-          <a href="{{basePath}}/users" class="nav-pill-link {{if eq .CurrentPath "/users"}}active{{end}}">ユーザー・グループ管理</a>
+          <div class="dropdown">
+            <button
+              class="nav-pill-link dropdown-toggle border-0 bg-transparent w-100 text-start d-flex align-items-center justify-content-between gap-1 {{if or (eq .CurrentPath "/eval-reports") (eq .CurrentPath "/api-keys") (eq .CurrentPath "/models") (eq .CurrentPath "/users")}}active{{end}}"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <span><i class="bi bi-gear me-1"></i>管理メニュー</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-start shadow-sm border mt-1">
+              <li>
+                <a class="dropdown-item small py-2 {{if eq .CurrentPath "/eval-reports"}}active{{end}}" href="{{basePath}}/eval-reports">
+                  <i class="bi bi-clipboard2-check me-2 text-primary"></i>品質評価 (Eval Reports)
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item small py-2 {{if eq .CurrentPath "/api-keys"}}active{{end}}" href="{{basePath}}/api-keys">
+                  <i class="bi bi-key me-2 text-success"></i>APIキー管理
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item small py-2 {{if eq .CurrentPath "/models"}}active{{end}}" href="{{basePath}}/models">
+                  <i class="bi bi-cpu me-2 text-info"></i>モデル管理
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item small py-2 {{if eq .CurrentPath "/users"}}active{{end}}" href="{{basePath}}/users">
+                  <i class="bi bi-people me-2 text-warning"></i>ユーザー・グループ管理
+                </a>
+              </li>
+            </ul>
+          </div>
           {{end}}
-        </nav>
-        {{end}}
-      </div>
-      
-      <div>
-        {{if .User}}
-        <div class="d-flex align-items-center gap-3">
+        </div>
+
+        <div class="d-flex align-items-center gap-3 pt-2 pt-lg-0 border-top border-lg-0">
           <div class="d-flex align-items-center gap-2">
             <span class="badge-pill-modern badge-group">
               {{if eq .User.AuthType "oidc"}}SSO (OIDC){{else}}Local{{end}}
@@ -63,14 +103,16 @@
             ログアウト
           </a>
         </div>
-        {{else}}
+      </div>
+      {{else}}
+      <div>
         <a href="{{basePath}}/login" class="btn-modern-primary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
           ログイン
         </a>
-        {{end}}
       </div>
+      {{end}}
     </div>
-  </header>
+  </nav>
 
   <!-- メインコンテンツ -->
   <main class="container-fluid px-4 py-4" style="max-width: 1400px;">

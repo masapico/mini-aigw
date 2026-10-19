@@ -111,6 +111,17 @@ body {
   font-weight: 600;
 }
 
+.dropdown-item.active, .dropdown-item:active {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.dropdown-item:hover {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+
 /* Card */
 .modern-card {
   background: var(--bg-card);

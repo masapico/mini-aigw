@@ -10,10 +10,14 @@
 ```
 mini-aigw/
 ├── cmd/
-│   └── server/
-│       ├── main.go               # アプリケーションエントリポイント
-│       └── server_test.go        # サーバー起動・HTTPルーティング結合テスト
+│   ├── mini-aigw/
+│   │   └── main.go               # 統合CLI・サーバーエントリポイント
+│   ├── server/
+│   │   └── main.go               # サーバー起動エントリポイント (互換)
+│   └── eval/
+│       └── main.go               # 評価CLIエントリポイント (互換)
 ├── internal/
+│   ├── server/                   # サーバー初期化・ルーティング (SetupRouter)
 │   ├── api/
 │   │   ├── middleware/           # 認証・セッション・ロギングミドルウェア
 │   │   ├── v1/                   # OpenAI互換 API (/v1/chat/completions, /v1/models)
