@@ -4,6 +4,8 @@ dist/
 *.exe
 /mini-aigw
 /miniaigw
+/eval
+/evaluater
 xberg-cli/
 
 # Environment files
@@ -23,6 +25,4 @@ data/
 *~
 .idea/
 .vscode/
-eval
-evaluater
 plan.md
