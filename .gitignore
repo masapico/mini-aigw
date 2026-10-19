@@ -23,5 +23,6 @@ data/
 *~
 .idea/
 .vscode/
+eval
 evaluater
 plan.md
