@@ -60,31 +60,34 @@ func SeedInitialData(db *gorm.DB, cfg *config.Config) error {
 	if modelCount == 0 {
 		modelsList := []models.LLMModel{
 			{
-				ID:               "jp.amazon.nova-2-lite-v1:0",
-				Name:             "Amazon Nova 2 Lite",
-				Provider:         "bedrock",
-				InputPricePer1M:  0.06,
-				OutputPricePer1M: 0.24,
-				IsActive:         true,
-				IsDefault:        true,
+				ID:                  "jp.amazon.nova-2-lite-v1:0",
+				Name:                "Amazon Nova 2 Lite",
+				Provider:            "bedrock",
+				InputPricePer1M:     0.06,
+				OutputPricePer1M:    0.24,
+				SupportsTemperature: true,
+				IsActive:            true,
+				IsDefault:           true,
 			},
 			{
-				ID:               "amazon.nova-lite-v1:0",
-				Name:             "Amazon Nova Lite",
-				Provider:         "bedrock",
-				InputPricePer1M:  0.06,
-				OutputPricePer1M: 0.24,
-				IsActive:         true,
-				IsDefault:        false,
+				ID:                  "amazon.nova-lite-v1:0",
+				Name:                "Amazon Nova Lite",
+				Provider:            "bedrock",
+				InputPricePer1M:     0.06,
+				OutputPricePer1M:    0.24,
+				SupportsTemperature: true,
+				IsActive:            true,
+				IsDefault:           false,
 			},
 			{
-				ID:               "jp.anthropic.claude-haiku-5-5",
-				Name:             "Claude 3.5 Haiku",
-				Provider:         "bedrock",
-				InputPricePer1M:  0.80,
-				OutputPricePer1M: 4.00,
-				IsActive:         true,
-				IsDefault:        false,
+				ID:                  "jp.anthropic.claude-haiku-5-5",
+				Name:                "Claude Haiku 5.5",
+				Provider:            "bedrock",
+				InputPricePer1M:     0.80,
+				OutputPricePer1M:    4.00,
+				SupportsTemperature: false,
+				IsActive:            true,
+				IsDefault:           false,
 			},
 		}
 		for _, m := range modelsList {
@@ -102,6 +105,11 @@ func SeedInitialData(db *gorm.DB, cfg *config.Config) error {
 		db.Model(&models.LLMModel{}).Where("id LIKE ? AND input_price_per_1m = 0", "%claude%haiku%").Updates(map[string]interface{}{
 			"input_price_per_1m":  0.80,
 			"output_price_per_1m": 4.00,
+		})
+		// Claude Haiku 5.5 等のサンプリング非対応モデルの設定を更新
+		db.Model(&models.LLMModel{}).Where("id LIKE ?", "%claude-haiku-5%").Updates(map[string]interface{}{
+			"supports_temperature": false,
+			"name":                 "Claude Haiku 5.5",
 		})
 	}
 

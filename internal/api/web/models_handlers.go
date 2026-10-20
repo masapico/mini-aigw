@@ -10,16 +10,22 @@ import (
 
 	"mini-aigw/internal/api/middleware"
 	"mini-aigw/internal/models"
+	"mini-aigw/internal/services"
 	"mini-aigw/internal/views"
 )
 
 type WebModelsHandler struct {
-	db       *gorm.DB
-	renderer *views.Renderer
+	db         *gorm.DB
+	renderer   *views.Renderer
+	bedrockSvc *services.BedrockService
 }
 
-func NewWebModelsHandler(db *gorm.DB, renderer *views.Renderer) *WebModelsHandler {
-	return &WebModelsHandler{db: db, renderer: renderer}
+func NewWebModelsHandler(db *gorm.DB, renderer *views.Renderer, bedrockSvc ...*services.BedrockService) *WebModelsHandler {
+	h := &WebModelsHandler{db: db, renderer: renderer}
+	if len(bedrockSvc) > 0 && bedrockSvc[0] != nil {
+		h.bedrockSvc = bedrockSvc[0]
+	}
+	return h
 }
 
 func (h *WebModelsHandler) ShowModels(w http.ResponseWriter, r *http.Request) {
@@ -85,18 +91,29 @@ func (h *WebModelsHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	supportsTemperature := true
+	if r.FormValue("supports_temperature_submitted") == "1" {
+		supportsTemperature = (r.FormValue("supports_temperature") == "true" || r.FormValue("supports_temperature") == "on")
+	} else if r.Form.Has("supports_temperature") {
+		supportsTemperature = (r.FormValue("supports_temperature") == "true" || r.FormValue("supports_temperature") == "on")
+	}
+
 	m := models.LLMModel{
-		ID:               modelID,
-		Name:             name,
-		Provider:         provider,
-		Description:      descPtr,
-		InputPricePer1M:  inputPrice,
-		OutputPricePer1M: outputPrice,
-		IsActive:         true,
+		ID:                  modelID,
+		Name:                name,
+		Provider:            provider,
+		Description:         descPtr,
+		InputPricePer1M:     inputPrice,
+		OutputPricePer1M:    outputPrice,
+		SupportsTemperature: supportsTemperature,
+		IsActive:            true,
 	}
 	if err := h.db.Create(&m).Error; err != nil {
 		h.renderSectionWithError(w, fmt.Sprintf("登録失敗: %v", err))
 		return
+	}
+	if h.bedrockSvc != nil {
+		h.bedrockSvc.InvalidateSamplingCache(modelID)
 	}
 
 	h.renderSectionWithSuccess(w, fmt.Sprintf("モデル「%s」を登録しました", name))
@@ -140,9 +157,16 @@ func (h *WebModelsHandler) EditModel(w http.ResponseWriter, r *http.Request) {
 		m.OutputPricePer1M = outputPrice
 	}
 
+	if r.FormValue("supports_temperature_submitted") == "1" {
+		m.SupportsTemperature = (r.FormValue("supports_temperature") == "true" || r.FormValue("supports_temperature") == "on")
+	}
+
 	if err := h.db.Save(&m).Error; err != nil {
 		h.renderSectionWithError(w, fmt.Sprintf("更新失敗: %v", err))
 		return
+	}
+	if h.bedrockSvc != nil {
+		h.bedrockSvc.InvalidateSamplingCache(modelID)
 	}
 
 	h.renderSectionWithSuccess(w, fmt.Sprintf("モデル「%s」の設定を更新しました", m.Name))
@@ -158,6 +182,9 @@ func (h *WebModelsHandler) ToggleModel(w http.ResponseWriter, r *http.Request) {
 
 	m.IsActive = !m.IsActive
 	h.db.Save(&m)
+	if h.bedrockSvc != nil {
+		h.bedrockSvc.InvalidateSamplingCache(modelID)
+	}
 
 	statusStr := "有効化"
 	if !m.IsActive {

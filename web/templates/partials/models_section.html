@@ -18,6 +18,7 @@
         <th>表示名</th>
         <th>基盤モデル(profileId)</th>
         <th>プロバイダ</th>
+        <th>サンプリング</th>
         <th>単価 (USD / 1M)</th>
         <th>状態</th>
         <th>デフォルト</th>
@@ -36,6 +37,13 @@
         <td class="font-monospace text-muted small">{{$m.ID}}</td>
         <td>
           <span class="badge-pill-modern badge-group">{{$m.Provider}}</span>
+        </td>
+        <td>
+          {{if $m.SupportsTemperature}}
+          <span class="badge bg-light text-secondary border px-2 py-1 rounded-pill" title="Temperature/TopPを送信">Temp 送信</span>
+          {{else}}
+          <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill" title="サンプリング非対応 (モデル規定値を使用)">Temp 除外</span>
+          {{end}}
         </td>
         <td>
           <div class="small">
@@ -135,9 +143,21 @@
                         </div>
                       </div>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                       <label class="form-label small fw-semibold text-secondary">説明・メモ</label>
                       <input type="text" class="form-control form-control-modern" name="description" value="{{if $m.Description}}{{$m.Description}}{{end}}">
+                    </div>
+                    <div class="mb-2">
+                      <input type="hidden" name="supports_temperature_submitted" value="1">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="editSupportsTemp-{{$i}}" name="supports_temperature" value="true" {{if $m.SupportsTemperature}}checked{{end}}>
+                        <label class="form-check-label small fw-semibold text-secondary" for="editSupportsTemp-{{$i}}">
+                          Temperature (サンプリング) パラメータを送信する
+                        </label>
+                        <div class="form-text text-muted" style="font-size: 0.75rem;">
+                          オフにすると推論リクエストから temperature / top_p が除外されます（Claude Haiku 5.5 等）。
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="modal-footer border-top px-4 py-2">
@@ -152,7 +172,7 @@
       </tr>
       {{else}}
       <tr>
-        <td colspan="6" class="text-center py-5 text-muted">
+        <td colspan="8" class="text-center py-5 text-muted">
           登録された LLM モデルはありません。上部から新しく登録してください。
         </td>
       </tr>

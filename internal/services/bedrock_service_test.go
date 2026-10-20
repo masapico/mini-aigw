@@ -11,8 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockagentruntime"
 	bedrockTypes "github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 
 	"mini-aigw/internal/config"
+	"mini-aigw/internal/models"
 )
 
 type mockTransport struct {
@@ -212,6 +215,115 @@ func TestConvertOpenAIMessagesToBedrock_Attachments(t *testing.T) {
 	}
 	if imgBlock.Value.Format != bedrockTypes.ImageFormatPng {
 		t.Errorf("expected PNG format, got %v", imgBlock.Value.Format)
+	}
+}
+
+func TestBuildInferenceConfigForModel_SamplingUnsupported(t *testing.T) {
+	cfg := &config.Config{
+		DefaultMaxTokens:   2048,
+		MaxAllowedTokens:   4096,
+		DefaultTemperature: nil,
+	}
+	svc := NewBedrockService(nil, nil, cfg)
+
+	temp := 0.7
+	topP := 0.9
+	maxTok := 1000
+
+	// 1. Model that does not support sampling (heuristic: jp.anthropic.claude-haiku-5-5)
+	confUnsupported := svc.BuildInferenceConfigForModel("jp.anthropic.claude-haiku-5-5", &temp, &topP, &maxTok)
+	if confUnsupported.Temperature != nil {
+		t.Errorf("expected Temperature to be nil for claude-haiku-5-5, got %v", *confUnsupported.Temperature)
+	}
+	if confUnsupported.TopP != nil {
+		t.Errorf("expected TopP to be nil for claude-haiku-5-5, got %v", *confUnsupported.TopP)
+	}
+	if confUnsupported.MaxTokens == nil || *confUnsupported.MaxTokens != 1000 {
+		t.Errorf("expected MaxTokens to be 1000, got %v", confUnsupported.MaxTokens)
+	}
+
+	// 2. Standard model that supports sampling
+	confSupported := svc.BuildInferenceConfigForModel("apac.amazon.nova-lite-v1:0", &temp, &topP, &maxTok)
+	if confSupported.Temperature == nil || *confSupported.Temperature != float32(temp) {
+		t.Errorf("expected Temperature to be %v, got %v", temp, confSupported.Temperature)
+	}
+	if confSupported.MaxTokens == nil || *confSupported.MaxTokens != 1000 {
+		t.Errorf("expected MaxTokens to be 1000, got %v", confSupported.MaxTokens)
+	}
+}
+
+func TestBuildInferenceConfigForModel_NilSafety(t *testing.T) {
+	defTemp := 0.5
+	cfg := &config.Config{
+		DefaultMaxTokens:   2048,
+		MaxAllowedTokens:   4096,
+		DefaultTemperature: &defTemp,
+	}
+	svc := NewBedrockService(nil, nil, cfg)
+
+	topP := 0.8
+	// temperature is nil, but DefaultTemperature is set, and topP is set
+	// This previously risked nil-pointer dereference (*temperature == 1.0)
+	conf := svc.BuildInferenceConfigForModel("standard-model", nil, &topP, nil)
+	if conf.Temperature == nil || *conf.Temperature != float32(defTemp) {
+		t.Errorf("expected Temperature to be default %v, got %v", defTemp, conf.Temperature)
+	}
+}
+
+func TestSupportsTemperature_DBIntegration(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open memory sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&models.LLMModel{}); err != nil {
+		t.Fatalf("failed to auto migrate: %v", err)
+	}
+
+	// Insert models: one with SupportsTemperature = false, one with true
+	m1 := models.LLMModel{
+		ID:                  "custom.model.no-temp",
+		Name:                "Custom Model No Temp",
+		SupportsTemperature: false,
+		IsActive:            true,
+	}
+	m2 := models.LLMModel{
+		ID:                  "custom.model.with-temp",
+		Name:                "Custom Model With Temp",
+		SupportsTemperature: true,
+		IsActive:            true,
+	}
+	db.Create(&m1)
+	db.Create(&m2)
+
+	cfg := &config.Config{DefaultMaxTokens: 1024, MaxAllowedTokens: 4096}
+	svc := NewBedrockService(nil, nil, cfg, db)
+
+	// Verify DB lookup
+	if svc.SupportsTemperature("custom.model.no-temp") {
+		t.Errorf("expected SupportsTemperature to be false for custom.model.no-temp")
+	}
+	if !svc.SupportsTemperature("custom.model.with-temp") {
+		t.Errorf("expected SupportsTemperature to be true for custom.model.with-temp")
+	}
+
+	// Verify BuildInferenceConfigForModel respects DB flag
+	temp := 0.7
+	confNoTemp := svc.BuildInferenceConfigForModel("custom.model.no-temp", &temp, nil, nil)
+	if confNoTemp.Temperature != nil {
+		t.Errorf("expected Temperature to be nil for custom.model.no-temp")
+	}
+
+	confWithTemp := svc.BuildInferenceConfigForModel("custom.model.with-temp", &temp, nil, nil)
+	if confWithTemp.Temperature == nil {
+		t.Errorf("expected Temperature to be non-nil for custom.model.with-temp")
+	}
+
+	// Update DB and invalidate cache
+	db.Model(&models.LLMModel{}).Where("id = ?", "custom.model.no-temp").Update("supports_temperature", true)
+	svc.InvalidateSamplingCache("custom.model.no-temp")
+
+	if !svc.SupportsTemperature("custom.model.no-temp") {
+		t.Errorf("expected SupportsTemperature to be true after DB update and cache invalidation")
 	}
 }
 

@@ -98,6 +98,19 @@
         >
       </div>
 
+      <div class="col-12 col-md-6">
+        <input type="hidden" name="supports_temperature_submitted" value="1">
+        <div class="form-check form-switch pt-2">
+          <input class="form-check-input" type="checkbox" id="supportsTemperatureInput" name="supports_temperature" value="true" checked>
+          <label class="form-check-label small fw-semibold text-secondary" for="supportsTemperatureInput">
+            Temperature (サンプリング) パラメータを送信する
+          </label>
+          <div class="form-text text-muted" style="font-size: 0.75rem;">
+            Claude Haiku 5.5 等の新世代モデルではオフ（渡さない）にします。
+          </div>
+        </div>
+      </div>
+
       <div class="col-12 col-md-3 ms-auto d-flex align-items-end">
         <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
           <span class="spinner-border spinner-border-sm htmx-indicator" id="model-spinner" role="status"></span>

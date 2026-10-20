@@ -212,11 +212,12 @@ aws pricing get-products --region us-east-1 --service-code AmazonBedrockFoundati
 1. ブラウザで `mini-aigw` 管理画面（`http://localhost:8000/models`）にアクセスします。
 2. **「新規モデルの登録」** フォームに以下を入力します：
    - **Bedrock モデル ID / ARN**: 取得した `profileId` を入力（例: `jp.anthropic.claude-haiku-5-5`）
-   - **表示名**: 利用者にわかりやすい名前（例: `Claude 3.5 Sonnet v2`）
+   - **表示名**: 利用者にわかりやすい名前（例: `Claude 3.5 Sonnet v2` または `Claude Haiku 5.5`）
    - **プロバイダ**: `bedrock`（既定値）
+   - **Temperature (サンプリング) パラメータ送信**: 通常モデルは ON（送信）。Claude Haiku 5.5 や Claude Sonnet 5 等の新世代モデルでは **OFF（除外）** に設定します。
    - **説明・用途メモ (任意)**: モデルの特徴や用途（例: `高性能推論・コード生成用フラグシップモデル`）
 3. **「モデルを登録」** をクリックします。
-4. 登録されたモデルの行で **「既定にする」** をクリックすると、システム全体のデフォルトモデルとして設定できます。また、「無効化」ボタンでクライアントへの露出を一時停止できます。
+4. 登録されたモデルの行で **「既定にする」** をクリックすると、システム全体のデフォルトモデルとして設定できます。「編集」から後からサンプリング送信フラグや単価を変更することも可能です。また、「無効化」ボタンでクライアントへの露出を一時停止できます。
 
 ```mermaid
 flowchart LR
@@ -293,6 +294,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 | **`AccessDeniedException`**<br>`<model_id> is not available for this account.`<br>`... contact AWS Sales at https://...` | AWS 側によるアカウント単位のモデル提供制限（アカウント利用実績・キャパシティ要因）、またはサービスクォータが 0。 | **IAM 権限不足ではありません。**<br>1. まずは広く一般開放されているモデル（`apac.amazon.nova-lite-v1:0`, `jp.amazon.nova-2-lite-v1:0`, `apac.anthropic.claude-3-5-sonnet-20241022-v2:0` 等）で動作確認を行ってください。<br>2. Bedrock コンソールの Playground でモデル選択時に初回利用規約（EULA）やユースケース送信（Use case details）が求められないか確認してください。<br>3. Service Quotas で該当モデルのクォータを確認・申請するか、必要に応じて AWS Sales 窓口または AWS サポートへご相談ください（詳細は [2.3 特定モデルにおけるアカウント別提供制限](#23-特定モデルにおけるアカウント別提供制限-is-not-available-for-this-account) 参照）。 |
 | **`AccessDeniedException`**<br>`User: ... is not authorized to perform: bedrock:InvokeModel` | EC2 の IAM ロールに対象モデルの推論権限がない、または SCP 等で拒否されている。 | EC2 の IAM ロールに `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` が許可されているか（SCP 等でブロックされていないか）確認してください。 |
 | **`ValidationException`**<br>`The provided model identifier is invalid.` | `profileId` または `modelId` のスペルミス、またはリージョン非対応。 | `aws bedrock list-inference-profiles` の出力結果から `profileId` の文字列をそのままコピー＆ペーストしてください。 |
+| **`ValidationException`**<br>`The model returned the following errors: temperature is deprecated for this model` | Claude Haiku 5.5（`claude-haiku-5-5`）や Sonnet 5、Opus 4.7 等の新世代モデルでは、`temperature` / `top_p` などの従来のサンプリングパラメータが廃止されています。 | 管理画面（`/models`）で該当モデルの「編集」を開き、**「Temperature (サンプリング) パラメータを送信する」を OFF（除外）** に設定してください。<br>これにより、クライアント（OpenAI SDK等）が `temperature` を指定して送ってきた場合でも、mini-aigw が Bedrock 向け payload からサンプリングパラメータを自動除外し、エラーなく推論を完遂させます。 |
 | **推論時にタイムアウト / 接続エラー** | 閉域 VPC 環境で VPC エンドポイント（`bedrock-runtime`）の通信が遮断されている。 | VPC エンドポイントのセキュリティグループ（443/TCP 受信許可）およびプライベート DNS が有効になっているか確認してください（詳細は [OFFLINE_DEPLOYMENT_GUIDE.md](OFFLINE_DEPLOYMENT_GUIDE.md) 参照）。 |
 
 ---

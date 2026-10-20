@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -19,23 +20,82 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	bedrockTypes "github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"mini-aigw/internal/config"
+	"mini-aigw/internal/models"
 	"mini-aigw/internal/prompts"
 )
 
 type BedrockService struct {
-	awsBundle *AWSClientBundle
-	xberg     *XbergService
-	cfg       *config.Config
+	awsBundle                 *AWSClientBundle
+	xberg                     *XbergService
+	cfg                       *config.Config
+	db                        *gorm.DB
+	samplingUnsupportedModels sync.Map
 }
 
-func NewBedrockService(awsBundle *AWSClientBundle, xberg *XbergService, cfg *config.Config) *BedrockService {
-	return &BedrockService{
+func NewBedrockService(awsBundle *AWSClientBundle, xberg *XbergService, cfg *config.Config, db ...*gorm.DB) *BedrockService {
+	svc := &BedrockService{
 		awsBundle: awsBundle,
 		xberg:     xberg,
 		cfg:       cfg,
 	}
+	if len(db) > 0 && db[0] != nil {
+		svc.db = db[0]
+	}
+	return svc
+}
+
+func (s *BedrockService) SetDB(db *gorm.DB) {
+	s.db = db
+}
+
+func (s *BedrockService) SetSamplingSupported(modelID string, supported bool) {
+	s.samplingUnsupportedModels.Store(modelID, !supported)
+}
+
+func (s *BedrockService) InvalidateSamplingCache(modelID string) {
+	s.samplingUnsupportedModels.Delete(modelID)
+}
+
+// SupportsTemperature returns whether the given model supports temperature/sampling parameters.
+func (s *BedrockService) SupportsTemperature(modelID string) bool {
+	if modelID == "" {
+		return true
+	}
+
+	// 1. Check in-memory cache
+	if val, ok := s.samplingUnsupportedModels.Load(modelID); ok {
+		if unsupported, isBool := val.(bool); isBool {
+			return !unsupported
+		}
+	}
+
+	// 2. Query database if available
+	if s.db != nil {
+		var modelRecord models.LLMModel
+		if err := s.db.Select("supports_temperature").First(&modelRecord, "id = ?", modelID).Error; err == nil {
+			s.samplingUnsupportedModels.Store(modelID, !modelRecord.SupportsTemperature)
+			return modelRecord.SupportsTemperature
+		}
+	}
+
+	// 3. Fallback heuristic for unregistered models
+	lower := strings.ToLower(modelID)
+	if strings.Contains(lower, "claude-haiku-5") ||
+		strings.Contains(lower, "claude-sonnet-5") ||
+		strings.Contains(lower, "claude-opus-5") ||
+		strings.Contains(lower, "claude-opus-4-7") ||
+		strings.Contains(lower, "claude-5-") ||
+		strings.Contains(lower, "claude-5.") ||
+		strings.Contains(lower, "claude-v5") ||
+		strings.Contains(lower, "anthropic.claude-haiku-5") {
+		s.samplingUnsupportedModels.Store(modelID, true)
+		return false
+	}
+
+	return true
 }
 
 // ==============================================================================
@@ -355,6 +415,15 @@ func (s *BedrockService) BuildInferenceConfig(
 	topP *float64,
 	maxTokens *int,
 ) *bedrockTypes.InferenceConfiguration {
+	return s.BuildInferenceConfigForModel("", temperature, topP, maxTokens)
+}
+
+func (s *BedrockService) BuildInferenceConfigForModel(
+	modelID string,
+	temperature *float64,
+	topP *float64,
+	maxTokens *int,
+) *bedrockTypes.InferenceConfiguration {
 	config := &bedrockTypes.InferenceConfiguration{}
 
 	effectiveMaxTokens := s.cfg.DefaultMaxTokens
@@ -369,6 +438,14 @@ func (s *BedrockService) BuildInferenceConfig(
 	}
 	config.MaxTokens = aws.Int32(int32(effectiveMaxTokens))
 
+	// If the model does not support temperature/sampling, omit them entirely.
+	if modelID != "" && !s.SupportsTemperature(modelID) {
+		if s.cfg != nil && s.cfg.Debug && (temperature != nil || topP != nil || s.cfg.DefaultTemperature != nil) {
+			log.Printf("[DEBUG] Model %q has SupportsTemperature=false; omitting temperature/topP from InferenceConfig", modelID)
+		}
+		return config
+	}
+
 	var sanitizedTemp *float32
 	if temperature != nil {
 		t := float32(*temperature)
@@ -378,7 +455,7 @@ func (s *BedrockService) BuildInferenceConfig(
 			t = 1.0
 		}
 		sanitizedTemp = &t
-	} else if s.cfg.DefaultTemperature != nil {
+	} else if s.cfg != nil && s.cfg.DefaultTemperature != nil {
 		t := float32(*s.cfg.DefaultTemperature)
 		if t < 0.0 {
 			t = 0.0
@@ -400,8 +477,19 @@ func (s *BedrockService) BuildInferenceConfig(
 	}
 
 	if sanitizedTemp != nil && sanitizedTopP != nil {
-		tempIsDefault := (*temperature == 1.0)
-		topPIsDefault := (*topP == 1.0)
+		tempVal := 1.0
+		if temperature != nil {
+			tempVal = *temperature
+		} else if s.cfg != nil && s.cfg.DefaultTemperature != nil {
+			tempVal = *s.cfg.DefaultTemperature
+		}
+		topPVal := 1.0
+		if topP != nil {
+			topPVal = *topP
+		}
+
+		tempIsDefault := (tempVal == 1.0)
+		topPIsDefault := (topPVal == 1.0)
 
 		if topPIsDefault && !tempIsDefault {
 			config.Temperature = sanitizedTemp
@@ -458,7 +546,7 @@ func (s *BedrockService) CallConverse(
 	maxTokens *int,
 	toolConfig *bedrockTypes.ToolConfiguration,
 ) (*ChatCompletionResponse, error) {
-	infConfig := s.BuildInferenceConfig(temperature, topP, maxTokens)
+	infConfig := s.BuildInferenceConfigForModel(modelID, temperature, topP, maxTokens)
 
 	input := &bedrockruntime.ConverseInput{
 		ModelId:         aws.String(modelID),
@@ -583,7 +671,7 @@ func (s *BedrockService) CallConverseStream(
 	priorUsage *ChatCompletionUsage,
 	onComplete func(usage ChatCompletionUsage, actualCitations []interface{}, fullAnswer string),
 ) error {
-	infConfig := s.BuildInferenceConfig(temperature, topP, maxTokens)
+	infConfig := s.BuildInferenceConfigForModel(modelID, temperature, topP, maxTokens)
 
 	input := &bedrockruntime.ConverseStreamInput{
 		ModelId:         aws.String(modelID),

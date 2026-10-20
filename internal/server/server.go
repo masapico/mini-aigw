@@ -74,7 +74,7 @@ func Run(args []string) {
 		log.Fatalf("AWS client initialization failed: %v", err)
 	}
 
-	bedrockSvc := services.NewBedrockService(awsBundle, xberg, cfg)
+	bedrockSvc := services.NewBedrockService(awsBundle, xberg, cfg, database)
 	knowledgeSvc := services.NewKnowledgeService(awsBundle, database, cfg)
 	ragPipeline := services.NewRAGPipeline(bedrockSvc, knowledgeSvc, cfg)
 	evalSvc := eval.NewService(cfg, ragPipeline, bedrockSvc)
@@ -137,7 +137,7 @@ func SetupRouter(
 	knowledgeHandler := webapi.NewKnowledgeHandler(knowledgeSvc, database, cfg, renderer)
 	ragTestHandler := webapi.NewRAGTestHandler(bedrockSvc, knowledgeSvc, database, cfg, renderer)
 	apiKeysHandler := webapi.NewAPIKeysHandler(database, cfg, renderer)
-	webModelsHandler := webapi.NewWebModelsHandler(database, renderer)
+	webModelsHandler := webapi.NewWebModelsHandler(database, renderer, bedrockSvc)
 	usersHandler := webapi.NewUsersHandler(database, renderer)
 	zeroHitSvc := services.NewZeroHitService(database)
 	zeroHitHandler := webapi.NewZeroHitHandler(zeroHitSvc, renderer)
