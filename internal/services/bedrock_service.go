@@ -76,8 +76,9 @@ func (s *BedrockService) SupportsTemperature(modelID string) bool {
 	if s.db != nil {
 		var modelRecord models.LLMModel
 		if err := s.db.Select("supports_temperature").First(&modelRecord, "id = ?", modelID).Error; err == nil {
-			s.samplingUnsupportedModels.Store(modelID, !modelRecord.SupportsTemperature)
-			return modelRecord.SupportsTemperature
+			isSupported := modelRecord.IsTemperatureSupported()
+			s.samplingUnsupportedModels.Store(modelID, !isSupported)
+			return isSupported
 		}
 	}
 

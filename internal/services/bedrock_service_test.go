@@ -283,13 +283,13 @@ func TestSupportsTemperature_DBIntegration(t *testing.T) {
 	m1 := models.LLMModel{
 		ID:                  "custom.model.no-temp",
 		Name:                "Custom Model No Temp",
-		SupportsTemperature: false,
+		SupportsTemperature: models.BoolPtr(false),
 		IsActive:            true,
 	}
 	m2 := models.LLMModel{
 		ID:                  "custom.model.with-temp",
 		Name:                "Custom Model With Temp",
-		SupportsTemperature: true,
+		SupportsTemperature: models.BoolPtr(true),
 		IsActive:            true,
 	}
 	db.Create(&m1)

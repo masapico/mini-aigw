@@ -105,7 +105,7 @@ func (h *WebModelsHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 		Description:         descPtr,
 		InputPricePer1M:     inputPrice,
 		OutputPricePer1M:    outputPrice,
-		SupportsTemperature: supportsTemperature,
+		SupportsTemperature: models.BoolPtr(supportsTemperature),
 		IsActive:            true,
 	}
 	if err := h.db.Create(&m).Error; err != nil {
@@ -158,7 +158,8 @@ func (h *WebModelsHandler) EditModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.FormValue("supports_temperature_submitted") == "1" {
-		m.SupportsTemperature = (r.FormValue("supports_temperature") == "true" || r.FormValue("supports_temperature") == "on")
+		supportsTemp := (r.FormValue("supports_temperature") == "true" || r.FormValue("supports_temperature") == "on")
+		m.SupportsTemperature = models.BoolPtr(supportsTemp)
 	}
 
 	if err := h.db.Save(&m).Error; err != nil {

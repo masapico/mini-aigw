@@ -89,7 +89,7 @@ func TestWebModelsHandler_CreateAndEditSupportsTemperature(t *testing.T) {
 	if err := handler.db.First(&created, "id = ?", "jp.anthropic.claude-haiku-5-5").Error; err != nil {
 		t.Fatalf("failed to find created model: %v", err)
 	}
-	if created.SupportsTemperature {
+	if created.IsTemperatureSupported() {
 		t.Errorf("expected SupportsTemperature to be false for claude-haiku-5-5")
 	}
 
@@ -116,7 +116,7 @@ func TestWebModelsHandler_CreateAndEditSupportsTemperature(t *testing.T) {
 	if err := handler.db.First(&updated, "id = ?", "jp.anthropic.claude-haiku-5-5").Error; err != nil {
 		t.Fatalf("failed to find updated model: %v", err)
 	}
-	if !updated.SupportsTemperature {
+	if !updated.IsTemperatureSupported() {
 		t.Errorf("expected SupportsTemperature to be true after update")
 	}
 	if updated.Name != "Claude Haiku 5.5 (Updated)" {
