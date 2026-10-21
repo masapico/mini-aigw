@@ -5,8 +5,8 @@
 {{define "content"}}
 <div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
   <div>
-    <h3 class="fw-bold mb-1">RAG 品質評価・モデル比較 (Evaluation Reports)</h3>
-    <p class="text-muted small mb-0">ナレッジ検索精度 (Hit@K, MRR, 権限分離) と LLM 回答品質 (忠実度・引用遵守率) の評価レポート管理</p>
+    <h1 class="h3 fw-bold mb-1 text-dark">RAG 品質評価・モデル比較 (Evaluation Reports)</h1>
+    <p class="text-secondary small mb-0">ナレッジ検索精度 (Hit@K, MRR, 権限分離) と LLM 回答品質 (忠実度・引用遵守率) の評価レポート管理</p>
   </div>
   <div class="d-flex align-items-center gap-2">
     <button
@@ -28,12 +28,12 @@
 
 <!-- 新規評価実行フォーム (折りたたみパネル) -->
 <div class="collapse mb-4" id="runEvalCollapse">
-  <div class="modern-card border-primary border-opacity-25 shadow-sm">
-    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-      <h5 class="fw-bold mb-0 text-primary-emphasis d-flex align-items-center gap-2">
-        <i class="bi bi-sliders"></i> 新規 RAG 評価ジョブの設定
-      </h5>
-      <span class="text-muted small">バックグラウンドでテストケースを順次検証し、レポートを生成します</span>
+  <div class="modern-card">
+    <div class="dads-card-header d-flex justify-content-between align-items-center">
+      <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+        <i class="bi bi-sliders text-primary"></i> 新規 RAG 評価ジョブの設定
+      </h2>
+      <span class="text-secondary small">バックグラウンドでテストケースを順次検証し、レポートを生成します</span>
     </div>
 
     <form
@@ -46,17 +46,17 @@
       <div class="row g-3">
         <!-- 評価モード -->
         <div class="col-12 col-md-4">
-          <label class="form-label small fw-semibold text-secondary">評価モード</label>
+          <label class="dads-form-label">評価モード <span class="dads-badge-required">必須</span></label>
           <select class="form-select form-select-modern" name="mode" id="evalModeSelect">
             <option value="e2e" selected>E2E 評価 (検索 + モデル回答生成 & 採点)</option>
             <option value="retrieve">検索単体評価 (Retriever Hit@K & 権限分離のみ)</option>
           </select>
-          <div class="form-text small text-muted">E2E では複数モデルのレイテンシ・トークン・忠実度を比較します</div>
+          <div class="dads-form-help">E2E では複数モデルのレイテンシ・トークン・忠実度を比較します</div>
         </div>
 
         <!-- データセット指定方式 -->
         <div class="col-12 col-md-4">
-          <label class="form-label small fw-semibold text-secondary">既存データセット選択</label>
+          <label class="dads-form-label">既存データセット選択</label>
           <select class="form-select form-select-modern" name="selected_dataset">
             {{range .Datasets}}
             <option value="{{.}}">{{.}}</option>
@@ -64,25 +64,25 @@
             <option value="">(サーバー内に .jsonl なし)</option>
             {{end}}
           </select>
-          <div class="form-text small text-muted"><code>{{.Config.EvalDatasetsDir}}/</code> 内の JSONL</div>
+          <div class="dads-form-help"><code>{{.Config.EvalDatasetsDir}}/</code> 内の JSONL</div>
         </div>
 
         <!-- データセットアップロード -->
         <div class="col-12 col-md-4">
-          <label class="form-label small fw-semibold text-secondary">または JSONL ファイルをアップロード</label>
+          <label class="dads-form-label">または JSONL ファイルをアップロード</label>
           <input
             type="file"
             class="form-control form-control-modern"
             name="dataset_file"
             accept=".jsonl"
           >
-          <div class="form-text small text-muted">指定した場合はこちらを優先して実行します</div>
+          <div class="dads-form-help">指定した場合はこちらを優先して実行します</div>
         </div>
 
         <!-- 比較対象モデル (E2E用) -->
         <div class="col-12 col-md-6" id="modelsSelectGroup">
-          <label class="form-label small fw-semibold text-secondary">比較対象モデル (複数選択可)</label>
-          <div class="d-flex flex-wrap gap-3 p-2 bg-light rounded border">
+          <label class="dads-form-label">比較対象モデル (複数選択可)</label>
+          <div class="d-flex flex-wrap gap-3 p-2 bg-light rounded-1 border">
             {{range .Models}}
             <div class="form-check">
               <input
@@ -93,8 +93,8 @@
                 id="model_{{.ID}}"
                 checked
               >
-              <label class="form-check-label small fw-medium" for="model_{{.ID}}">
-                {{.Name}} <span class="text-muted" style="font-size: 0.75rem;">({{.ID}})</span>
+              <label class="form-check-label small fw-bold text-dark" for="model_{{.ID}}">
+                {{.Name}} <span class="text-secondary" style="font-size: 0.75rem;">({{.ID}})</span>
               </label>
             </div>
             {{end}}
@@ -103,19 +103,19 @@
 
         <!-- Judge モデル -->
         <div class="col-12 col-md-6" id="judgeModelGroup">
-          <label class="form-label small fw-semibold text-secondary">LLM-as-a-Judge 採点モデル</label>
+          <label class="dads-form-label">LLM-as-a-Judge 採点モデル</label>
           <select class="form-select form-select-modern" name="judge_model">
             <option value="">ルールベース自動採点 (追加LLMコストゼロ・高速)</option>
             {{range .Models}}
             <option value="{{.ID}}">{{.Name}} ({{.ID}})</option>
             {{end}}
           </select>
-          <div class="form-text small text-muted">未指定時は忠実度・適合度・正確性をルールベースで自動採点</div>
+          <div class="dads-form-help">未指定時は忠実度・適合度・正確性をルールベースで自動採点</div>
         </div>
 
         <!-- 検索パラメータ & Dry-run -->
         <div class="col-6 col-md-3">
-          <label class="form-label small fw-semibold text-secondary">取得件数 (Top-K)</label>
+          <label class="dads-form-label">取得件数 (Top-K)</label>
           <input
             type="number"
             class="form-control form-control-modern"
@@ -127,7 +127,7 @@
         </div>
 
         <div class="col-6 col-md-3">
-          <label class="form-label small fw-semibold text-secondary">スコア閾値 (Threshold)</label>
+          <label class="dads-form-label">スコア閾値 (Threshold)</label>
           <input
             type="number"
             class="form-control form-control-modern"
@@ -142,15 +142,15 @@
         <div class="col-12 col-md-6 d-flex align-items-center">
           <div class="form-check form-switch mt-3">
             <input class="form-check-input" type="checkbox" role="switch" name="dry_run" id="dryRunSwitch">
-            <label class="form-check-label small fw-semibold" for="dryRunSwitch">
+            <label class="form-check-label small fw-bold text-dark" for="dryRunSwitch">
               Dry-Run モード (AWS API を呼び出さずモックで即時検証)
             </label>
-            <div class="text-muted" style="font-size: 0.75rem;">画面表示やフロー確認用（AWS課金ゼロ）</div>
+            <div class="dads-form-help">画面表示やフロー確認用（AWS課金ゼロ）</div>
           </div>
         </div>
 
         <!-- 送信ボタン -->
-        <div class="col-12 d-flex justify-content-end gap-2 pt-2 border-top">
+        <div class="col-12 d-flex justify-content-end gap-2 pt-3 border-top">
           <button
             type="button"
             class="btn-modern-secondary px-3 py-2"
@@ -171,16 +171,16 @@
 </div>
 
 <!-- レポート一覧テーブル -->
-<div class="modern-card">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="fw-bold mb-0">過去の評価レポート一覧</h5>
-    <span class="text-muted small">全 {{len .Reports}} 件</span>
+<div class="modern-card p-0 overflow-hidden">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+    <h2 class="h5 fw-bold mb-0 text-dark">過去の評価レポート一覧</h2>
+    <span class="text-secondary small">全 {{len .Reports}} 件</span>
   </div>
 
   <div class="table-responsive">
-    <table class="table table-hover table-sm align-middle mb-0 table-compact" style="font-size: 0.84rem;">
-      <thead class="table-light border-bottom">
-        <tr class="text-secondary" style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em;">
+    <table class="table align-middle mb-0 table-compact" style="font-size: 0.88rem;">
+      <thead>
+        <tr>
           <th style="min-width: 170px;">レポートID / 実行日時</th>
           <th>データセット</th>
           <th>比較モデル</th>
@@ -194,47 +194,47 @@
         {{range .Reports}}
         <tr id="report-row-{{.ID}}">
           <td>
-            <a href="{{basePath}}/eval-reports/{{.ID}}" class="fw-semibold text-decoration-none text-primary" style="font-size: 0.88rem;">
+            <a href="{{basePath}}/eval-reports/{{.ID}}" class="fw-bold text-decoration-none text-primary" style="font-size: 0.9rem;">
               {{.ID}}
             </a>
-            <div class="text-muted" style="font-size: 0.75rem;">
+            <div class="text-secondary small" style="font-size: 0.75rem;">
               <i class="bi bi-clock me-1"></i>{{formatTime .Timestamp}}
             </div>
           </td>
           <td>
-            <div class="fw-medium text-truncate" style="max-width: 220px; font-size: 0.82rem;" title="{{.DatasetPath}}">
+            <div class="fw-bold text-dark text-truncate" style="max-width: 220px; font-size: 0.85rem;" title="{{.DatasetPath}}">
               {{.DatasetPath}}
             </div>
-            <div class="text-muted" style="font-size: 0.75rem;">{{.TotalCases}} 件 (Top-K: {{.TopK}})</div>
+            <div class="text-secondary small" style="font-size: 0.75rem;">{{.TotalCases}} 件 (Top-K: {{.TopK}})</div>
           </td>
           <td>
             {{if .Models}}
             <div class="d-flex flex-wrap gap-1" style="max-width: 260px;">
               {{range .Models}}
-              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.70rem; padding: 0.2rem 0.45rem;">{{.}}</span>
+              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.75rem; padding: 0.2rem 0.45rem;">{{.}}</span>
               {{end}}
             </div>
             {{else}}
-            <span class="text-muted" style="font-size: 0.78rem;">検索単体 (Retriever)</span>
+            <span class="text-secondary small" style="font-size: 0.8rem;">検索単体 (Retriever)</span>
             {{end}}
           </td>
           <td class="text-center">
-            <span class="badge {{if ge .HitAtKRate 80.0}}bg-success-subtle text-success{{else}}bg-warning-subtle text-warning{{end}} rounded-pill fw-bold" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
+            <span class="badge-pill-modern {{if ge .HitAtKRate 80.0}}badge-status-synced{{else}}badge-status-pending{{end}} fw-bold">
               {{formatPercent .HitAtKRate}}
             </span>
           </td>
           <td class="text-center">
-            <span class="fw-semibold text-secondary" style="font-size: 0.82rem;">
+            <span class="fw-bold text-dark" style="font-size: 0.85rem;">
               {{formatScore .MeanReciprocalRank}}
             </span>
           </td>
           <td class="text-center">
             {{if eq .TotalLeaks 0}}
-            <span class="badge bg-success-subtle text-success rounded-pill fw-semibold" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
+            <span class="badge-pill-modern badge-status-synced">
               <i class="bi bi-shield-check me-1"></i>0件 (完全分離)
             </span>
             {{else}}
-            <span class="badge bg-danger-subtle text-danger rounded-pill fw-semibold" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">
+            <span class="badge-pill-modern badge-status-error">
               <i class="bi bi-shield-x me-1"></i>{{.TotalLeaks}}件 リーク
             </span>
             {{end}}
@@ -311,7 +311,7 @@
         </tr>
         {{else}}
         <tr>
-          <td colspan="7" class="text-center py-5 text-muted">
+          <td colspan="7" class="text-center py-5 text-secondary">
             <i class="bi bi-file-earmark-x fs-1 d-block mb-2 text-secondary opacity-50"></i>
             まだ評価レポートがありません。「新規評価を実行」から評価を開始してください。
           </td>

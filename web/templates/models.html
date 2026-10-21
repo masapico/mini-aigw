@@ -5,16 +5,19 @@
 {{define "content"}}
 <div class="mb-4 d-flex justify-content-between align-items-center">
   <div>
-    <h3 class="fw-bold mb-1">LLM モデル管理</h3>
-    <p class="text-muted small mb-0">
+    <h1 class="h3 fw-bold mb-1 text-dark">LLM モデル管理</h1>
+    <p class="text-secondary small mb-0">
       mini-aigw で公開・利用可能な Bedrock 基底モデルを管理します。<code>/v1/models</code> や APIキー発行時の選択肢に反映されます。
     </p>
   </div>
 </div>
 
-<!-- モデル新規登録カード -->
+<!-- モデル新規登録カード (DADS仕様) -->
 <div class="modern-card mb-4">
-  <h5 class="fw-bold mb-3">新規モデルの登録</h5>
+  <div class="dads-card-header">
+    <h2 class="h5 fw-bold mb-0 text-dark">新規モデルの登録</h2>
+    <span class="text-secondary small">利用可能な Bedrock 基底モデルまたは推論プロファイル ARN を登録します</span>
+  </div>
   <form
     hx-post="{{basePath}}/models/create"
     hx-target="#models-container"
@@ -24,7 +27,10 @@
   >
     <div class="row g-3">
       <div class="col-12 col-md-5">
-        <label class="form-label small fw-semibold text-secondary">Bedrock モデル ID / ARN <span class="text-danger">*</span></label>
+        <label class="dads-form-label">
+          Bedrock モデル ID / ARN <span class="dads-badge-required">必須</span>
+        </label>
+        <span class="dads-form-help">BedrockのモデルIDまたはCross-Region推論プロファイルARN</span>
         <input
           type="text"
           id="modelIdInput"
@@ -36,7 +42,10 @@
       </div>
 
       <div class="col-12 col-md-4">
-        <label class="form-label small fw-semibold text-secondary">表示名 <span class="text-danger">*</span></label>
+        <label class="dads-form-label">
+          表示名 <span class="dads-badge-required">必須</span>
+        </label>
+        <span class="dads-form-help">画面やAPIで表示するフレンドリー名</span>
         <input
           type="text"
           id="modelNameInput"
@@ -48,7 +57,8 @@
       </div>
 
       <div class="col-12 col-md-3">
-        <label class="form-label small fw-semibold text-secondary">プロバイダ</label>
+        <label class="dads-form-label">プロバイダ</label>
+        <span class="dads-form-help">基盤インフラ</span>
         <input
           type="text"
           class="form-control form-control-modern"
@@ -59,9 +69,11 @@
       </div>
 
       <div class="col-12 col-md-3">
-        <label class="form-label small fw-semibold text-secondary">入力単価 (USD / 1M tokens)</label>
+        <label class="dads-form-label">
+          入力単価 (USD / 1M) <span class="dads-badge-optional">任意</span>
+        </label>
         <div class="input-group">
-          <span class="input-group-text bg-light text-muted small">$</span>
+          <span class="input-group-text bg-light text-secondary small">$</span>
           <input
             type="number"
             step="0.0001"
@@ -74,9 +86,11 @@
       </div>
 
       <div class="col-12 col-md-3">
-        <label class="form-label small fw-semibold text-secondary">出力単価 (USD / 1M tokens)</label>
+        <label class="dads-form-label">
+          出力単価 (USD / 1M) <span class="dads-badge-optional">任意</span>
+        </label>
         <div class="input-group">
-          <span class="input-group-text bg-light text-muted small">$</span>
+          <span class="input-group-text bg-light text-secondary small">$</span>
           <input
             type="number"
             step="0.0001"
@@ -89,7 +103,9 @@
       </div>
 
       <div class="col-12 col-md-6">
-        <label class="form-label small fw-semibold text-secondary">説明・用途メモ (任意)</label>
+        <label class="dads-form-label">
+          説明・用途メモ <span class="dads-badge-optional">任意</span>
+        </label>
         <input
           type="text"
           class="form-control form-control-modern"
@@ -102,10 +118,10 @@
         <input type="hidden" name="supports_temperature_submitted" value="1">
         <div class="form-check form-switch pt-2">
           <input class="form-check-input" type="checkbox" id="supportsTemperatureInput" name="supports_temperature" value="true" checked>
-          <label class="form-check-label small fw-semibold text-secondary" for="supportsTemperatureInput">
+          <label class="form-check-label small fw-bold text-dark" for="supportsTemperatureInput">
             Temperature (サンプリング) パラメータを送信する
           </label>
-          <div class="form-text text-muted" style="font-size: 0.75rem;">
+          <div class="dads-form-help">
             Claude Haiku 5.5 等の新世代モデルではオフ（渡さない）にします。
           </div>
         </div>
@@ -113,8 +129,8 @@
 
       <div class="col-12 col-md-3 ms-auto d-flex align-items-end">
         <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
-          <span class="spinner-border spinner-border-sm htmx-indicator" id="model-spinner" role="status"></span>
-          モデルを登録
+          <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="model-spinner" role="status"></span>
+          <span>モデルを登録</span>
         </button>
       </div>
     </div>
@@ -124,12 +140,11 @@
 <!-- モデル一覧 -->
 <div class="modern-card p-0 overflow-hidden">
   <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
-    <h6 class="fw-bold mb-0">登録済み LLM モデル一覧</h6>
-    <span class="text-muted small">有効なモデルのみが <code>/v1/models</code> および利用候補として公開されます</span>
+    <h2 class="h5 fw-bold mb-0 text-dark">登録済み LLM モデル一覧</h2>
+    <span class="text-secondary small">有効なモデルのみが <code>/v1/models</code> および利用候補として公開されます</span>
   </div>
   <div id="models-container">
     {{template "models_section.html" .}}
   </div>
 </div>
 {{end}}
-

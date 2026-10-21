@@ -5,8 +5,8 @@
 {{define "content"}}
 <div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
   <div>
-    <h3 class="fw-bold mb-1">ナレッジベース ドキュメント管理</h3>
-    <p class="text-muted small mb-0">Amazon S3 Vectors ドキュメント管理 & Bedrock Knowledge Base 同期</p>
+    <h1 class="h3 fw-bold mb-1 text-dark">ナレッジベース ドキュメント管理</h1>
+    <p class="text-secondary small mb-0">Amazon S3 Vectors ドキュメント管理 & Bedrock Knowledge Base 同期</p>
   </div>
   <div class="d-flex align-items-center gap-3">
     <span class="badge-pill-modern badge-group font-monospace">Bucket: {{.Bucket}}</span>
@@ -34,28 +34,28 @@
   hx-trigger="load"
   hx-swap="innerHTML"
 >
-  <div class="d-flex align-items-center gap-2 p-3 bg-light rounded-3 border text-secondary small">
+  <div class="d-flex align-items-center gap-2 p-3 bg-white rounded-1 border text-secondary small">
     <span class="spinner-border spinner-border-sm" role="status"></span>
     <span>KB同期ステータスを取得中...</span>
   </div>
 </div>
 
-<!-- アップロードカード -->
+<!-- アップロードカード (DADS仕様) -->
 <div class="collapse mb-4" id="uploadCollapse">
   <div class="modern-card">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="dads-card-header d-flex justify-content-between align-items-center">
       <div>
-        <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+        <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
           <i class="bi bi-cloud-arrow-up text-primary"></i> 新規ドキュメント アップロード
-        </h5>
-        <span class="text-muted small">ドキュメントは管理領域に保存され、次回のKB同期でRAG検索に反映されます</span>
+        </h2>
+        <span class="text-secondary small">ドキュメントは管理S3領域に暗号化保存され、次回のKB同期でRAG検索に反映されます</span>
       </div>
       <button
         type="button"
         class="btn-close"
         data-bs-toggle="collapse"
         data-bs-target="#uploadCollapse"
-        aria-label="閉じる"
+        aria-label="アップロードパネルを閉じる"
       ></button>
     </div>
 
@@ -75,12 +75,13 @@
     >
       <div class="row g-3 align-items-start mb-3">
         <div class="col-12 col-md-4">
-          <label class="form-label small fw-semibold text-secondary">
-            ドキュメント分類
+          <label class="dads-form-label">
+            ドキュメント分類 <span class="dads-badge-required">必須</span>
             {{if not .IsAdmin}}
-            <span class="badge bg-light text-secondary border ms-1" style="font-size: 0.72rem;">所属グループ限定</span>
+            <span class="dads-badge-optional">所属限定</span>
             {{end}}
           </label>
+          <span class="dads-form-help">アクセス権限グループを指定します</span>
           <select class="form-select form-select-modern" name="group_name" required>
             {{if .IsAdmin}}
             <option value="public" selected>public (全体共有)</option>
@@ -94,15 +95,16 @@
         </div>
 
         <div class="col-12 col-md-8">
-          <label class="form-label small fw-semibold text-secondary">
-            タグ設定 (任意: 入力+Enter で追加、バッジクリックで削除)
+          <label class="dads-form-label">
+            タグ設定 <span class="dads-badge-optional">任意</span>
           </label>
+          <span class="dads-form-help">入力後に Enter または「追加」を押下。バッジクリックで削除</span>
           <div class="d-flex gap-2 mb-2">
             <input
               type="text"
               id="tag-input-box"
               class="form-control form-control-modern"
-              placeholder="タグを入力して Enter (例: 2024, 議事録, 規程)"
+              placeholder="タグを入力 (例: 2024, 議事録, 規程)"
               autocomplete="off"
             >
             <button type="button" id="tag-add-btn" class="btn-modern-secondary text-nowrap px-3">
@@ -111,14 +113,17 @@
           </div>
           <input type="hidden" name="tags" id="tags-hidden-input" value="[]">
           <div id="tag-badges-container" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
-            <span class="text-muted small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>
+            <span class="text-secondary small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>
           </div>
         </div>
       </div>
 
       <div class="row g-3 align-items-end">
         <div class="col-12 col-md-9">
-          <label class="form-label small fw-semibold text-secondary">ファイル選択 (PDF, DOCX, XLSX, CSV, TXT等)</label>
+          <label class="dads-form-label">
+            ファイル選択 <span class="dads-badge-required">必須</span>
+          </label>
+          <span class="dads-form-help">対応形式: PDF, DOCX, XLSX, CSV, TXT, Markdown等</span>
           <input
             type="file"
             class="form-control form-control-modern"
@@ -130,8 +135,8 @@
 
         <div class="col-12 col-md-3">
           <button type="submit" class="btn-modern-primary w-100 justify-content-center">
-            <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
-            S3へアップロード
+            <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="upload-spinner" role="status"></span>
+            <span>S3へアップロード</span>
           </button>
         </div>
       </div>
@@ -145,10 +150,10 @@
   <div class="p-3 border-bottom bg-white">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
       <div>
-        <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
+        <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
           <i class="bi bi-folder2-open text-primary"></i> 登録ドキュメント一覧
-        </h5>
-        <span class="text-muted small">ファイル名をクリックすると S3 から原本を取得（ダウンロード）できます</span>
+        </h2>
+        <span class="text-secondary small">ファイル名をクリックすると S3 から原本を取得（ダウンロード）できます</span>
       </div>
     </div>
 
@@ -163,7 +168,7 @@
     >
       <div class="col-12 col-md-4">
         <div class="input-group input-group-sm">
-          <span class="input-group-text bg-light text-muted border-end-0">
+          <span class="input-group-text bg-light text-secondary border-end-0">
             <i class="bi bi-search"></i>
           </span>
           <input
@@ -180,7 +185,7 @@
 
       <div class="col-6 col-md-3">
         <div class="input-group input-group-sm">
-          <span class="input-group-text bg-light text-muted">
+          <span class="input-group-text bg-light text-secondary">
             <i class="bi bi-people"></i>
           </span>
           <select name="group" id="filter-group" class="form-select form-select-sm">
@@ -213,7 +218,7 @@
           href="{{basePath}}/knowledge"
           class="btn btn-outline-secondary btn-sm px-2 d-inline-flex align-items-center gap-1 text-decoration-none"
         >
-          <i class="bi bi-arrow-counterclockwise"></i> クリア
+          <i class="bi bi-arrow-counterclockwise"></i> リセット
         </a>
       </div>
     </form>
@@ -241,7 +246,7 @@
   function renderTags() {
     tagBadgesContainer.innerHTML = '';
     if (currentTags.length === 0) {
-      tagBadgesContainer.innerHTML = '<span class="text-muted small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>';
+      tagBadgesContainer.innerHTML = '<span class="text-secondary small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>';
       tagsHiddenInput.value = '[]';
       return;
     }
@@ -319,4 +324,3 @@
   }
 </script>
 {{end}}
-

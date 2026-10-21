@@ -6,16 +6,16 @@
   {{end}}
 >
   {{if eq .JobState.Status "running"}}
-  <div class="alert alert-info border-0 shadow-sm d-flex align-items-center gap-3 py-3 px-4 mb-4" role="alert">
+  <div class="alert alert-info d-flex align-items-center gap-3 py-3 px-4 mb-4" role="alert">
     <div class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status">
       <span class="visually-hidden">実行中...</span>
     </div>
     <div class="flex-grow-1">
       <div class="d-flex justify-content-between align-items-center mb-1">
-        <strong class="text-primary-emphasis">
+        <strong class="text-dark">
           <i class="bi bi-gear-wide-connected me-1"></i> RAG 評価ジョブを実行中...
         </strong>
-        <span class="badge bg-primary rounded-pill">
+        <span class="badge bg-primary text-white">
           {{if gt .JobState.TotalCases 0}}
             ケース {{.JobState.CurrentCase}} / {{.JobState.TotalCases}}
           {{else}}
@@ -26,48 +26,47 @@
       {{if gt .JobState.TotalCases 0}}
       <div class="progress mb-2" style="height: 6px;">
         <div
-          class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          style="background-color: var(--dads-color-blue-900); width: calc(({{.JobState.CurrentCase}} / {{.JobState.TotalCases}}) * 100%);"
           role="progressbar"
-          style="width: calc(({{.JobState.CurrentCase}} / {{.JobState.TotalCases}}) * 100%);"
         ></div>
       </div>
       {{end}}
       {{if .JobState.CurrentQuery}}
       <div class="small text-secondary text-truncate" style="max-width: 800px;">
-        <span class="text-muted">検証中の質問:</span> <code>{{.JobState.CurrentQuery}}</code>
+        <span>検証中の質問:</span> <code>{{.JobState.CurrentQuery}}</code>
       </div>
       {{end}}
     </div>
   </div>
   {{else if eq .JobState.Status "completed"}}
-  <div class="alert alert-success border-0 shadow-sm d-flex align-items-center justify-content-between py-3 px-4 mb-4" role="alert">
+  <div class="alert alert-success d-flex align-items-center justify-content-between py-3 px-4 mb-4" role="alert">
     <div class="d-flex align-items-center gap-3">
-      <i class="bi bi-check-circle-fill text-success fs-4"></i>
+      <i class="bi bi-check-circle-fill fs-4" style="color: var(--dads-color-success);"></i>
       <div>
-        <strong class="d-block text-success-emphasis">評価ジョブが正常に完了しました！</strong>
+        <strong class="d-block text-dark">評価ジョブが正常に完了しました！</strong>
         <span class="small text-secondary">最新レポート: <code>{{.JobState.ReportID}}</code></span>
       </div>
     </div>
     <div class="d-flex gap-2">
-      <a href="{{basePath}}/eval-reports/{{.JobState.ReportID}}" class="btn btn-sm btn-success fw-semibold px-3">
+      <a href="{{basePath}}/eval-reports/{{.JobState.ReportID}}" class="btn-modern-primary py-1 px-3">
         <i class="bi bi-file-earmark-bar-graph me-1"></i> レポートを見る
       </a>
-      <a href="{{basePath}}/eval-reports" class="btn btn-sm btn-outline-secondary">
+      <a href="{{basePath}}/eval-reports" class="btn-modern-secondary py-1 px-3">
         <i class="bi bi-arrow-clockwise me-1"></i> 一覧更新
       </a>
     </div>
   </div>
   {{else if eq .JobState.Status "failed"}}
-  <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center justify-content-between py-3 px-4 mb-4" role="alert">
+  <div class="alert alert-danger d-flex align-items-center justify-content-between py-3 px-4 mb-4" role="alert">
     <div class="d-flex align-items-center gap-3">
-      <i class="bi bi-exclamation-triangle-fill text-danger fs-4"></i>
+      <i class="bi bi-exclamation-triangle-fill fs-4" style="color: var(--dads-color-danger);"></i>
       <div>
-        <strong class="d-block text-danger-emphasis">評価ジョブがエラー終了しました</strong>
+        <strong class="d-block text-dark">評価ジョブがエラー終了しました</strong>
         <span class="small text-danger">{{.JobState.Error}}</span>
       </div>
     </div>
-    <a href="{{basePath}}/eval-reports" class="btn btn-sm btn-outline-danger">閉じる</a>
+    <a href="{{basePath}}/eval-reports" class="btn-modern-danger py-1 px-3">閉じる</a>
   </div>
   {{end}}
 </div>
-

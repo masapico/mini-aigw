@@ -5,36 +5,36 @@
 {{define "content"}}
 <div class="mb-4 d-flex justify-content-between align-items-center">
   <div>
-    <h3 class="fw-bold mb-1">ユーザー & グループ管理</h3>
-    <p class="text-muted small mb-0">
+    <h1 class="h3 fw-bold mb-1 text-dark">ユーザー & グループ管理</h1>
+    <p class="text-secondary small mb-0">
       ローカルユーザーアカウントの発行、ロール割り当て、およびグループ（S3 Vectors 分離）の動的管理
     </p>
   </div>
 </div>
 
-<ul class="nav nav-pills mb-4 gap-2" id="userMgmtTabs" role="tablist">
+<ul class="nav nav-pills mb-4" id="userMgmtTabs" role="tablist">
   <li class="nav-item" role="presentation">
     <button
-      class="nav-link active rounded-pill px-4 fw-semibold"
+      class="nav-link active"
       id="users-tab"
       data-bs-toggle="pill"
       data-bs-target="#users-panel"
       type="button"
       role="tab"
     >
-      ユーザー一覧・作成
+      <i class="bi bi-people me-1"></i> ユーザー一覧・作成
     </button>
   </li>
   <li class="nav-item" role="presentation">
     <button
-      class="nav-link rounded-pill px-4 fw-semibold"
+      class="nav-link"
       id="groups-tab"
       data-bs-toggle="pill"
       data-bs-target="#groups-panel"
       type="button"
       role="tab"
     >
-      グループ管理
+      <i class="bi bi-collection me-1"></i> グループ管理
     </button>
   </li>
 </ul>
@@ -43,7 +43,10 @@
   <!-- 1. ユーザー管理タブ -->
   <div class="tab-pane fade show active" id="users-panel" role="tabpanel">
     <div class="modern-card mb-4">
-      <h5 class="fw-bold mb-3">新規ローカルユーザー作成</h5>
+      <div class="dads-card-header">
+        <h2 class="h5 fw-bold mb-0 text-dark">新規ローカルユーザー作成</h2>
+        <span class="text-secondary small">ポータルログイン用のローカル認証アカウントを発行します</span>
+      </div>
       <form
         id="create-user-form"
         hx-post="{{basePath}}/users/create"
@@ -54,7 +57,9 @@
       >
         <div class="row g-3 mb-3 align-items-start">
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold text-secondary">ユーザー名 <span class="text-danger">*</span></label>
+            <label class="dads-form-label">
+              ユーザー名 <span class="dads-badge-required">必須</span>
+            </label>
             <input
               type="text"
               class="form-control form-control-modern"
@@ -65,7 +70,9 @@
             >
           </div>
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold text-secondary">初期パスワード <span class="text-danger">*</span></label>
+            <label class="dads-form-label">
+              初期パスワード <span class="dads-badge-required">必須</span>
+            </label>
             <input
               type="password"
               class="form-control form-control-modern"
@@ -76,7 +83,9 @@
             >
           </div>
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold text-secondary">表示名 (任意)</label>
+            <label class="dads-form-label">
+              表示名 <span class="dads-badge-optional">任意</span>
+            </label>
             <input
               type="text"
               class="form-control form-control-modern"
@@ -85,7 +94,9 @@
             >
           </div>
           <div class="col-12 col-md-3">
-            <label class="form-label small fw-semibold text-secondary">メールアドレス (任意)</label>
+            <label class="dads-form-label">
+              メールアドレス <span class="dads-badge-optional">任意</span>
+            </label>
             <input
               type="email"
               class="form-control form-control-modern"
@@ -97,19 +108,19 @@
 
         <div class="row g-3 mb-3 align-items-start">
           <div class="col-12 col-md-4">
-            <label class="form-label small fw-semibold text-secondary mb-1">管理者権限ロール</label>
+            <label class="dads-form-label mb-1">管理者権限ロール</label>
             <div class="form-check form-switch mt-1">
               <input class="form-check-input" type="checkbox" name="is_admin" value="true" id="isAdminSwitch">
-              <label class="form-check-label small" for="isAdminSwitch">admin ロールを付与する</label>
+              <label class="form-check-label small fw-bold text-dark" for="isAdminSwitch">admin ロールを付与する</label>
             </div>
           </div>
           <div class="col-12 col-md-8">
-            <label class="form-label small fw-semibold text-secondary mb-1">所属グループ (アクセス許可範囲)</label>
-            <div class="d-flex flex-wrap gap-2 p-2 border rounded-3 bg-white">
+            <label class="dads-form-label mb-1">所属グループ (アクセス許可範囲)</label>
+            <div class="d-flex flex-wrap gap-2 p-2 border rounded-1 bg-white">
               {{range .Groups}}
-              <label class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
+              <label class="px-3 py-1 border rounded-1 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
                 <input class="form-check-input m-0" type="checkbox" name="groups" value="{{.Name}}">
-                <span>{{.DisplayName}} ({{.Name}})</span>
+                <span class="fw-bold text-dark">{{.DisplayName}} ({{.Name}})</span>
               </label>
               {{end}}
             </div>
@@ -119,7 +130,7 @@
         <div class="d-flex justify-content-end">
           <button type="submit" class="btn-modern-primary px-4 py-2">
             <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="create-user-spinner" role="status"></span>
-            ユーザーを作成
+            <span>ユーザーを作成</span>
           </button>
         </div>
       </form>
@@ -127,7 +138,7 @@
 
     <div class="modern-card p-0 overflow-hidden">
       <div class="p-3 border-bottom bg-white">
-        <h6 class="fw-bold mb-0">登録ユーザー一覧</h6>
+        <h2 class="h6 fw-bold mb-0 text-dark">登録ユーザー一覧</h2>
       </div>
       <div id="users-table-container">
         {{template "users_table.html" .}}
@@ -138,7 +149,10 @@
   <!-- 2. グループ管理タブ -->
   <div class="tab-pane fade" id="groups-panel" role="tabpanel">
     <div class="modern-card mb-4">
-      <h5 class="fw-bold mb-3">新規グループ作成</h5>
+      <div class="dads-card-header">
+        <h2 class="h5 fw-bold mb-0 text-dark">新規グループ作成</h2>
+        <span class="text-secondary small">S3 Vectors による RAG 検索範囲の権限分離グループを定義します</span>
+      </div>
       <form
         hx-post="{{basePath}}/groups/create"
         hx-target="#groups-table-container"
@@ -147,7 +161,10 @@
       >
         <div class="row g-3">
           <div class="col-12 col-md-4">
-            <label class="form-label small fw-semibold text-secondary">グループ識別名 (半角英数小文字) <span class="text-danger">*</span></label>
+            <label class="dads-form-label">
+              グループ識別名 (半角英数) <span class="dads-badge-required">必須</span>
+            </label>
+            <span class="dads-form-help">S3キーと連携する一意の識別名</span>
             <input
               type="text"
               class="form-control form-control-modern font-monospace"
@@ -158,7 +175,10 @@
             >
           </div>
           <div class="col-12 col-md-4">
-            <label class="form-label small fw-semibold text-secondary">表示名 <span class="text-danger">*</span></label>
+            <label class="dads-form-label">
+              表示名 <span class="dads-badge-required">必須</span>
+            </label>
+            <span class="dads-form-help">画面表示用の名称</span>
             <input
               type="text"
               class="form-control form-control-modern"
@@ -168,7 +188,10 @@
             >
           </div>
           <div class="col-12 col-md-4">
-            <label class="form-label small fw-semibold text-secondary">説明 (任意)</label>
+            <label class="dads-form-label">
+              説明 <span class="dads-badge-optional">任意</span>
+            </label>
+            <span class="dads-form-help">用途・対象の補足メモ</span>
             <input
               type="text"
               class="form-control form-control-modern"
@@ -179,7 +202,7 @@
           <div class="col-12 d-flex justify-content-end">
             <button type="submit" class="btn-modern-primary px-4 py-2">
               <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="group-spinner" role="status"></span>
-              グループを作成
+              <span>グループを作成</span>
             </button>
           </div>
         </div>
@@ -188,7 +211,7 @@
 
     <div class="modern-card p-0 overflow-hidden">
       <div class="p-3 border-bottom bg-white">
-        <h6 class="fw-bold mb-0">ナレッジ分離グループ一覧</h6>
+        <h2 class="h6 fw-bold mb-0 text-dark">ナレッジ分離グループ一覧</h2>
       </div>
       <div id="groups-table-container">
         {{template "groups_table.html" .}}
@@ -197,4 +220,3 @@
   </div>
 </div>
 {{end}}
-

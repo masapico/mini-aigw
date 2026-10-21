@@ -1,8 +1,8 @@
 {{define "users_table.html"}}
 <div class="table-responsive">
-  <table class="table table-hover align-middle mb-0" style="font-size: 0.92rem;">
-    <thead class="table-light border-bottom">
-      <tr class="text-muted" style="font-size: 0.8rem; text-transform: uppercase;">
+  <table class="table align-middle mb-0" style="font-size: 0.92rem;">
+    <thead>
+      <tr>
         <th>ユーザー名</th>
         <th>表示名 / メール</th>
         <th>認証方式</th>
@@ -14,21 +14,21 @@
     </thead>
     <tbody>
       {{range $u := .Users}}
-      <tr class="border-bottom" id="user-row-{{$u.ID}}">
-        <td class="fw-semibold text-dark">
+      <tr id="user-row-{{$u.ID}}">
+        <td class="fw-bold text-dark">
           <div class="d-flex align-items-center gap-2">
             <span>👤</span>
             <span>{{$u.Username}}</span>
           </div>
         </td>
         <td>
-          <div>{{if $u.DisplayName}}{{$u.GetDisplayName}}{{else}}-{{end}}</div>
+          <div class="fw-bold text-dark">{{if $u.DisplayName}}{{$u.GetDisplayName}}{{else}}-{{end}}</div>
           {{if $u.Email}}
-          <div class="text-muted small">{{$u.GetEmail}}</div>
+          <div class="text-secondary small">{{$u.GetEmail}}</div>
           {{end}}
         </td>
         <td>
-          <span class="badge-pill-modern {{if eq $u.AuthType "oidc"}}badge-group{{else}}bg-secondary text-white{{end}}">
+          <span class="badge-pill-modern {{if eq $u.AuthType "oidc"}}badge-group{{else}}bg-light text-dark border{{end}}">
             {{$u.AuthType}}
           </span>
         </td>
@@ -44,11 +44,11 @@
             {{range $u.GetGroups}}
             <span class="badge-pill-modern badge-group">{{.}}</span>
             {{else}}
-            <span class="text-muted small">-</span>
+            <span class="text-secondary small">-</span>
             {{end}}
           </div>
         </td>
-        <td class="text-muted small">
+        <td class="text-secondary small">
           {{formatTime $u.CreatedAt}}
         </td>
         <td class="text-end">
@@ -59,7 +59,7 @@
               data-bs-toggle="modal"
               data-bs-target="#editUserModal-{{$u.ID}}"
             >
-              編集
+              <i class="bi bi-pencil me-1"></i> 編集
             </button>
             {{if and $.CurrentUser (ne $u.ID $.CurrentUser.ID)}}
             <button
@@ -70,7 +70,7 @@
               hx-target="#user-row-{{$u.ID}}"
               hx-swap="outerHTML"
             >
-              削除
+              <i class="bi bi-trash"></i> 削除
             </button>
             {{else}}
             <span class="badge-pill-modern badge-group px-2" style="font-size: 0.82rem;">自分</span>
@@ -80,10 +80,10 @@
           <!-- ユーザー編集モーダル -->
           <div class="modal fade text-start" id="editUserModal-{{$u.ID}}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
-              <div class="modal-content border-0 shadow-lg" style="border-radius: var(--radius-md);">
+              <div class="modal-content border">
                 <div class="modal-header border-bottom">
-                  <h6 class="modal-title fw-bold">ユーザー編集: {{$u.Username}}</h6>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  <h3 class="modal-title h6 fw-bold text-dark mb-0">ユーザー編集: {{$u.Username}}</h3>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
                 </div>
                 <form
                   hx-post="{{basePath}}/users/{{$u.ID}}/edit"
@@ -93,45 +93,38 @@
                 >
                   <div class="modal-body p-4">
                     <div class="mb-3">
-                      <label class="form-label small fw-semibold text-secondary">表示名</label>
+                      <label class="dads-form-label">表示名 <span class="dads-badge-optional">任意</span></label>
                       <input type="text" name="display_name" class="form-control form-control-modern" value="{{$u.GetDisplayName}}">
                     </div>
                     <div class="mb-3">
-                      <label class="form-label small fw-semibold text-secondary">メールアドレス</label>
+                      <label class="dads-form-label">メールアドレス <span class="dads-badge-optional">任意</span></label>
                       <input type="email" name="email" class="form-control form-control-modern" value="{{$u.GetEmail}}">
                     </div>
+
                     {{if eq $u.AuthType "local"}}
                     <div class="mb-3">
-                      <label class="form-label small fw-semibold text-secondary">新しいパスワード (変更する場合のみ入力)</label>
-                      <input type="password" name="password" class="form-control form-control-modern" placeholder="変更しない場合は空欄">
+                      <label class="dads-form-label">新しいパスワード <span class="dads-badge-optional">変更時のみ</span></label>
+                      <input type="password" name="password" class="form-control form-control-modern" placeholder="未入力の場合は変更されません">
                     </div>
                     {{end}}
+
                     <div class="mb-3">
-                      <label class="form-label small fw-semibold text-secondary">ロール</label>
-                      <select name="role" class="form-select form-control-modern">
-                        <option value="user" {{if not ($u.HasRole "admin")}}selected{{end}}>user (一般ユーザー)</option>
-                        <option value="admin" {{if $u.HasRole "admin"}}selected{{end}}>admin (システム管理者)</option>
-                      </select>
+                      <label class="dads-form-label">ロール設定</label>
+                      <div class="form-check form-switch mt-1">
+                        <input class="form-check-input" type="checkbox" name="is_admin" value="true" id="editAdminSwitch-{{$u.ID}}" {{if hasRole $u "admin"}}checked{{end}}>
+                        <label class="form-check-label small fw-bold text-dark" for="editAdminSwitch-{{$u.ID}}">admin ロールを付与する</label>
+                      </div>
                     </div>
-                    <div class="mb-3">
-                      <label class="form-label small fw-semibold text-secondary">グループ (ナレッジ閲覧・検索権限)</label>
-                      <div class="d-flex flex-wrap gap-2 p-2 border rounded-3 bg-light">
+
+                    <div class="mb-2">
+                      <label class="dads-form-label mb-1">所属グループ</label>
+                      <div class="d-flex flex-wrap gap-2 p-2 border rounded-1 bg-light">
+                        {{$userGroups := $u.GetGroups}}
                         {{range $g := $.Groups}}
-                        <div class="form-check">
-                          <input
-                            class="form-check-input"
-                            type="checkbox"
-                            name="selected_groups"
-                            value="{{$g.Name}}"
-                            id="edit-grp-{{$u.ID}}-{{$g.Name}}"
-                            {{if sliceContains $u.GetGroups $g.Name}}checked{{end}}
-                          >
-                          <label class="form-check-label small" for="edit-grp-{{$u.ID}}-{{$g.Name}}">
-                            {{$g.DisplayName}}
-                          </label>
-                        </div>
-                        {{else}}
-                        <span class="text-muted small">登録されたグループはありません</span>
+                        <label class="px-2 py-1 border rounded-1 bg-white d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
+                          <input class="form-check-input m-0" type="checkbox" name="groups" value="{{$g.Name}}" {{if sliceContains $userGroups $g.Name}}checked{{end}}>
+                          <span class="small fw-bold text-dark">{{$g.DisplayName}} ({{$g.Name}})</span>
+                        </label>
                         {{end}}
                       </div>
                     </div>
@@ -148,8 +141,8 @@
       </tr>
       {{else}}
       <tr>
-        <td colspan="7" class="text-center py-4 text-muted">
-          登録されたユーザーはいません。
+        <td colspan="7" class="text-center py-4 text-secondary">
+          ユーザーがいません。
         </td>
       </tr>
       {{end}}

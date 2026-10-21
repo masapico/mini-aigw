@@ -5,16 +5,19 @@
 {{define "content"}}
 <div class="mb-4 d-flex justify-content-between align-items-center">
   <div>
-    <h3 class="fw-bold mb-1">AIプロキシ APIキー管理</h3>
-    <p class="text-muted small mb-0">
+    <h1 class="h3 fw-bold mb-1 text-dark">AIプロキシ APIキー管理</h1>
+    <p class="text-secondary small mb-0">
       OpenAI 互換 <code>/v1/chat/completions</code> 呼び出し用の Bearer トークンを発行・管理します
     </p>
   </div>
 </div>
 
-<!-- API キー発行カード -->
+<!-- API キー発行カード (DADS仕様) -->
 <div class="modern-card mb-4">
-  <h5 class="fw-bold mb-3">新規 API キーの発行</h5>
+  <div class="dads-card-header">
+    <h2 class="h5 fw-bold mb-0 text-dark">新規 API キーの発行</h2>
+    <span class="text-secondary small">利用用途や接続グループ権限に応じた個別のAPIキーを発行します</span>
+  </div>
   <form
     hx-post="{{basePath}}/api-keys/create"
     hx-target="#api-keys-container"
@@ -24,19 +27,25 @@
   >
     <div class="row g-3">
       <div class="col-12 col-md-5">
-        <label class="form-label small fw-semibold text-secondary">キーの名称 / 用途 <span class="text-danger">*</span></label>
+        <label class="dads-form-label">
+          キーの名称 / 用途 <span class="dads-badge-required">必須</span>
+        </label>
+        <span class="dads-form-help">識別しやすい用途名を入力してください</span>
         <input
           type="text"
           id="keyNameInput"
           class="form-control form-control-modern"
           name="name"
-          placeholder="例: チャットボット (一般利用)"
+          placeholder="例: 社内チャットボット (一般業務)"
           required
         >
       </div>
 
       <div class="col-12 col-md-4">
-        <label class="form-label small fw-semibold text-secondary">固定 LLM モデル (用途分離)</label>
+        <label class="dads-form-label">
+          固定 LLM モデル <span class="dads-badge-optional">任意</span>
+        </label>
+        <span class="dads-form-help">用途ごとのモデル固定（空白時は既定）</span>
         <select name="model_id" id="keyModelSelect" class="form-select form-control-modern">
           <option value="">指定なし (クライアント指定 / 既定モデル)</option>
           {{range .AvailableModels}}
@@ -46,7 +55,10 @@
       </div>
 
       <div class="col-12 col-md-3">
-        <label class="form-label small fw-semibold text-secondary">レート制限 (RPM)</label>
+        <label class="dads-form-label">
+          レート制限 (RPM) <span class="dads-badge-optional">任意</span>
+        </label>
+        <span class="dads-form-help">0: 無制限 (分間リクエスト上限)</span>
         <div class="input-group">
           <input
             type="number"
@@ -57,21 +69,20 @@
             placeholder="0"
             value="0"
           >
-          <span class="input-group-text bg-light text-muted small">req/分</span>
+          <span class="input-group-text bg-light text-secondary small">req/分</span>
         </div>
-        <div class="form-text" style="font-size: 0.72rem;">0: 無制限</div>
       </div>
 
       <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2">
-            <label class="form-label small fw-semibold text-secondary mb-0">
-              検索を許可するナレッジグループ
+            <label class="dads-form-label mb-0">
+              検索を許可するナレッジグループ <span class="dads-badge-optional">任意</span>
             </label>
             <span class="badge bg-light text-secondary border px-2 py-0 small" style="font-size: 0.75rem;">
               {{len .AvailableGroups}} グループ
             </span>
-            <span id="keyModeBadge" class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small" style="font-size: 0.75rem;">
+            <span id="keyModeBadge" class="badge-pill-modern badge-status-synced" style="font-size: 0.75rem;">
               🔍 ナレッジ検索有効（組み込みプロンプト自動適用）
             </span>
           </div>
@@ -98,12 +109,12 @@
         </div>
         <div
           id="key-groups-container"
-          class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-3 bg-white"
-          style="min-height: 48px; max-height: 140px; overflow-y: auto; border-color: var(--border-color) !important;"
+          class="d-flex flex-wrap align-items-center gap-2 p-2 border rounded-1 bg-white"
+          style="min-height: 48px; max-height: 140px; overflow-y: auto;"
         >
           {{range .AvailableGroups}}
           <label
-            class="px-3 py-1 border rounded-2 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none"
+            class="px-3 py-1 border rounded-1 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none"
             style="cursor: pointer; font-size: 0.85rem;"
             for="grp-check-{{.}}"
           >
@@ -117,7 +128,7 @@
               onchange="onKeyGroupsChanged()"
               style="cursor: pointer;"
             >
-            <span class="small fw-medium">{{.}}</span>
+            <span class="small fw-bold text-dark">{{.}}</span>
           </label>
           {{end}}
         </div>
@@ -125,12 +136,12 @@
 
       <!-- 組み込みプロンプト可視化アコーディオン -->
       <div class="col-12" id="keyBuiltinPromptContainer">
-        <div class="border rounded-3 p-2 px-3 bg-light" style="border-color: var(--border-color) !important;">
+        <div class="border rounded-1 p-2 px-3 bg-light">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0 small" style="font-size: 0.75rem;">システム仕様</span>
-              <span class="small fw-semibold text-dark">ナレッジ検索時の組み込みプロンプト（自動適用）</span>
-              <span class="text-muted small" style="font-size: 0.78rem;">
+              <span class="badge bg-light text-primary border px-2 py-0 small fw-bold" style="font-size: 0.75rem;">システム仕様</span>
+              <span class="small fw-bold text-dark">ナレッジ検索時の組み込みプロンプト（自動適用）</span>
+              <span class="text-secondary small" style="font-size: 0.78rem;">
                 ※ ナレッジ検索判定や引用ルールは自動注入されるため、システムプロンプトへの重複記述は不要です
               </span>
             </div>
@@ -149,15 +160,15 @@
           <div class="collapse mt-2 pt-2 border-top" id="builtinPromptCollapse">
             <div class="row g-2">
               <div class="col-12 col-lg-6">
-                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
-                  <div class="fw-semibold text-secondary mb-1">① ツール利用判定ガイドライン (システムプロンプト自動合成)</div>
-                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{.BuiltinKnowledgePrompt}}</pre>
+                <div class="p-2 bg-white rounded-1 border" style="font-size: 0.8rem;">
+                  <div class="fw-bold text-secondary mb-1">① ツール利用判定ガイドライン (システムプロンプト自動合成)</div>
+                  <pre class="mb-0 text-secondary" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{.BuiltinKnowledgePrompt}}</pre>
                 </div>
               </div>
               <div class="col-12 col-lg-6">
-                <div class="p-2 bg-white rounded border" style="font-size: 0.8rem;">
-                  <div class="fw-semibold text-secondary mb-1">② 回答・根拠提示ルール (検索ヒット時に自動適用)</div>
-                  <pre class="mb-0 text-muted" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{.BuiltinGroundingRules}}</pre>
+                <div class="p-2 bg-white rounded-1 border" style="font-size: 0.8rem;">
+                  <div class="fw-bold text-secondary mb-1">② 回答・根拠提示ルール (検索ヒット時に自動適用)</div>
+                  <pre class="mb-0 text-secondary" style="white-space: pre-wrap; font-family: inherit; font-size: 0.76rem; max-height: 140px; overflow-y: auto;">{{.BuiltinGroundingRules}}</pre>
                 </div>
               </div>
             </div>
@@ -167,8 +178,8 @@
 
       <div class="col-12 col-md-10">
         <div class="d-flex justify-content-between align-items-center mb-1">
-          <label class="form-label small fw-semibold text-secondary mb-0">
-            事前定義システムプロンプト (ペルソナ・口調等の追加指示 / 任意)
+          <label class="dads-form-label mb-0">
+            事前定義システムプロンプト <span class="dads-badge-optional">任意</span>
           </label>
           <button
             type="button"
@@ -179,6 +190,7 @@
             💡 丁寧な敬語・箇条書きの指示例を挿入
           </button>
         </div>
+        <span class="dads-form-help">ペルソナや口調の追加指示を記述します</span>
         <textarea
           id="keySystemPromptInput"
           name="system_prompt"
@@ -190,13 +202,13 @@
 
       <div class="col-12 col-md-2 d-flex align-items-end">
         <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
-          <span class="spinner-border spinner-border-sm htmx-indicator" id="key-spinner" role="status"></span>
-          キーを発行
+          <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="key-spinner" role="status"></span>
+          <span>キーを発行</span>
         </button>
       </div>
 
       <div class="col-12 mt-1">
-        <div id="keyPromptHint" class="text-muted small" style="font-size: 0.78rem;">
+        <div id="keyPromptHint" class="text-secondary small" style="font-size: 0.78rem;">
           ※ ナレッジ検索有効時: 組み込みプロンプトに上乗せして適用されます。回答の口調やペルソナ等の追加指示のみを記述してください。
         </div>
       </div>
@@ -208,8 +220,8 @@
 <!-- API キー一覧カード -->
 <div class="modern-card p-0 overflow-hidden">
   <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
-    <h6 class="fw-bold mb-0">有効な API キー一覧</h6>
-    <span class="text-muted small">シークレットキーのコピーやシステムプロンプト等の編集がいつでも可能です</span>
+    <h2 class="h5 fw-bold mb-0 text-dark">有効な API キー一覧</h2>
+    <span class="text-secondary small">シークレットキーのコピーやシステムプロンプト等の編集がいつでも可能です</span>
   </div>
   <div id="api-keys-container">
     {{template "api_keys_section.html" .}}
@@ -243,7 +255,7 @@
 
     if (checkedCount > 0) {
       if (badge) {
-        badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small";
+        badge.className = "badge-pill-modern badge-status-synced";
         badge.innerHTML = "🔍 ナレッジ検索有効（組み込みプロンプト自動適用）";
       }
       if (hint) {
@@ -254,7 +266,10 @@
       }
     } else {
       if (badge) {
-        badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill small";
+        badge.className = "badge-pill-modern";
+        badge.style.backgroundColor = "var(--dads-color-gray-100)";
+        badge.style.color = "var(--dads-color-gray-700)";
+        badge.style.border = "1px solid var(--dads-color-gray-300)";
         badge.innerHTML = "🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）";
       }
       if (hint) {
@@ -277,7 +292,7 @@
 
     if (checkedCount > 0) {
       if (badge) {
-        badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill small";
+        badge.className = "badge-pill-modern badge-status-synced";
         badge.innerHTML = "🔍 ナレッジ検索有効（組み込みプロンプト自動適用）";
       }
       if (hint) {
@@ -288,7 +303,10 @@
       }
     } else {
       if (badge) {
-        badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-pill small";
+        badge.className = "badge-pill-modern";
+        badge.style.backgroundColor = "var(--dads-color-gray-100)";
+        badge.style.color = "var(--dads-color-gray-700)";
+        badge.style.border = "1px solid var(--dads-color-gray-300)";
         badge.innerHTML = "🤖 LLM単体モード（ナレッジ検索無効・組み込みプロンプトなし）";
       }
       if (hint) {

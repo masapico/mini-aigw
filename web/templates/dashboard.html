@@ -3,33 +3,33 @@
 {{define "title"}}ダッシュボード - mini-aigw{{end}}
 
 {{define "content"}}
-<div class="mb-4 d-flex justify-content-between align-items-center">
+<div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
   <div>
-    <h3 class="fw-bold mb-1">システム概要</h3>
-    <p class="text-muted small mb-0">Amazon Bedrock & S3 Vectors AI Gateway ステータス</p>
+    <h1 class="h3 fw-bold mb-1 text-dark">システム概要ダッシュボード</h1>
+    <p class="text-secondary small mb-0">Amazon Bedrock & S3 Vectors AI Gateway 稼働ステータス</p>
   </div>
   <div class="d-flex gap-2">
     <a href="{{basePath}}/knowledge" class="btn-modern-secondary text-decoration-none py-2">
-      ナレッジ管理
+      <i class="bi bi-database me-1"></i> ナレッジ管理
     </a>
     <a href="{{basePath}}/rag-test" class="btn-modern-primary text-decoration-none py-2">
-      ナレッジ検索テスト
+      <i class="bi bi-search me-1"></i> ナレッジ検索テスト
     </a>
   </div>
 </div>
 
-<!-- 統計カード -->
+<!-- 統計メトリクスカード (DADS 仕様) -->
 <div class="row g-3 mb-4">
   <div class="col-12 col-sm-6 col-lg-3">
-    <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">
+    <div class="metric-card">
+      <div class="text-secondary small fw-bold mb-1">
         {{if .IsAdmin}}ナレッジドキュメント (全体){{else}}アクセス可能ドキュメント{{end}}
       </div>
       <div class="d-flex align-items-baseline gap-2">
-        <h2 class="fw-bold mb-0 text-indigo">{{.DocCount}}</h2>
-        <span class="text-muted small">件</span>
+        <span class="fs-2 fw-bold text-dark">{{.DocCount}}</span>
+        <span class="text-secondary small">件</span>
       </div>
-      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+      <div class="mt-2 text-secondary text-truncate" style="font-size: 0.8rem;" title="{{.Config.KnowledgeS3Bucket}}">
         S3 Bucket: <code>{{.Config.KnowledgeS3Bucket}}</code>
       </div>
     </div>
@@ -37,38 +37,38 @@
 
   {{if .IsAdmin}}
   <div class="col-12 col-sm-6 col-lg-3">
-    <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">有効な API キー</div>
+    <div class="metric-card">
+      <div class="text-secondary small fw-bold mb-1">有効な API キー</div>
       <div class="d-flex align-items-baseline gap-2">
-        <h2 class="fw-bold mb-0">{{.KeyCount}}</h2>
-        <span class="text-muted small">件</span>
+        <span class="fs-2 fw-bold text-dark">{{.KeyCount}}</span>
+        <span class="text-secondary small">件</span>
       </div>
-      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+      <div class="mt-2 text-secondary" style="font-size: 0.8rem;">
         業務チャット連携用トークン
       </div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-lg-3">
-    <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">累計概算コスト (USD)</div>
+    <div class="metric-card border-success">
+      <div class="text-secondary small fw-bold mb-1">累計概算コスト (USD)</div>
       <div class="d-flex align-items-baseline gap-1">
-        <h2 class="fw-bold mb-0 text-success">${{printf "%.4f" .TotalCostUSD}}</h2>
+        <span class="fs-2 fw-bold" style="color: var(--dads-color-success);">${{printf "%.4f" .TotalCostUSD}}</span>
       </div>
-      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+      <div class="mt-2 text-secondary" style="font-size: 0.8rem;">
         全モデルのトークン消費概算
       </div>
     </div>
   </div>
   {{else}}
   <div class="col-12 col-sm-6 col-lg-3">
-    <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">利用可能な AI モデル</div>
+    <div class="metric-card">
+      <div class="text-secondary small fw-bold mb-1">利用可能な AI モデル</div>
       <div class="d-flex align-items-baseline gap-2">
-        <h2 class="fw-bold mb-0 text-indigo">{{.ActiveModelsCount}}</h2>
-        <span class="text-muted small">種類</span>
+        <span class="fs-2 fw-bold text-dark">{{.ActiveModelsCount}}</span>
+        <span class="text-secondary small">種類</span>
       </div>
-      <div class="mt-2 text-muted text-truncate" style="font-size: 0.8rem;" title="{{.DefaultModelName}}">
+      <div class="mt-2 text-secondary text-truncate" style="font-size: 0.8rem;" title="{{.DefaultModelName}}">
         標準: <code>{{.DefaultModelName}}</code>
       </div>
     </div>
@@ -76,36 +76,36 @@
   {{end}}
 
   <div class="col-12 col-sm-6 col-lg-3">
-    <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">Bedrock リージョン</div>
+    <div class="metric-card">
+      <div class="text-secondary small fw-bold mb-1">Bedrock リージョン</div>
       <div class="d-flex align-items-baseline gap-2">
-        <h4 class="fw-bold mb-0 text-dark">{{.Config.AWSRegion}}</h4>
+        <span class="fs-4 fw-bold text-dark">{{.Config.AWSRegion}}</span>
       </div>
-      <div class="mt-2 text-muted" style="font-size: 0.8rem;">
+      <div class="mt-2 text-secondary text-truncate" style="font-size: 0.8rem;" title="{{.Config.BedrockKBID}}">
         KB ID: <code>{{.Config.BedrockKBID}}</code>
       </div>
     </div>
   </div>
 
   <div class="col-12 col-sm-6 col-lg-3">
-    <div class="modern-card">
-      <div class="text-muted small fw-semibold mb-1">アカウント & 権限</div>
+    <div class="metric-card">
+      <div class="text-secondary small fw-bold mb-1">アカウント & 権限</div>
       <div class="d-flex align-items-center gap-2 mt-1 mb-2">
         {{if hasRole .User "admin"}}
-        <span class="badge-pill-modern bg-primary text-white">管理者</span>
+        <span class="badge-pill-modern" style="background-color: var(--dads-color-blue-900); color: #fff;">管理者</span>
         {{else}}
-        <span class="badge-pill-modern bg-light text-dark border">一般ユーザー</span>
+        <span class="badge-pill-modern" style="background-color: var(--dads-color-gray-100); color: var(--dads-color-gray-900); border: 1px solid var(--dads-color-gray-300);">一般ユーザー</span>
         {{end}}
-        <span class="text-muted" style="font-size: 0.8rem;">
+        <span class="text-secondary" style="font-size: 0.8rem;">
           {{if eq .User.AuthType "oidc"}}SSO (mini-id){{else}}ローカル認証{{end}}
         </span>
       </div>
       <div class="d-flex align-items-center flex-wrap gap-1">
-        <span class="text-muted" style="font-size: 0.8rem;">所属:</span>
+        <span class="text-secondary" style="font-size: 0.8rem;">所属:</span>
         {{range .User.GetGroups}}
         <span class="badge-pill-modern badge-group">{{.}}</span>
         {{else}}
-        <span class="text-muted small">未所属 (全体共有のみ)</span>
+        <span class="text-secondary small">未所属 (全体共有のみ)</span>
         {{end}}
       </div>
     </div>
@@ -117,12 +117,14 @@
   <div class="col-12 col-lg-6">
     {{if .IsAdmin}}
     <div class="modern-card h-100">
-      <h5 class="fw-bold mb-3">OpenAI 互換 API 接続方法 (管理者ガイド)</h5>
-      <p class="text-muted small">
-        公式 <code>openai</code> SDK や組織のチャットツールから <code>http://&lt;host&gt;:8000/v1</code> 経由で即座に利用可能です。
-      </p>
+      <div class="dads-card-header">
+        <h2 class="h5 fw-bold mb-1 text-dark">OpenAI 互換 API 接続方法 (管理者ガイド)</h2>
+        <p class="text-secondary small mb-0">
+          公式 <code>openai</code> SDK や組織のチャットツールから <code>http://&lt;host&gt;:8000/v1</code> 経由で即座に利用可能です。
+        </p>
+      </div>
 
-      <div class="p-3 rounded-3" style="background-color: #0f172a; color: #f8fafc; font-size: 0.82rem;">
+      <div class="p-3 rounded-2" style="background-color: #111827; color: #f9fafb; font-size: 0.82rem;">
         <pre class="mb-0 text-light"><code>from openai import OpenAI
 
 client = OpenAI(
@@ -141,14 +143,16 @@ for chunk in response:
     </div>
     {{else}}
     <div class="modern-card h-100">
-      <h5 class="fw-bold mb-3">ナレッジベースの活用</h5>
-      <p class="text-muted small">
-        グループごとに隔離されたナレッジベースを管理・検索できます。
-      </p>
+      <div class="dads-card-header">
+        <h2 class="h5 fw-bold mb-1 text-dark">ナレッジベースの活用案内</h2>
+        <p class="text-secondary small mb-0">
+          グループごとに隔離されたナレッジベースを管理・検索できます。
+        </p>
+      </div>
       <ul class="list-unstyled d-flex flex-column gap-2 text-secondary small">
         <li class="d-flex align-items-start gap-2">
           <span class="text-primary fw-bold">✓</span>
-          <span><strong>安全なアップロード:</strong> 自分が属するグループ配下にのみドキュメントをアップロードできます。許可されていないグループへのナレッジ登録はできません。</span>
+          <span><strong>安全なアップロード:</strong> 自分が属するグループ配下にのみドキュメントをアップロードできます。</span>
         </li>
         <li class="d-flex align-items-start gap-2">
           <span class="text-primary fw-bold">✓</span>
@@ -159,7 +163,7 @@ for chunk in response:
           <span><strong>検索単体テスト (Retrieve):</strong> 登録したナレッジが問合せに正しく検索ヒットするか、スコアと内容を確認できます。</span>
         </li>
       </ul>
-      <div class="mt-4 pt-2 border-top d-flex gap-2">
+      <div class="mt-4 pt-3 border-top d-flex gap-2">
         <a href="{{basePath}}/knowledge" class="btn-modern-primary text-decoration-none py-2 px-3 small">
           ナレッジを登録
         </a>
@@ -173,16 +177,18 @@ for chunk in response:
 
   <div class="col-12 col-lg-6">
     <div class="modern-card h-100">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold mb-0">最近登録されたナレッジ資料</h5>
-        <a href="{{basePath}}/knowledge" class="text-decoration-none small text-primary fw-semibold">すべて表示 &rarr;</a>
+      <div class="dads-card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h2 class="h5 fw-bold mb-0 text-dark">最近登録されたナレッジ資料</h2>
+        </div>
+        <a href="{{basePath}}/knowledge" class="text-decoration-none small text-primary fw-bold">すべて表示 &rarr;</a>
       </div>
 
       {{if .RecentDocs}}
       <div class="table-responsive">
-        <table class="table table-borderless align-middle mb-0" style="font-size: 0.9rem;">
+        <table class="table align-middle mb-0" style="font-size: 0.9rem;">
           <thead>
-            <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
+            <tr>
               <th>ファイル名</th>
               <th>グループ</th>
               <th>同期状態</th>
@@ -190,8 +196,8 @@ for chunk in response:
           </thead>
           <tbody>
             {{range .RecentDocs}}
-            <tr class="border-bottom">
-              <td class="fw-semibold">{{.Filename}}</td>
+            <tr>
+              <td class="fw-bold text-dark">{{.Filename}}</td>
               <td>
                 <span class="badge-pill-modern badge-group">{{.GroupName}}</span>
               </td>
@@ -212,7 +218,7 @@ for chunk in response:
         </table>
       </div>
       {{else}}
-      <div class="text-center py-5 text-muted small">
+      <div class="text-center py-5 text-secondary small">
         利用可能な登録済ナレッジドキュメントはありません。
       </div>
       {{end}}
@@ -224,15 +230,15 @@ for chunk in response:
 <div class="row g-4 mt-1">
   <div class="col-12">
     <div class="modern-card">
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div class="dads-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
-          <h5 class="fw-bold mb-1 d-flex align-items-center gap-2">
+          <h2 class="h5 fw-bold mb-1 text-dark d-flex align-items-center gap-2">
             <i class="bi bi-question-circle text-danger"></i> 頻出未解決クエリ Top 5 (不足ナレッジのヒント)
-          </h5>
-          <span class="text-muted small">RAG検索でヒット0件または類似度不足となった質問上位。ドキュメント作成の優先度判断に活用できます。</span>
+          </h2>
+          <span class="text-secondary small">RAG検索でヒット0件または類似度不足となった質問上位。ドキュメント作成の優先度判断に活用できます。</span>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-danger rounded-pill px-3 py-2">未対応: {{.UnresolvedZeroHitCount}} 件</span>
+          <span class="badge bg-danger rounded-1 px-3 py-2">未対応: {{.UnresolvedZeroHitCount}} 件</span>
           <a href="{{basePath}}/zero-hit-queries" class="btn-modern-secondary text-decoration-none py-1 px-3" style="font-size: 0.85rem;">
             すべて表示 &rarr;
           </a>
@@ -241,9 +247,9 @@ for chunk in response:
 
       {{if .TopZeroHitQueries}}
       <div class="table-responsive">
-        <table class="table table-borderless align-middle mb-0" style="font-size: 0.88rem;">
+        <table class="table align-middle mb-0" style="font-size: 0.88rem;">
           <thead>
-            <tr class="text-muted border-bottom" style="font-size: 0.75rem; text-transform: uppercase;">
+            <tr>
               <th>質問クエリ</th>
               <th>グループ</th>
               <th class="text-center">発生回数</th>
@@ -255,13 +261,13 @@ for chunk in response:
           </thead>
           <tbody>
             {{range .TopZeroHitQueries}}
-            <tr class="border-bottom">
-              <td class="fw-semibold text-dark text-break">{{.Query}}</td>
+            <tr>
+              <td class="fw-bold text-dark text-break">{{.Query}}</td>
               <td>
                 <span class="badge-pill-modern badge-group">{{.GroupName}}</span>
               </td>
               <td class="text-center">
-                <span class="badge rounded-pill {{if gt .HitCount 5}}bg-danger text-white{{else if gt .HitCount 1}}bg-warning text-dark{{else}}bg-secondary text-white{{end}} px-2 py-1">
+                <span class="badge rounded-1 {{if gt .HitCount 5}}bg-danger text-white{{else if gt .HitCount 1}}bg-warning text-dark{{else}}bg-secondary text-white{{end}} px-2 py-1">
                   {{.HitCount}} 回
                 </span>
               </td>
@@ -270,7 +276,7 @@ for chunk in response:
                 {{if eq .Reason "0件ヒット"}}
                 <span class="badge bg-light text-danger border border-danger-subtle">0件ヒット</span>
                 {{else if eq .Reason "ナレッジ記載なし"}}
-                <span class="badge bg-light text-info text-dark border border-info-subtle">ナレッジ記載なし</span>
+                <span class="badge bg-light text-primary border border-primary-subtle">ナレッジ記載なし</span>
                 {{else}}
                 <span class="badge bg-light text-warning text-dark border border-warning-subtle">スコア不足</span>
                 {{end}}
@@ -292,7 +298,7 @@ for chunk in response:
         </table>
       </div>
       {{else}}
-      <div class="text-center py-4 text-muted small">
+      <div class="text-center py-4 text-secondary small">
         <i class="bi bi-check2-circle text-success fs-4 d-block mb-1"></i>
         現在未対応の未解決クエリはありません。ナレッジは正常に検索ヒットしています。
       </div>
@@ -306,10 +312,10 @@ for chunk in response:
 <div class="row g-4 mt-1">
   <div class="col-12">
     <div class="modern-card">
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div class="dads-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
-          <h5 class="fw-bold mb-0">利用推移 & コスト分析 (直近14日間)</h5>
-          <p class="text-muted small mb-0">日次の消費トークン数（バー）および概算コスト（折れ線）の推移</p>
+          <h2 class="h5 fw-bold mb-0 text-dark">利用推移 & コスト分析 (直近14日間)</h2>
+          <p class="text-secondary small mb-0">日次の消費トークン数（バー）および概算コスト（折れ線）の推移</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
           <a href="{{basePath}}/dashboard/export-csv" class="btn-modern-secondary py-1 px-3 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: 0.85rem;">
@@ -329,46 +335,46 @@ for chunk in response:
 <div class="row g-4 mt-1">
   <div class="col-12">
     <div class="modern-card">
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div class="dads-card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
-          <h5 class="fw-bold mb-0">利用実績 & 按分集計</h5>
-          <p class="text-muted small mb-0">APIキーごと・モデルごと・所属グループごとのトークン消費量とコスト</p>
+          <h2 class="h5 fw-bold mb-0 text-dark">利用実績 & 按分集計</h2>
+          <p class="text-secondary small mb-0">APIキーごと・モデルごと・所属グループごとのトークン消費量とコスト</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-          <div class="px-3 py-1 rounded-3 bg-light border">
-            <span class="text-muted small">累計リクエスト:</span>
-            <strong class="ms-1">{{.TotalRequests}}</strong> <span class="text-muted small">回</span>
+          <div class="px-3 py-1 rounded-1 bg-light border">
+            <span class="text-secondary small">累計リクエスト:</span>
+            <strong class="ms-1 text-dark">{{.TotalRequests}}</strong> <span class="text-secondary small">回</span>
           </div>
-          <div class="px-3 py-1 rounded-3 bg-light border">
-            <span class="text-muted small">RAG 検索:</span>
-            <strong class="ms-1 text-indigo">{{.RAGRequests}}</strong> <span class="text-muted small">回</span>
+          <div class="px-3 py-1 rounded-1 bg-light border">
+            <span class="text-secondary small">RAG 検索:</span>
+            <strong class="ms-1 text-primary">{{.RAGRequests}}</strong> <span class="text-secondary small">回</span>
           </div>
-          <div class="px-3 py-1 rounded-3 bg-light border">
-            <span class="text-muted small">累計消費:</span>
-            <strong class="ms-1">{{.TotalTokens}}</strong> <span class="text-muted small">tokens</span>
+          <div class="px-3 py-1 rounded-1 bg-light border">
+            <span class="text-secondary small">累計消費:</span>
+            <strong class="ms-1 text-dark">{{.TotalTokens}}</strong> <span class="text-secondary small">tokens</span>
           </div>
         </div>
       </div>
 
-      <!-- タブ切り替え -->
-      <ul class="nav nav-pills mb-3 gap-2 border-bottom pb-2" id="usageTabs" role="tablist">
+      <!-- タブ切り替え (DADS アンダーライン型) -->
+      <ul class="nav nav-pills mb-3" id="usageTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active rounded-pill px-3 py-1 fw-semibold small" id="tab-recent-btn" data-bs-toggle="pill" data-bs-target="#tab-recent" type="button" role="tab">
+          <button class="nav-link active" id="tab-recent-btn" data-bs-toggle="pill" data-bs-target="#tab-recent" type="button" role="tab">
             直近の監査ログ
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link rounded-pill px-3 py-1 fw-semibold small" id="tab-apikey-btn" data-bs-toggle="pill" data-bs-target="#tab-apikey" type="button" role="tab">
+          <button class="nav-link" id="tab-apikey-btn" data-bs-toggle="pill" data-bs-target="#tab-apikey" type="button" role="tab">
             APIキー別集計{{if .ApiKeyStats}} ({{len .ApiKeyStats}}){{end}}
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link rounded-pill px-3 py-1 fw-semibold small" id="tab-model-btn" data-bs-toggle="pill" data-bs-target="#tab-model" type="button" role="tab">
+          <button class="nav-link" id="tab-model-btn" data-bs-toggle="pill" data-bs-target="#tab-model" type="button" role="tab">
             モデル別集計{{if .ModelStats}} ({{len .ModelStats}}){{end}}
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link rounded-pill px-3 py-1 fw-semibold small" id="tab-group-btn" data-bs-toggle="pill" data-bs-target="#tab-group" type="button" role="tab">
+          <button class="nav-link" id="tab-group-btn" data-bs-toggle="pill" data-bs-target="#tab-group" type="button" role="tab">
             グループ別集計
           </button>
         </li>
@@ -379,9 +385,9 @@ for chunk in response:
         <div class="tab-pane fade show active" id="tab-recent" role="tabpanel">
           {{if .RecentUsageLogs}}
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
-              <thead class="table-light border-bottom">
-                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+            <table class="table align-middle mb-0" style="font-size: 0.88rem;">
+              <thead>
+                <tr>
                   <th style="width: 140px;" class="text-nowrap">日時</th>
                   <th style="width: 130px;" class="text-nowrap">API キー</th>
                   <th style="width: 160px;" class="text-nowrap">モデル</th>
@@ -394,9 +400,9 @@ for chunk in response:
               </thead>
               <tbody>
                 {{range .RecentUsageLogs}}
-                <tr class="border-bottom">
-                  <td class="text-muted small text-nowrap">{{formatTime .CreatedAt}}</td>
-                  <td class="fw-semibold text-dark text-nowrap">{{.ApiKeyName}}</td>
+                <tr>
+                  <td class="text-secondary small text-nowrap">{{formatTime .CreatedAt}}</td>
+                  <td class="fw-bold text-dark text-nowrap">{{.ApiKeyName}}</td>
                   <td class="text-nowrap">
                     <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.78rem;">
                       {{.ModelID}}
@@ -404,12 +410,12 @@ for chunk in response:
                   </td>
                   <td class="text-nowrap text-center">
                     {{if .RAGTriggered}}
-                    <span class="badge bg-primary text-white rounded-pill px-2 py-1" style="font-size: 0.72rem;">RAG</span>
+                    <span class="badge rounded-1" style="background-color: var(--dads-color-blue-900); color: #fff; font-size: 0.72rem;">RAG</span>
                     {{else}}
-                    <span class="badge bg-light text-secondary border rounded-pill px-2 py-1" style="font-size: 0.72rem;">LLM</span>
+                    <span class="badge bg-light text-secondary border rounded-1" style="font-size: 0.72rem;">LLM</span>
                     {{end}}
                     {{if .IsStream}}
-                    <span class="badge bg-light text-muted border rounded-pill px-2 py-1 ms-1" style="font-size: 0.7rem;">Stream</span>
+                    <span class="badge bg-light text-secondary border rounded-1 ms-1" style="font-size: 0.7rem;">Stream</span>
                     {{end}}
                   </td>
                   <td>
@@ -418,19 +424,19 @@ for chunk in response:
                       {{if $queries}}
                       <div class="mb-1 text-dark" style="font-size: 0.84rem; line-height: 1.4;">
                         <i class="bi bi-chat-left-text text-primary me-1"></i>
-                        {{range $i, $q := $queries}}{{if $i}}, {{end}}<span class="fw-medium">{{$q}}</span>{{end}}
+                        {{range $i, $q := $queries}}{{if $i}}, {{end}}<span class="fw-bold">{{$q}}</span>{{end}}
                       </div>
                       {{end}}
                       {{$uniqueDocs := .GetUniqueCitedDocuments}}
                       {{if $uniqueDocs}}
                       <div class="d-flex flex-wrap gap-1 mt-1">
                         {{range $uniqueDocs}}
-                        <span class="badge bg-light text-secondary border px-2 py-1 d-inline-flex align-items-center gap-1" style="font-size: 0.76rem; font-weight: normal;">
+                        <span class="citation-chip">
                           <i class="bi bi-file-earmark-text text-primary"></i>
                           <span class="text-truncate" style="max-width: 280px;" title="{{.Filename}}">{{.Filename}}</span>
-                          <span class="badge bg-secondary-subtle text-secondary py-0 px-1 rounded">{{.Group}}</span>
+                          <span class="badge bg-secondary-subtle text-secondary py-0 px-1 rounded-1">{{.Group}}</span>
                           {{if gt .Count 1}}
-                          <span class="badge bg-primary-subtle text-primary py-0 px-1 rounded" title="{{.Count}}チャンク参照">×{{.Count}}</span>
+                          <span class="badge bg-primary text-white py-0 px-1 rounded-1" title="{{.Count}}チャンク参照">×{{.Count}}</span>
                           {{end}}
                         </span>
                         {{end}}
@@ -441,20 +447,20 @@ for chunk in response:
                       </span>
                       {{end}}
                     {{else}}
-                      <span class="text-muted small">-</span>
+                      <span class="text-secondary small">-</span>
                     {{end}}
                   </td>
                   <td class="text-end font-monospace text-nowrap">
-                    <div class="fw-semibold text-dark">{{.TotalTokens}}</div>
-                    <div class="text-muted" style="font-size: 0.7rem;">in:{{.PromptTokens}} / out:{{.CompletionTokens}}</div>
+                    <div class="fw-bold text-dark">{{.TotalTokens}}</div>
+                    <div class="text-secondary" style="font-size: 0.7rem;">in:{{.PromptTokens}} / out:{{.CompletionTokens}}</div>
                   </td>
                   <td class="text-end font-monospace text-nowrap">
-                    <span class="text-success fw-bold">${{printf "%.5f" .EstimatedCost}}</span>
+                    <span class="fw-bold" style="color: var(--dads-color-success);">${{printf "%.5f" .EstimatedCost}}</span>
                   </td>
                   <td class="text-end font-monospace text-nowrap">
                     <div class="text-dark small">{{.LatencyMs}} ms</div>
                     {{if .TimeToFirstTokenMs}}
-                    <div class="text-muted" style="font-size: 0.7rem;">TTFT: {{.TimeToFirstTokenMs}}ms</div>
+                    <div class="text-secondary" style="font-size: 0.7rem;">TTFT: {{.TimeToFirstTokenMs}}ms</div>
                     {{end}}
                   </td>
                 </tr>
@@ -463,7 +469,7 @@ for chunk in response:
             </table>
           </div>
           {{else}}
-          <div class="text-center py-4 text-muted small">API チャットの利用履歴はまだありません。</div>
+          <div class="text-center py-4 text-secondary small">API チャットの利用履歴はまだありません。</div>
           {{end}}
         </div>
 
@@ -471,9 +477,9 @@ for chunk in response:
         <div class="tab-pane fade" id="tab-apikey" role="tabpanel">
           {{if .ApiKeyStats}}
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
-              <thead class="table-light border-bottom">
-                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+            <table class="table align-middle mb-0" style="font-size: 0.88rem;">
+              <thead>
+                <tr>
                   <th>API キー名</th>
                   <th class="text-end">リクエスト回数</th>
                   <th class="text-end">Prompt トークン</th>
@@ -485,14 +491,14 @@ for chunk in response:
               </thead>
               <tbody>
                 {{range .ApiKeyStats}}
-                <tr class="border-bottom">
-                  <td class="fw-semibold text-dark">{{.ApiKeyName}}</td>
+                <tr>
+                  <td class="fw-bold text-dark">{{.ApiKeyName}}</td>
                   <td class="text-end font-monospace">{{.RequestCount}} 回</td>
-                  <td class="text-end font-monospace text-muted">{{.PromptTokens}}</td>
-                  <td class="text-end font-monospace text-muted">{{.CompletionTokens}}</td>
-                  <td class="text-end font-monospace fw-semibold">{{.TotalTokens}}</td>
-                  <td class="text-end font-monospace fw-bold text-success">${{printf "%.5f" .TotalCost}}</td>
-                  <td class="text-end text-muted small">
+                  <td class="text-end font-monospace text-secondary">{{.PromptTokens}}</td>
+                  <td class="text-end font-monospace text-secondary">{{.CompletionTokens}}</td>
+                  <td class="text-end font-monospace fw-bold">{{.TotalTokens}}</td>
+                  <td class="text-end font-monospace fw-bold" style="color: var(--dads-color-success);">${{printf "%.5f" .TotalCost}}</td>
+                  <td class="text-end text-secondary small">
                     {{if .LastUsedAt}}{{.LastUsedAt}}{{else}}-{{end}}
                   </td>
                 </tr>
@@ -501,7 +507,7 @@ for chunk in response:
             </table>
           </div>
           {{else}}
-          <div class="text-center py-4 text-muted small">API キー別の利用実績はまだありません。</div>
+          <div class="text-center py-4 text-secondary small">API キー別の利用実績はまだありません。</div>
           {{end}}
         </div>
 
@@ -509,9 +515,9 @@ for chunk in response:
         <div class="tab-pane fade" id="tab-model" role="tabpanel">
           {{if .ModelStats}}
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
-              <thead class="table-light border-bottom">
-                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+            <table class="table align-middle mb-0" style="font-size: 0.88rem;">
+              <thead>
+                <tr>
                   <th>モデル ID (profileId)</th>
                   <th class="text-end">実行回数</th>
                   <th class="text-end">消費トークン合計</th>
@@ -520,18 +526,18 @@ for chunk in response:
               </thead>
               <tbody>
                 {{range .ModelStats}}
-                <tr class="border-bottom">
-                  <td><code class="fw-semibold text-dark">{{.ModelID}}</code></td>
+                <tr>
+                  <td><code class="fw-bold text-dark">{{.ModelID}}</code></td>
                   <td class="text-end font-monospace">{{.RequestCount}} 回</td>
-                  <td class="text-end font-monospace fw-semibold">{{.TotalTokens}} tokens</td>
-                  <td class="text-end font-monospace fw-bold text-success">${{printf "%.5f" .TotalCost}}</td>
+                  <td class="text-end font-monospace fw-bold">{{.TotalTokens}} tokens</td>
+                  <td class="text-end font-monospace fw-bold" style="color: var(--dads-color-success);">${{printf "%.5f" .TotalCost}}</td>
                 </tr>
                 {{end}}
               </tbody>
             </table>
           </div>
           {{else}}
-          <div class="text-center py-4 text-muted small">モデル別の利用実績はまだありません。</div>
+          <div class="text-center py-4 text-secondary small">モデル別の利用実績はまだありません。</div>
           {{end}}
         </div>
 
@@ -539,27 +545,27 @@ for chunk in response:
         <div class="tab-pane fade" id="tab-group" role="tabpanel">
           {{if .GroupStats}}
           <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
-              <thead class="table-light border-bottom">
-                <tr class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">
+            <table class="table align-middle mb-0" style="font-size: 0.88rem;">
+              <thead>
+                <tr>
                   <th>ナレッジグループ名</th>
                   <th class="text-end">登録ドキュメント数</th>
                 </tr>
               </thead>
               <tbody>
                 {{range .GroupStats}}
-                <tr class="border-bottom">
+                <tr>
                   <td>
                     <span class="badge-pill-modern badge-group fs-6">{{.GroupName}}</span>
                   </td>
-                  <td class="text-end font-monospace fw-semibold">{{.DocCount}} 件</td>
+                  <td class="text-end font-monospace fw-bold">{{.DocCount}} 件</td>
                 </tr>
                 {{end}}
               </tbody>
             </table>
           </div>
           {{else}}
-          <div class="text-center py-4 text-muted small">グループ情報がありません。</div>
+          <div class="text-center py-4 text-secondary small">グループ情報がありません。</div>
           {{end}}
         </div>
       </div>
@@ -589,10 +595,10 @@ document.addEventListener("DOMContentLoaded", function() {
           {
             label: "消費トークン (tokens)",
             data: tokens,
-            backgroundColor: "rgba(99, 102, 241, 0.25)",
-            borderColor: "rgba(99, 102, 241, 0.9)",
+            backgroundColor: "rgba(24, 72, 154, 0.25)",
+            borderColor: "rgba(24, 72, 154, 0.9)",
             borderWidth: 1.5,
-            borderRadius: 4,
+            borderRadius: 2,
             yAxisID: "yTokens",
             order: 2,
           },
@@ -600,12 +606,12 @@ document.addEventListener("DOMContentLoaded", function() {
             label: "概算コスト ($ USD)",
             data: costs,
             type: "line",
-            borderColor: "rgba(16, 185, 129, 0.95)",
-            backgroundColor: "rgba(16, 185, 129, 0.1)",
+            borderColor: "rgba(0, 112, 60, 0.95)",
+            backgroundColor: "rgba(0, 112, 60, 0.1)",
             borderWidth: 2,
-            pointBackgroundColor: "rgba(16, 185, 129, 1)",
+            pointBackgroundColor: "rgba(0, 112, 60, 1)",
             pointRadius: 3,
-            tension: 0.3,
+            tension: 0.2,
             yAxisID: "yCost",
             order: 1,
           }
@@ -677,4 +683,3 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>
 {{end}}
 {{end}}
-

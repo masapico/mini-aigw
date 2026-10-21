@@ -7,15 +7,15 @@
 <div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
   <div>
     <div class="mb-1">
-      <a href="{{basePath}}/eval-reports" class="text-decoration-none small text-muted d-inline-flex align-items-center gap-1">
+      <a href="{{basePath}}/eval-reports" class="text-decoration-none small text-secondary d-inline-flex align-items-center gap-1 fw-bold">
         <i class="bi bi-chevron-left"></i> レポート一覧に戻る
       </a>
     </div>
-    <h3 class="fw-bold mb-1 d-flex align-items-center gap-2">
+    <h1 class="h3 fw-bold mb-1 text-dark d-flex align-items-center gap-2">
       <i class="bi bi-file-earmark-bar-graph text-primary"></i>
       <span>{{.ReportID}}</span>
-    </h3>
-    <p class="text-muted small mb-0">
+    </h1>
+    <p class="text-secondary small mb-0">
       実行日時: {{formatTime .Report.Timestamp}} | データセット: <code>{{.Report.DatasetPath}}</code> ({{.Report.TotalCases}} 件)
     </p>
   </div>
@@ -47,12 +47,12 @@
         </li>
         <li>
           <a class="dropdown-item small" href="{{basePath}}/eval-reports/{{.ReportID}}/download?format=md">
-            <i class="bi bi-markdown me-2 text-info"></i>Markdown レポート (.md)
+            <i class="bi bi-markdown me-2 text-primary"></i>Markdown レポート (.md)
           </a>
         </li>
         <li>
           <a class="dropdown-item small" href="{{basePath}}/eval-reports/{{.ReportID}}/download?format=json">
-            <i class="bi bi-filetype-json me-2 text-warning"></i>生データ JSON (.json)
+            <i class="bi bi-filetype-json me-2 text-dark"></i>生データ JSON (.json)
           </a>
         </li>
       </ul>
@@ -60,43 +60,43 @@
   </div>
 </div>
 
-<!-- 実行パラメータ メタボックス -->
+<!-- 実行パラメータ メタボックス (DADS仕様) -->
 <div class="row g-3 mb-4">
   <div class="col-12 col-md-4">
-    <div class="modern-card text-center">
-      <div class="text-muted small fw-semibold text-uppercase">Retriever Hit@{{.Report.TopK}}</div>
+    <div class="metric-card text-center">
+      <div class="text-secondary small fw-bold text-uppercase">Retriever Hit@{{.Report.TopK}}</div>
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
-        <h2 class="fw-bold mb-0 {{if ge .Report.HitAtKRate 80.0}}text-success{{else}}text-warning{{end}}">
+        <span class="fs-2 fw-bold {{if ge .Report.HitAtKRate 80.0}}text-success{{else}}text-warning{{end}}">
           {{formatPercent .Report.HitAtKRate}}
-        </h2>
+        </span>
       </div>
-      <div class="text-muted small mt-1">正解ドキュメント検索成功率</div>
+      <div class="text-secondary small mt-1">正解ドキュメント検索成功率</div>
     </div>
   </div>
 
   <div class="col-12 col-md-4">
-    <div class="modern-card text-center">
-      <div class="text-muted small fw-semibold text-uppercase">MRR (平均逆順位)</div>
+    <div class="metric-card text-center">
+      <div class="text-secondary small fw-bold text-uppercase">MRR (平均逆順位)</div>
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
-        <h2 class="fw-bold mb-0 text-primary">
+        <span class="fs-2 fw-bold text-primary">
           {{formatScore .Report.MeanReciprocalRank}}
-        </h2>
-        <span class="text-muted small">/ 1.00</span>
+        </span>
+        <span class="text-secondary small">/ 1.00</span>
       </div>
-      <div class="text-muted small mt-1">最良適合ドキュメントの順位指標</div>
+      <div class="text-secondary small mt-1">最良適合ドキュメントの順位指標</div>
     </div>
   </div>
 
   <div class="col-12 col-md-4">
-    <div class="modern-card text-center">
-      <div class="text-muted small fw-semibold text-uppercase">権限分離リーク数</div>
+    <div class="metric-card text-center">
+      <div class="text-secondary small fw-bold text-uppercase">権限分離リーク数</div>
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
-        <h2 class="fw-bold mb-0 {{if eq .Report.TotalLeaks 0}}text-success{{else}}text-danger{{end}}">
+        <span class="fs-2 fw-bold {{if eq .Report.TotalLeaks 0}}text-success{{else}}text-danger{{end}}">
           {{.Report.TotalLeaks}}
-        </h2>
-        <span class="text-muted small">件</span>
+        </span>
+        <span class="text-secondary small">件</span>
       </div>
-      <div class="text-muted small mt-1">
+      <div class="text-secondary small mt-1">
         {{if eq .Report.TotalLeaks 0}}
         ✅ 所属外グループ情報の漏洩なし
         {{else}}
@@ -129,18 +129,18 @@
 
 <!-- モデル別 総合比較サマリーテーブル (E2E時) -->
 {{if .Report.ModelSummaries}}
-<div class="modern-card mb-4">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="fw-bold mb-0 text-dark">
-      <i class="bi bi-speedometer2 text-primary me-2"></i>モデル別 総合品質・レイテンシ比較
-    </h5>
-    <span class="text-muted small">全 {{.Report.TotalCases}} テストケース平均</span>
+<div class="modern-card mb-4 p-0 overflow-hidden">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
+    <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+      <i class="bi bi-speedometer2 text-primary"></i> モデル別 総合品質・レイテンシ比較
+    </h2>
+    <span class="text-secondary small">全 {{.Report.TotalCases}} テストケース平均</span>
   </div>
 
   <div class="table-responsive">
-    <table class="table table-hover table-sm align-middle mb-0 table-compact" style="font-size: 0.84rem;">
-      <thead class="table-light border-bottom">
-        <tr class="text-secondary" style="font-size: 0.78rem; text-transform: uppercase;">
+    <table class="table align-middle mb-0 table-compact" style="font-size: 0.88rem;">
+      <thead>
+        <tr>
           <th>モデルID</th>
           <th class="text-center">平均レイテンシ</th>
           <th class="text-center">平均トークン (In / Out)</th>
@@ -160,7 +160,7 @@
             <strong class="text-dark">{{. }}</strong>
           </td>
           <td class="text-center">
-            <span class="badge bg-info-subtle text-info-emphasis rounded-pill px-3">
+            <span class="badge bg-light text-dark border px-3">
               {{$s.AvgLatencyMs}} ms
             </span>
           </td>
@@ -168,7 +168,7 @@
             {{$s.AvgInputTokens}} / {{$s.AvgOutputTokens}}
           </td>
           <td class="text-center">
-            <span class="badge {{if ge $s.CitationPassRate 90.0}}bg-success-subtle text-success{{else}}bg-warning-subtle text-warning{{end}} rounded-pill">
+            <span class="badge-pill-modern {{if ge $s.CitationPassRate 90.0}}badge-status-synced{{else}}badge-status-pending{{end}}">
               {{formatPercent $s.CitationPassRate}}
             </span>
           </td>
@@ -176,15 +176,15 @@
             <strong class="{{if ge $s.AvgFaithfulness 4.0}}text-success{{else}}text-warning{{end}}">
               {{formatScore $s.AvgFaithfulness}}
             </strong>
-            <span class="text-muted small">/ 5.0</span>
+            <span class="text-secondary small">/ 5.0</span>
           </td>
           <td class="text-center">
             <strong>{{formatScore $s.AvgRelevance}}</strong>
-            <span class="text-muted small">/ 5.0</span>
+            <span class="text-secondary small">/ 5.0</span>
           </td>
           <td class="text-center">
             <strong>{{formatScore $s.AvgCorrectness}}</strong>
-            <span class="text-muted small">/ 5.0</span>
+            <span class="text-secondary small">/ 5.0</span>
           </td>
           <td class="text-center">
             <span class="badge bg-light text-dark border">
@@ -202,17 +202,17 @@
 
 <!-- テストケース別 詳細アコーディオン -->
 <div class="modern-card">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="fw-bold mb-0 text-dark">
-      <i class="bi bi-list-check text-primary me-2"></i>テストケース別 検証結果一覧
-    </h5>
-    <span class="text-muted small">全 {{len .Report.CaseResults}} 件</span>
+  <div class="dads-card-header d-flex justify-content-between align-items-center">
+    <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
+      <i class="bi bi-list-check text-primary"></i> テストケース別 検証結果一覧
+    </h2>
+    <span class="text-secondary small">全 {{len .Report.CaseResults}} 件</span>
   </div>
 
   <div class="accordion" id="casesAccordion">
     {{range $idx, $c := .Report.CaseResults}}
-    <div class="accordion-item mb-2 border rounded overflow-hidden">
-      <h2 class="accordion-header" id="heading-{{$idx}}">
+    <div class="accordion-item mb-2 border rounded-1 overflow-hidden">
+      <h3 class="accordion-header" id="heading-{{$idx}}">
         <button
           class="accordion-button collapsed py-3"
           type="button"
@@ -223,7 +223,7 @@
         >
           <div class="d-flex flex-wrap align-items-center justify-content-between w-100 me-3 gap-2">
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-secondary rounded-pill px-2">#{{add $idx 1}}</span>
+              <span class="badge rounded-1" style="background-color: var(--dads-color-blue-900); color: #fff;">#{{add $idx 1}}</span>
               <strong class="text-dark">{{$c.TestCase.Query}}</strong>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -231,53 +231,53 @@
                 Group: {{$c.TestCase.Group}}
               </span>
               {{if $c.HitAtK}}
-              <span class="badge bg-success-subtle text-success rounded-pill">HIT</span>
+              <span class="badge-pill-modern badge-status-synced">HIT</span>
               {{else}}
-              <span class="badge bg-danger-subtle text-danger rounded-pill">MISS</span>
+              <span class="badge-pill-modern badge-status-error">MISS</span>
               {{end}}
               {{if $c.IsIsolated}}
-              <span class="badge bg-success-subtle text-success rounded-pill">ISOLATED</span>
+              <span class="badge-pill-modern badge-status-synced">ISOLATED</span>
               {{else}}
-              <span class="badge bg-danger-subtle text-danger rounded-pill">LEAK</span>
+              <span class="badge-pill-modern badge-status-error">LEAK</span>
               {{end}}
             </div>
           </div>
         </button>
-      </h2>
+      </h3>
       <div
         id="collapse-{{$idx}}"
         class="accordion-collapse collapse"
         aria-labelledby="heading-{{$idx}}"
         data-bs-parent="#casesAccordion"
       >
-        <div class="accordion-body bg-light-subtle pt-2">
+        <div class="accordion-body bg-light pt-2">
           <!-- ケース詳細情報 -->
-          <div class="p-3 bg-white rounded border mb-3">
+          <div class="p-3 bg-white rounded-1 border mb-3">
             <div class="row g-2 small">
               <div class="col-12 col-md-4">
-                <span class="text-muted">テストケースID:</span> <code>{{$c.TestCase.ID}}</code>
+                <span class="text-secondary">テストケースID:</span> <code>{{$c.TestCase.ID}}</code>
               </div>
               <div class="col-12 col-md-4">
-                <span class="text-muted">検索スコア順位 (RR):</span> <strong>{{formatScore $c.ReciprocalRank}}</strong>
+                <span class="text-secondary">検索スコア順位 (RR):</span> <strong>{{formatScore $c.ReciprocalRank}}</strong>
               </div>
               <div class="col-12 col-md-4">
-                <span class="text-muted">期待ドキュメント:</span>
+                <span class="text-secondary">期待ドキュメント:</span>
                 <code>{{if $c.TestCase.ExpectedFilenames}}{{$c.TestCase.ExpectedFilenames}}{{else}}(非該当想定){{end}}</code>
               </div>
               <div class="col-12">
-                <span class="text-muted">取得ドキュメント:</span>
+                <span class="text-secondary">取得ドキュメント:</span>
                 {{if $c.RetrievedFilenames}}
                   {{range $c.RetrievedFilenames}}
                   <span class="badge bg-light text-dark border me-1">{{.}}</span>
                   {{end}}
                 {{else}}
-                  <span class="text-muted">(検索ヒットなし)</span>
+                  <span class="text-secondary">(検索ヒットなし)</span>
                 {{end}}
               </div>
               {{if $c.TestCase.ReferenceAnswer}}
               <div class="col-12 border-top pt-2 mt-2">
-                <span class="text-muted fw-semibold">模範解答 (Reference Answer):</span>
-                <div class="text-secondary mt-1 p-2 bg-light rounded">{{$c.TestCase.ReferenceAnswer}}</div>
+                <span class="text-secondary fw-bold">模範解答 (Reference Answer):</span>
+                <div class="text-dark mt-1 p-2 bg-light rounded-1">{{$c.TestCase.ReferenceAnswer}}</div>
               </div>
               {{end}}
             </div>
@@ -285,8 +285,8 @@
 
           <!-- モデル別結果テーブル -->
           {{if $c.ModelResults}}
-          <div class="table-responsive bg-white rounded border mb-3">
-            <table class="table table-sm table-hover align-middle mb-0">
+          <div class="table-responsive bg-white rounded-1 border mb-3">
+            <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr class="table-light small">
                   <th>モデル</th>
@@ -311,14 +311,14 @@
                   {{else}}
                   <td class="text-center small">{{$m.LatencyMs}} ms</td>
                   <td class="text-center small">{{$m.InputTokens}} / {{$m.OutputTokens}}</td>
-                  <td class="text-center small fw-semibold">{{formatScore $m.Judge.Faithfulness}}</td>
+                  <td class="text-center small fw-bold">{{formatScore $m.Judge.Faithfulness}}</td>
                   <td class="text-center small">{{formatScore $m.Judge.AnswerRelevance}}</td>
                   <td class="text-center small">{{formatScore $m.Judge.Correctness}}</td>
                   <td class="text-center">
                     {{if $m.CitationPass}}
-                    <span class="badge bg-success-subtle text-success rounded-pill" style="font-size: 0.7rem;">PASS</span>
+                    <span class="badge-pill-modern badge-status-synced" style="font-size: 0.7rem;">PASS</span>
                     {{else}}
-                    <span class="badge bg-danger-subtle text-danger rounded-pill" style="font-size: 0.7rem;">FAIL</span>
+                    <span class="badge-pill-modern badge-status-error" style="font-size: 0.7rem;">FAIL</span>
                     {{end}}
                   </td>
                   {{end}}
@@ -335,16 +335,16 @@
             {{$m := index $c.ModelResults .}}
             {{if and $m $m.AnswerText}}
             <div class="col-12 col-lg-6">
-              <div class="p-3 bg-white rounded border h-100">
+              <div class="p-3 bg-white rounded-1 border h-100">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <strong class="text-primary small">{{.}} の生成回答:</strong>
-                  <span class="badge bg-light text-muted border" style="font-size: 0.7rem;">{{$m.LatencyMs}} ms</span>
+                  <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">{{$m.LatencyMs}} ms</span>
                 </div>
-                <div class="p-2 bg-dark text-light rounded small font-monospace mb-2" style="white-space: pre-wrap; max-height: 240px; overflow-y: auto;">
+                <div class="p-2 bg-dark text-light rounded-1 small font-monospace mb-2" style="white-space: pre-wrap; max-height: 240px; overflow-y: auto;">
 {{$m.AnswerText}}
                 </div>
                 {{if $m.Judge.Reasoning}}
-                <div class="text-muted small" style="font-size: 0.8rem;">
+                <div class="text-secondary small" style="font-size: 0.8rem;">
                   <i class="bi bi-info-circle me-1"></i><em>Judge 採点理由: {{$m.Judge.Reasoning}}</em>
                 </div>
                 {{end}}
@@ -361,4 +361,3 @@
   </div>
 </div>
 {{end}}
-
