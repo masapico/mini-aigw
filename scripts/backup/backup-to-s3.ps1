@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     mini-aigw SQLite データベースの整合性ホットバックアップ & S3 アップロードスクリプト
 .DESCRIPTION
@@ -37,6 +37,11 @@ if (-not (Test-Path $TempDir)) {
 }
 
 $LogFile = Join-Path $LogDir "backup.log"
+
+# 前回ログクリア
+if (Test-Path $LogFile) {
+    Clear-Content -Path $LogFile -ErrorAction SilentlyContinue
+}
 
 # --- ログ出力ヘルパー ---
 function Write-Log {
