@@ -11,15 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"mini-aigw/internal/config"
 	"mini-aigw/internal/models"
 	"mini-aigw/web"
 )
 
 type Renderer struct {
-	fs        fs.FS
-	funcMap   template.FuncMap
-	templates map[string]*template.Template
-	basePath  string
+	fs          fs.FS
+	funcMap     template.FuncMap
+	templates   map[string]*template.Template
+	basePath    string
+	projectName string
 }
 
 var GlobalRenderer *Renderer
@@ -32,15 +34,30 @@ func InitRenderer(basePaths ...string) (*Renderer, error) {
 		initialBasePath = basePaths[0]
 	}
 
+	initialProjectName := "mini-aigw"
+	if config.AppConfig != nil && config.AppConfig.ProjectName != "" {
+		initialProjectName = config.AppConfig.ProjectName
+	}
+
 	r := &Renderer{
-		fs:        tfs,
-		basePath:  initialBasePath,
-		templates: make(map[string]*template.Template),
+		fs:          tfs,
+		basePath:    initialBasePath,
+		projectName: initialProjectName,
+		templates:   make(map[string]*template.Template),
 	}
 
 	funcMap := template.FuncMap{
 		"basePath": func() string {
 			return r.basePath
+		},
+		"projectName": func() string {
+			if r.projectName != "" {
+				return r.projectName
+			}
+			if config.AppConfig != nil && config.AppConfig.ProjectName != "" {
+				return config.AppConfig.ProjectName
+			}
+			return "mini-aigw"
 		},
 		"hasRole": func(u *models.User, role string) bool {
 			if u == nil {
@@ -273,3 +290,16 @@ func (r *Renderer) GetBasePath() string {
 	return r.basePath
 }
 
+func (r *Renderer) SetProjectName(name string) {
+	r.projectName = name
+}
+
+func (r *Renderer) GetProjectName() string {
+	if r.projectName != "" {
+		return r.projectName
+	}
+	if config.AppConfig != nil && config.AppConfig.ProjectName != "" {
+		return config.AppConfig.ProjectName
+	}
+	return "mini-aigw"
+}

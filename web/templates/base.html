@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{block "title" .}}mini-aigw{{end}}</title>
+  <title>{{block "title" .}}{{projectName}}{{end}}</title>
   
   <!-- 完全閉域ローカル静的配信 (外部CDN禁止) -->
   <link rel="icon" type="image/svg+xml" href="{{basePath}}/static/favicon.svg">
@@ -26,7 +26,7 @@
   <!-- ナビゲーションバー (DADS 準拠レスポンシブヘッダー) -->
   <nav class="navbar navbar-expand-lg app-navbar" aria-label="グローバルナビゲーション">
     <div class="container-fluid">
-      <a href="{{basePath}}/" class="brand-badge me-4" aria-label="mini-aigw ホーム">
+      <a href="{{basePath}}/" class="brand-badge me-4" aria-label="{{projectName}} ホーム">
         <div class="brand-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
@@ -37,7 +37,7 @@
           </svg>
         </div>
         <div>
-          <div class="brand-title">mini-aigw</div>
+          <div class="brand-title">{{projectName}}</div>
           <div class="brand-subtitle">AI Gateway ポータル</div>
         </div>
       </a>
@@ -140,7 +140,7 @@
   <footer class="dads-footer">
     <div class="container-fluid px-3 px-md-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2" style="max-width: 1400px;">
       <div class="d-flex align-items-center gap-3 flex-wrap">
-        <span class="fw-bold text-dark">mini-aigw</span>
+        <span class="fw-bold text-dark">{{projectName}}</span>
         <span>Amazon Bedrock & S3 Vectors AI Gateway</span>
       </div>
       <div class="text-secondary">

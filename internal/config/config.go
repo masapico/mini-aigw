@@ -74,7 +74,7 @@ func LoadConfig() *Config {
 	_ = godotenv.Load(".env")
 
 	cfg := &Config{
-		ProjectName:           getEnv("PROJECT_NAME", "mini-aigw"),
+		ProjectName:           getEnvWithFallback("PROJECT_NAME", "APP_NAME", "mini-aigw"),
 		Debug:                 getEnvAsBool("DEBUG", false),
 		Host:                  getEnv("HOST", "0.0.0.0"),
 		Port:                  getEnvAsInt("PORT", 8000),
@@ -113,7 +113,7 @@ func LoadConfig() *Config {
 		OIDCScopes:             getEnv("OIDC_SCOPES", "openid profile email groups"),
 		OIDCEndSessionEndpoint: getEnv("OIDC_END_SESSION_ENDPOINT", ""),
 
-		XbergPath: getEnv("XBERG_PATH", "xberg"),
+		XbergPath:       getEnv("XBERG_PATH", "xberg"),
 		EvalReportsDir:  getEnv("EVAL_REPORTS_DIR", "eval_reports"),
 		EvalDatasetsDir: getEnv("EVAL_DATASETS_DIR", "testdata/eval"),
 	}
@@ -148,6 +148,16 @@ func getEnv(key, defaultVal string) string {
 		return defaultVal
 	}
 	return val
+}
+
+func getEnvWithFallback(primaryKey, fallbackKey, defaultVal string) string {
+	if val, ok := os.LookupEnv(primaryKey); ok && val != "" {
+		return val
+	}
+	if val, ok := os.LookupEnv(fallbackKey); ok && val != "" {
+		return val
+	}
+	return defaultVal
 }
 
 func getEnvAsInt(key string, defaultVal int) int {

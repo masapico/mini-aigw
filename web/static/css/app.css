@@ -188,7 +188,8 @@ body {
 }
 
 .brand-subtitle {
-  font-size: 0.75rem;
+  padding: 0.25rem;
+  font-size: 0.6rem;
   color: var(--dads-color-gray-700);
   font-weight: 500;
   line-height: 1;

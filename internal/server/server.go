@@ -1,4 +1,4 @@
-package server
+﻿package server
 
 import (
 	"context"
@@ -128,6 +128,9 @@ func SetupRouter(
 	oidcSvc *services.OIDCService,
 	evalSvc *eval.Service,
 ) chi.Router {
+	if cfg != nil && renderer != nil && cfg.ProjectName != "" {
+		renderer.SetProjectName(cfg.ProjectName)
+	}
 	chatHandler := v1.NewChatHandler(bedrockSvc, knowledgeSvc, cfg, database)
 	modelsHandler := v1.NewModelsHandler(database, cfg)
 	downloadHandler := v1.NewKnowledgeDownloadHandler(knowledgeSvc, database, cfg)

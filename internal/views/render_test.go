@@ -357,3 +357,31 @@ func TestRenderer_RenderUsersAndGroupsModals(t *testing.T) {
 		t.Errorf("expected groups_table to contain group display name '営業部'")
 	}
 }
+
+func TestRenderer_ProjectNameDynamic(t *testing.T) {
+	r, err := InitRenderer()
+	if err != nil {
+		t.Fatalf("InitRenderer failed: %v", err)
+	}
+
+	customName := "Custom-AI-Gateway"
+	r.SetProjectName(customName)
+
+	w := httptest.NewRecorder()
+	data := map[string]interface{}{
+		"User": &models.User{Username: "admin"},
+	}
+
+	err = r.Render(w, "dashboard.html", data)
+	if err != nil {
+		t.Fatalf("Render failed: %v", err)
+	}
+
+	body := w.Body.String()
+	if !bytes.Contains([]byte(body), []byte("<div class=\"brand-title\">" + customName + "</div>")) {
+		t.Errorf("brand-title does not contain custom project name %s, body: %s", customName, body)
+	}
+	if !bytes.Contains([]byte(body), []byte("<title>ダッシュボード - " + customName + "</title>")) {
+		t.Errorf("title does not contain custom project name %s", customName)
+	}
+}
