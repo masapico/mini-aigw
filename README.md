@@ -142,6 +142,18 @@ docker run -d \
   mini-aigw:latest
 ```
 
+※ **xberg CLI（高度なドキュメント抽出）をコンテナで利用する場合**:
+イメージをスリム（約35MB）に維持するため、Linux 版の `xberg` ディレクトリをホストからボリュームマウントして利用する設計になっています（Alpine ランタイムには glibc 互換レイヤー `gcompat` を同梱済み）。
+```bash
+# 例: ホスト上の ./xberg-cli を /opt/xberg にマウントして起動
+docker run -d \
+  --name mini-aigw \
+  -p 8000:8000 \
+  -v mini-aigw-data:/app/data \
+  -v ./xberg-cli:/opt/xberg:ro \
+  mini-aigw:latest
+```
+
 ヘルスチェックの確認:
 ```bash
 curl http://localhost:8000/health

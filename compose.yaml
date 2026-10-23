@@ -22,6 +22,8 @@ services:
       - KNOWLEDGE_S3_BUCKET=${KNOWLEDGE_S3_BUCKET:-sample-knowledge-bucket}
     volumes:
       - mini-aigw-data:/app/data
+      # xberg CLI をコンテナ外からマウントして利用する場合（Linux用バイナリと関連ライブラリを配置）
+      # - ./xberg-cli:/opt/xberg:ro
 
 volumes:
   mini-aigw-data:

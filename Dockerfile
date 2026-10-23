@@ -38,14 +38,15 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM alpine:3.21 AS runner
 
 # AWS Bedrock/S3 との安全な HTTPS 通信に必要な CA 証明書 & タイムゾーンデータ
-RUN apk add --no-cache ca-certificates tzdata \
+# gcompat: 外部CLIツール (xberg 等の glibc 依存 Linux バイナリ) の実行互換ライブラリ
+RUN apk add --no-cache ca-certificates tzdata gcompat \
     && addgroup -S appgroup -g 10001 \
     && adduser -S -G appgroup -u 10001 -h /app appuser
 
 WORKDIR /app
 
-# SQLite データベース永続化用のディレクトリを作成し所有権を付与
-RUN mkdir -p /app/data && chown -R appuser:appgroup /app
+# SQLite データベース永続化用および外部ツール (xberg) マウント用のディレクトリを作成
+RUN mkdir -p /app/data /opt/xberg && chown -R appuser:appgroup /app /opt/xberg
 
 # ビルドステージから単一バイナリのみをコピー
 COPY --from=builder --chown=appuser:appgroup /bin/mini-aigw /app/mini-aigw
@@ -60,7 +61,9 @@ EXPOSE 8000
 ENV PORT=8000 \
     HOST=0.0.0.0 \
     DATA_DIR=/app/data \
-    DATABASE_URL=sqlite:///app/data/gateway.db
+    DATABASE_URL=sqlite:///app/data/gateway.db \
+    XBERG_PATH=/opt/xberg \
+    PATH="/opt/xberg:${PATH}"
 
 # データ永続化ボリューム
 VOLUME ["/app/data"]
