@@ -177,4 +177,17 @@
       if (el.matches('[data-key-form]')) refreshKeyForm(el);
     }
   });
+
+  // ---------- Bootstrap Tooltip 自動初期化 ----------
+  function initTooltips(root) {
+    if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+    var els = (root || document).querySelectorAll('[data-bs-toggle="tooltip"]');
+    els.forEach(function (el) {
+      if (!bootstrap.Tooltip.getInstance(el)) {
+        new bootstrap.Tooltip(el);
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function () { initTooltips(); });
+  document.addEventListener('htmx:afterSettle', function (ev) { initTooltips(ev.target); });
 })();

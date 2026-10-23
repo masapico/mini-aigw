@@ -204,20 +204,20 @@ summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 
 <h2>Retriever サマリー</h2>
 <div class="grid">
-  <div class="card">
-    <div class="card-title">Hit@` + fmt.Sprintf("%d", r.TopK) + ` 達成率</div>
+  <div class="card" title="ナレッジ検索（Retriever）で正解ドキュメントを上位 K 件（Top-K）以内に取得できた割合。検索再現率を示します。">
+    <div class="card-title">🎯 Hit@` + fmt.Sprintf("%d", r.TopK) + ` 達成率</div>
     <div class="card-value">` + fmt.Sprintf("%.1f%%", r.HitAtKRate) + `</div>
   </div>
-  <div class="card">
-    <div class="card-title">MRR (平均逆順位)</div>
+  <div class="card" title="Mean Reciprocal Rank（平均逆順位）。最良の正解ドキュメントが何位に現れたかの逆数平均（1位=1.00、2位=0.50）。1.00に近いほど上位ランクインです。">
+    <div class="card-title">🏆 MRR (平均逆順位)</div>
     <div class="card-value">` + fmt.Sprintf("%.2f", r.MeanReciprocalRank) + `</div>
   </div>
-  <div class="card">
-    <div class="card-title">権限分離リーク数</div>
+  <div class="card" title="質問者の所属グループ以外のドキュメントが検索結果に混入（漏洩）した件数。マルチテナント権限分離が完全なら 0 件です。">
+    <div class="card-title">🛡️ 権限分離リーク数</div>
     <div class="card-value">` + fmt.Sprintf("%d 件", r.TotalLeaks) + `</div>
   </div>
 </div>
-`)
+` + "\n")
 
 	// モデル比較表
 	if len(r.ModelSummaries) > 0 {
@@ -225,14 +225,14 @@ summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 <table>
 <thead>
 <tr>
-  <th>モデルID</th>
-  <th>平均レイテンシ</th>
-  <th>平均トークン (In / Out)</th>
-  <th>引用遵守率</th>
-  <th>忠実度 (Faithfulness)</th>
-  <th>適合度 (Relevance)</th>
-  <th>正確性 (Correctness)</th>
-  <th>成功率</th>
+  <th title="評価対象のLLMモデル名">🤖 モデルID</th>
+  <th title="プロンプト送信から回答生成完了までの平均時間（ミリ秒）">⏱️ 平均レイテンシ</th>
+  <th title="プロンプト入力トークン数 / 回答生成出力トークン数の平均">📝 平均トークン (In / Out)</th>
+  <th title="回答内で参照ナレッジの引用記法（[doc_1] 等）が正しく付与されている割合">💬 引用遵守率</th>
+  <th title="回答が検索コンテキスト（取得ドキュメント）の事実に基づいているかのスコア (1.0〜5.0)。ハルシネーションの少なさを示します。">✅ 忠実度 (Faithfulness)</th>
+  <th title="回答がユーザーの質問意図に対して的確・過不足なく答えているかのスコア (1.0〜5.0)">🎯 適合度 (Relevance)</th>
+  <th title="模範解答（Ground Truth）の正解事実と整合しているかのスコア (1.0〜5.0)">✔️ 正確性 (Correctness)</th>
+  <th title="正常に回答・評価を完了できたテストケースの割合">📊 成功率</th>
 </tr>
 </thead>
 <tbody>`)
@@ -257,13 +257,13 @@ summary { cursor: pointer; font-weight: 600; color: var(--primary); }
 	// ケース一覧
 	sb.WriteString(`<h2>テストケース別 詳細一覧</h2>`)
 	for i, c := range r.CaseResults {
-		hitBadge := `<span class="badge badge-danger">MISS</span>`
+		hitBadge := `<span class="badge badge-danger" title="上位K件内に正解ドキュメントが見つかりませんでした">MISS</span>`
 		if c.HitAtK {
-			hitBadge = `<span class="badge badge-success">HIT</span>`
+			hitBadge = `<span class="badge badge-success" title="上位K件内に正解ドキュメントが含まれています">HIT</span>`
 		}
-		isoBadge := `<span class="badge badge-danger">LEAK</span>`
+		isoBadge := `<span class="badge badge-danger" title="権限分離違反: 他グループのドキュメントが混入しています">LEAK</span>`
 		if c.IsIsolated {
-			isoBadge = `<span class="badge badge-success">ISOLATED</span>`
+			isoBadge = `<span class="badge badge-success" title="権限分離正常: 他グループのドキュメント混入なし">ISOLATED</span>`
 		}
 
 		sb.WriteString(fmt.Sprintf(`
@@ -282,21 +282,21 @@ summary { cursor: pointer; font-weight: 600; color: var(--primary); }
   <table style="margin-top: 1rem; margin-bottom: 0.5rem;">
   <thead>
   <tr>
-    <th>モデル</th>
-    <th>レイテンシ</th>
-    <th>トークン</th>
-    <th>忠実度</th>
-    <th>適合度</th>
-    <th>正確性</th>
-    <th>引用遵守</th>
+    <th title="評価対象モデル">🤖 モデル</th>
+    <th title="生成レイテンシ">⏱️ レイテンシ</th>
+    <th title="入力 / 出力トークン">📝 トークン</th>
+    <th title="検索コンテキストの事実に基づいているか (1.0〜5.0)">✅ 忠実度</th>
+    <th title="質問意図に的確に答えているか (1.0〜5.0)">🎯 適合度</th>
+    <th title="模範解答と整合しているか (1.0〜5.0)">✔️ 正確性</th>
+    <th title="引用記法を遵守しているか">💬 引用遵守</th>
   </tr>
   </thead>
   <tbody>`)
 			for _, modelID := range r.Models {
 				if mRes, ok := c.ModelResults[modelID]; ok {
-					citBadge := `<span class="badge badge-danger">FAIL</span>`
+					citBadge := `<span class="badge badge-danger" title="引用記法が欠落しているか不適切です">FAIL</span>`
 					if mRes.CitationPass {
-						citBadge = `<span class="badge badge-success">PASS</span>`
+						citBadge = `<span class="badge badge-success" title="引用記法が正しく遵守されています">PASS</span>`
 					}
 					if mRes.Error != "" {
 						sb.WriteString(fmt.Sprintf(`<tr><td><strong>%s</strong></td><td colspan="6"><span class="badge badge-danger">ERROR: %s</span></td></tr>`, html.EscapeString(modelID), html.EscapeString(mRes.Error)))

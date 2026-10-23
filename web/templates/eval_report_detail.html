@@ -64,7 +64,13 @@
 <div class="row g-3 mb-4">
   <div class="col-12 col-md-4">
     <div class="app-card text-center">
-      <div class="text-muted small fw-semibold text-uppercase">Retriever Hit@{{.Report.TopK}}</div>
+      <div class="text-muted small fw-semibold text-uppercase d-flex justify-content-center align-items-center gap-1">
+        <i class="bi bi-bullseye text-primary"></i>
+        <span>Retriever Hit@{{.Report.TopK}}</span>
+        <i class="bi bi-info-circle text-secondary info-icon-help"
+           data-bs-toggle="tooltip"
+           data-bs-title="ナレッジ検索（Retriever）で正解ドキュメントを上位 K 件（Top-K）以内に取得できた割合です。検索の再現率（Recall）を示します。"></i>
+      </div>
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
         <span class="fs-2 fw-bold {{if ge .Report.HitAtKRate 80.0}}text-success{{else}}text-warning{{end}}">
           {{formatPercent .Report.HitAtKRate}}
@@ -76,7 +82,13 @@
 
   <div class="col-12 col-md-4">
     <div class="app-card text-center">
-      <div class="text-muted small fw-semibold text-uppercase">MRR (平均逆順位)</div>
+      <div class="text-muted small fw-semibold text-uppercase d-flex justify-content-center align-items-center gap-1">
+        <i class="bi bi-award text-primary"></i>
+        <span>MRR (平均逆順位)</span>
+        <i class="bi bi-info-circle text-secondary info-icon-help"
+           data-bs-toggle="tooltip"
+           data-bs-title="Mean Reciprocal Rank（平均逆順位）。最良の正解ドキュメントが検索結果の何位に現れたかの逆数（1位=1.00、2位=0.50、3位=0.33...）の平均値です。1.00に近いほど正解が先頭位にランクインしています。"></i>
+      </div>
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
         <span class="fs-2 fw-bold text-primary">
           {{formatScore .Report.MeanReciprocalRank}}
@@ -89,7 +101,13 @@
 
   <div class="col-12 col-md-4">
     <div class="app-card text-center">
-      <div class="text-muted small fw-semibold text-uppercase">権限分離リーク数</div>
+      <div class="text-muted small fw-semibold text-uppercase d-flex justify-content-center align-items-center gap-1">
+        {{if eq .Report.TotalLeaks 0}}<i class="bi bi-shield-check text-success"></i>{{else}}<i class="bi bi-shield-x text-danger"></i>{{end}}
+        <span>権限分離リーク数</span>
+        <i class="bi bi-info-circle text-secondary info-icon-help"
+           data-bs-toggle="tooltip"
+           data-bs-title="質問者の所属グループ以外のドキュメントが検索結果に混入（漏洩）した件数です。マルチテナント権限分離が守られている場合は 0 件になります。"></i>
+      </div>
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
         <span class="fs-2 fw-bold {{if eq .Report.TotalLeaks 0}}text-success{{else}}text-danger{{end}}">
           {{.Report.TotalLeaks}}
@@ -109,20 +127,26 @@
 
 <!-- 検索 & Judge パラメータ -->
 <div class="app-card mb-4">
-  <div class="row g-2 text-secondary small">
-    <div class="col-12 col-sm-3">
-      <strong class="text-dark">検索設定:</strong> Top-K={{.Report.TopK}}, 類似度閾値={{formatScore .Report.ScoreThreshold}}
+  <div class="row g-2 text-secondary small align-items-center">
+    <div class="col-12 col-sm-4">
+      <span class="cursor-help" data-bs-toggle="tooltip" data-bs-title="ナレッジ検索で取得する最大チャンク数(Top-K)と、コサイン類似度の足切り閾値(ScoreThreshold)">
+        <i class="bi bi-sliders text-primary me-1"></i><strong class="text-dark">検索設定:</strong> Top-K={{.Report.TopK}}, 類似度閾値={{formatScore .Report.ScoreThreshold}}
+      </span>
     </div>
     <div class="col-12 col-sm-4">
-      <strong class="text-dark">データセット:</strong> <code>{{.Report.DatasetPath}}</code> ({{.Report.TotalCases}} 件)
+      <span class="cursor-help" data-bs-toggle="tooltip" data-bs-title="評価に用いたテストケース質問と期待ドキュメントのデータセットファイル（JSONL）">
+        <i class="bi bi-database text-secondary me-1"></i><strong class="text-dark">データセット:</strong> <code>{{.Report.DatasetPath}}</code> ({{.Report.TotalCases}} 件)
+      </span>
     </div>
-    <div class="col-12 col-sm-5">
-      <strong class="text-dark">Judge 採点:</strong>
-      {{if .Report.JudgeModelID}}
-      <span class="badge-model" title="{{.Report.JudgeModelID}}"><i class="bi bi-cpu"></i>{{.Report.JudgeModelID}}</span>
-      {{else}}
-      <span>ルールベース自動採点 (未指定)</span>
-      {{end}}
+    <div class="col-12 col-sm-4">
+      <span class="cursor-help" data-bs-toggle="tooltip" data-bs-title="回答品質（忠実度・適合度・正確性）を自動評価する判定方式。Judgeモデル設定時はLLM-as-a-Judgeとして自動採点されます（未指定時はルールベース）">
+        <i class="bi bi-robot text-secondary me-1"></i><strong class="text-dark">Judge 採点:</strong>
+        {{if .Report.JudgeModelID}}
+        <span class="badge-model" data-bs-toggle="tooltip" data-bs-title="Judgeモデル: {{.Report.JudgeModelID}}"><i class="bi bi-cpu"></i>{{.Report.JudgeModelID}}</span>
+        {{else}}
+        <span>ルールベース自動採点 (未指定)</span>
+        {{end}}
+      </span>
     </div>
   </div>
 </div>
@@ -133,7 +157,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="fw-bold mb-0 text-dark">
       <i class="bi bi-speedometer2 text-primary me-2"></i>モデル別 総合品質・レイテンシ比較
-    </h2>
+    </h5>
     <span class="text-muted small">全 {{.Report.TotalCases}} テストケース平均</span>
   </div>
 
@@ -141,14 +165,46 @@
     <table class="table table-hover table-sm align-middle mb-0 table-compact">
       <thead>
         <tr class="text-secondary" style="font-size: 0.78rem; text-transform: uppercase;">
-          <th>モデルID</th>
-          <th class="text-center">平均レイテンシ</th>
-          <th class="text-center">平均トークン (In / Out)</th>
-          <th class="text-center">引用遵守率</th>
-          <th class="text-center">忠実度 (Faithfulness)</th>
-          <th class="text-center">適合度 (Relevance)</th>
-          <th class="text-center">正確性 (Correctness)</th>
-          <th class="text-center">成功率</th>
+          <th>
+            <span class="th-help" data-bs-toggle="tooltip" data-bs-title="評価対象のLLMモデル名">
+              モデルID
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="プロンプト送信からモデル回答生成完了までに要した平均時間（ミリ秒）">
+              平均レイテンシ
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="プロンプト入力トークン数 / 回答生成出力トークン数のテストケース平均">
+              平均トークン(In/Out)
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="回答内で参照ナレッジの引用記法（[doc_1] 等）が正しく付与されている割合">
+              引用遵守率
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="回答が検索コンテキスト（取得ドキュメント）の事実に基づいているかのスコア (1.0〜5.0)。ハルシネーション（幻覚）の抑制度を示します">
+              忠実度(Faithfulness)
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="回答がユーザーの質問意図に対して的確・過不足なく答えているかのスコア (1.0〜5.0)。無関係な話題に逸れていないかを示します">
+              適合度(Relevance)
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="模範解答（Ground Truth）の正解事実と整合しているかのスコア (1.0〜5.0)">
+              正確性(Correctness)
+            </span>
+          </th>
+          <th class="text-center">
+            <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="エラーやタイムアウトなく正常に回答・評価を完了できたテストケースの割合">
+              成功率
+            </span>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -227,18 +283,26 @@
               <span class="fw-normal text-sm">{{$c.TestCase.Query}}</span>
             </div>
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.75rem;">
-                Group: {{$c.TestCase.Group}}
+              <span class="badge bg-light text-dark border font-monospace cursor-help" style="font-size: 0.75rem;" data-bs-toggle="tooltip" data-bs-title="質問者の所属グループ（アクセス権限スコープ）">
+                <i class="bi bi-people me-1"></i>Group: {{$c.TestCase.Group}}
               </span>
               {{if $c.HitAtK}}
-              <span class="badge-pill-modern badge-status-synced">HIT</span>
+              <span class="badge-pill-modern badge-status-synced cursor-help" data-bs-toggle="tooltip" data-bs-title="上位{{$.Report.TopK}}件の検索結果に正解ドキュメントが含まれています">
+                <i class="bi bi-check me-1"></i>HIT
+              </span>
               {{else}}
-              <span class="badge-pill-modern badge-status-error">MISS</span>
+              <span class="badge-pill-modern badge-status-error cursor-help" data-bs-toggle="tooltip" data-bs-title="上位{{$.Report.TopK}}件の検索結果に正解ドキュメントが見つかりませんでした">
+                <i class="bi bi-x me-1"></i>MISS
+              </span>
               {{end}}
               {{if $c.IsIsolated}}
-              <span class="badge-pill-modern badge-status-synced">ISOLATED</span>
+              <span class="badge-pill-modern badge-status-synced cursor-help" data-bs-toggle="tooltip" data-bs-title="権限分離正常: 他グループのドキュメント混入なし">
+                <i class="bi bi-shield-check me-1"></i>ISOLATED
+              </span>
               {{else}}
-              <span class="badge-pill-modern badge-status-error">LEAK</span>
+              <span class="badge-pill-modern badge-status-error cursor-help" data-bs-toggle="tooltip" data-bs-title="権限分離違反: 他グループのドキュメントが検索結果に混入しています">
+                <i class="bi bi-shield-x me-1"></i>LEAK
+              </span>
               {{end}}
             </div>
           </div>
@@ -255,17 +319,23 @@
           <div class="p-3 bg-white rounded-1 border mb-3">
             <div class="row g-2 small">
               <div class="col-12 col-md-4">
-                <span class="text-secondary">テストケースID:</span> <code>{{$c.TestCase.ID}}</code>
+                <span class="text-secondary"><i class="bi bi-hash"></i>テストケースID:</span> <code>{{$c.TestCase.ID}}</code>
               </div>
               <div class="col-12 col-md-4">
-                <span class="text-secondary">検索スコア順位 (RR):</span> <strong>{{formatScore $c.ReciprocalRank}}</strong>
+                <span class="text-secondary cursor-help" data-bs-toggle="tooltip" data-bs-title="正解ドキュメントの逆順位スコア（1位なら1.00、2位なら0.50、未検出は0.00）">
+                  <i class="bi bi-award me-1"></i>検索スコア順位 (RR):
+                </span> <strong>{{formatScore $c.ReciprocalRank}}</strong>
               </div>
               <div class="col-12 col-md-4">
-                <span class="text-secondary">期待ドキュメント:</span>
+                <span class="text-secondary cursor-help" data-bs-toggle="tooltip" data-bs-title="このクエリで検索ヒットすべき正解ドキュメント">
+                  <i class="bi bi-file-earmark-check me-1"></i>期待ドキュメント:
+                </span>
                 <code>{{if $c.TestCase.ExpectedFilenames}}{{$c.TestCase.ExpectedFilenames}}{{else}}(非該当想定){{end}}</code>
               </div>
               <div class="col-12">
-                <span class="text-secondary">取得ドキュメント:</span>
+                <span class="text-secondary cursor-help" data-bs-toggle="tooltip" data-bs-title="実際にベクトル検索で取得されたドキュメント一覧">
+                  <i class="bi bi-file-earmark-text me-1"></i>取得ドキュメント:
+                </span>
                 {{if $c.RetrievedFilenames}}
                   {{range $c.RetrievedFilenames}}
                   <span class="badge bg-light text-dark border me-1">{{.}}</span>
@@ -276,7 +346,9 @@
               </div>
               {{if $c.TestCase.ReferenceAnswer}}
               <div class="col-12 border-top pt-2 mt-2">
-                <span class="text-secondary fw-bold">模範解答 (Reference Answer):</span>
+                <span class="text-secondary fw-bold cursor-help" data-bs-toggle="tooltip" data-bs-title="評価基準となる正解・模範回答テキスト">
+                  <i class="bi bi-chat-square-quote me-1"></i>模範解答 (Reference Answer):
+                </span>
                 <div class="text-dark mt-1 p-2 bg-light rounded-1">{{$c.TestCase.ReferenceAnswer}}</div>
               </div>
               {{end}}
@@ -289,13 +361,41 @@
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr class="table-light small">
-                  <th>モデル</th>
-                  <th class="text-center">レイテンシ</th>
-                  <th class="text-center">トークン (In / Out)</th>
-                  <th class="text-center">忠実度</th>
-                  <th class="text-center">適合度</th>
-                  <th class="text-center">正確性</th>
-                  <th class="text-center">引用遵守</th>
+                  <th>
+                    <span class="th-help" data-bs-toggle="tooltip" data-bs-title="評価対象のLLMモデル">
+                      <i class="bi bi-cpu"></i>モデル
+                    </span>
+                  </th>
+                  <th class="text-center">
+                    <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="回答完了までのレイテンシ（ミリ秒）">
+                      <i class="bi bi-stopwatch"></i>レイテンシ
+                    </span>
+                  </th>
+                  <th class="text-center">
+                    <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="入力トークン / 出力トークン">
+                      <i class="bi bi-body-text"></i>トークン (In / Out)
+                    </span>
+                  </th>
+                  <th class="text-center">
+                    <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="回答が検索コンテキストの事実に基づいているか (1.0〜5.0)">
+                      <i class="bi bi-patch-check"></i>忠実度
+                    </span>
+                  </th>
+                  <th class="text-center">
+                    <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="回答が質問意図に的確に答えているか (1.0〜5.0)">
+                      <i class="bi bi-compass"></i>適合度
+                    </span>
+                  </th>
+                  <th class="text-center">
+                    <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="模範解答と事実整合しているか (1.0〜5.0)">
+                      <i class="bi bi-check2-all"></i>正確性
+                    </span>
+                  </th>
+                  <th class="text-center">
+                    <span class="th-help justify-content-center" data-bs-toggle="tooltip" data-bs-title="参照ナレッジの引用記法（[doc_1] 等）を遵守しているか">
+                      <i class="bi bi-quote"></i>引用遵守
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -316,9 +416,13 @@
                   <td class="text-center small">{{formatScore $m.Judge.Correctness}}</td>
                   <td class="text-center">
                     {{if $m.CitationPass}}
-                    <span class="badge-pill-modern badge-status-synced" style="font-size: 0.7rem;">PASS</span>
+                    <span class="badge-pill-modern badge-status-synced cursor-help" style="font-size: 0.7rem;" data-bs-toggle="tooltip" data-bs-title="引用記法が正しく遵守されています">
+                      <i class="bi bi-check me-1"></i>PASS
+                    </span>
                     {{else}}
-                    <span class="badge-pill-modern badge-status-error" style="font-size: 0.7rem;">FAIL</span>
+                    <span class="badge-pill-modern badge-status-error cursor-help" style="font-size: 0.7rem;" data-bs-toggle="tooltip" data-bs-title="引用記法が欠落しているか不適切です">
+                      <i class="bi bi-x me-1"></i>FAIL
+                    </span>
                     {{end}}
                   </td>
                   {{end}}
@@ -337,8 +441,12 @@
             <div class="col-12 col-lg-6">
               <div class="p-3 bg-white rounded-1 border h-100">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                  <strong class="text-primary small">{{.}} の生成回答:</strong>
-                  <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">{{$m.LatencyMs}} ms</span>
+                  <strong class="text-primary small d-flex align-items-center gap-1">
+                    <i class="bi bi-robot"></i><span>{{.}} の生成回答:</span>
+                  </strong>
+                  <span class="badge bg-light text-secondary border cursor-help" style="font-size: 0.7rem;" data-bs-toggle="tooltip" data-bs-title="回答生成レイテンシ">
+                    <i class="bi bi-stopwatch me-1"></i>{{$m.LatencyMs}} ms
+                  </span>
                 </div>
                 <div class="p-2 bg-dark text-light rounded-1 small font-monospace mb-2" style="white-space: pre-wrap; max-height: 240px; overflow-y: auto;">
 {{$m.AnswerText}}
