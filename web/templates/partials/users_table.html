@@ -1,8 +1,14 @@
 {{define "users_table.html"}}
 <div class="table-responsive">
+<<<<<<< HEAD
   <table class="table align-middle mb-0" style="font-size: 0.92rem;">
     <thead>
       <tr>
+=======
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr >
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <th>ユーザー名</th>
         <th>表示名 / メール</th>
         <th>認証方式</th>
@@ -15,7 +21,11 @@
     <tbody>
       {{range $u := .Users}}
       <tr id="user-row-{{$u.ID}}">
+<<<<<<< HEAD
         <td class="fw-bold text-dark">
+=======
+        <td class="fw-semibold text-dark">
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           <div class="d-flex align-items-center gap-2">
             <span>👤</span>
             <span>{{$u.Username}}</span>
@@ -54,8 +64,7 @@
         <td class="text-end">
           <div class="d-inline-flex gap-1">
             <button
-              class="btn-modern-secondary py-1 px-2"
-              style="font-size: 0.82rem;"
+              class="btn btn-outline-secondary btn-sm"
               data-bs-toggle="modal"
               data-bs-target="#editUserModal-{{$u.ID}}"
             >
@@ -63,8 +72,7 @@
             </button>
             {{if and $.CurrentUser (ne $u.ID $.CurrentUser.ID)}}
             <button
-              class="btn-modern-danger py-1 px-2"
-              style="font-size: 0.82rem;"
+              class="btn btn-outline-danger btn-sm"
               hx-delete="{{basePath}}/users/{{$u.ID}}"
               hx-confirm="ユーザー「{{$u.Username}}」を削除しますか？"
               hx-target="#user-row-{{$u.ID}}"
@@ -93,22 +101,37 @@
                 >
                   <div class="modal-body p-4">
                     <div class="mb-3">
+<<<<<<< HEAD
                       <label class="dads-form-label">表示名 <span class="dads-badge-optional">任意</span></label>
                       <input type="text" name="display_name" class="form-control form-control-modern" value="{{$u.GetDisplayName}}">
                     </div>
                     <div class="mb-3">
                       <label class="dads-form-label">メールアドレス <span class="dads-badge-optional">任意</span></label>
                       <input type="email" name="email" class="form-control form-control-modern" value="{{$u.GetEmail}}">
+=======
+                      <label class="form-label">表示名</label>
+                      <input type="text" name="display_name" class="form-control form-control" value="{{$u.GetDisplayName}}">
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">メールアドレス</label>
+                      <input type="email" name="email" class="form-control form-control" value="{{$u.GetEmail}}">
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                     </div>
 
                     {{if eq $u.AuthType "local"}}
                     <div class="mb-3">
+<<<<<<< HEAD
                       <label class="dads-form-label">新しいパスワード <span class="dads-badge-optional">変更時のみ</span></label>
                       <input type="password" name="password" class="form-control form-control-modern" placeholder="未入力の場合は変更されません">
+=======
+                      <label class="form-label">新しいパスワード (変更する場合のみ入力)</label>
+                      <input type="password" name="password" class="form-control form-control" placeholder="変更しない場合は空欄">
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                     </div>
                     {{end}}
 
                     <div class="mb-3">
+<<<<<<< HEAD
                       <label class="dads-form-label">ロール設定</label>
                       <div class="form-check form-switch mt-1">
                         <input class="form-check-input" type="checkbox" name="is_admin" value="true" id="editAdminSwitch-{{$u.ID}}" {{if hasRole $u "admin"}}checked{{end}}>
@@ -120,6 +143,17 @@
                       <label class="dads-form-label mb-1">所属グループ</label>
                       <div class="d-flex flex-wrap gap-2 p-2 border rounded-1 bg-light">
                         {{$userGroups := $u.GetGroups}}
+=======
+                      <label class="form-label">ロール</label>
+                      <select name="role" class="form-select form-control">
+                        <option value="user" {{if not ($u.HasRole "admin")}}selected{{end}}>user (一般ユーザー)</option>
+                        <option value="admin" {{if $u.HasRole "admin"}}selected{{end}}>admin (システム管理者)</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">グループ (ナレッジ閲覧・検索権限)</label>
+                      <div class="d-flex flex-wrap gap-2 p-2 border rounded-3 bg-light">
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                         {{range $g := $.Groups}}
                         <label class="px-2 py-1 border rounded-1 bg-white d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
                           <input class="form-check-input m-0" type="checkbox" name="groups" value="{{$g.Name}}" {{if sliceContains $userGroups $g.Name}}checked{{end}}>
@@ -130,8 +164,8 @@
                     </div>
                   </div>
                   <div class="modal-footer border-top bg-light">
-                    <button type="button" class="btn-modern-secondary py-1 px-3" data-bs-dismiss="modal">キャンセル</button>
-                    <button type="submit" class="btn-modern-primary py-1 px-3">保存</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">キャンセル</button>
+                    <button type="submit" class="btn btn-primary btn-sm">保存</button>
                   </div>
                 </form>
               </div>

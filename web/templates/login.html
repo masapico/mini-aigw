@@ -3,11 +3,17 @@
 {{define "title"}}ログイン - {{projectName}}{{end}}
 
 {{define "content"}}
+<<<<<<< HEAD
 <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
   <div class="col-12 col-sm-10 col-md-6 col-lg-5 col-xl-4">
     <div class="modern-card p-4 p-sm-5">
+=======
+<div class="w-100" style="max-width: 400px;">
+  <div>
+    <div class="app-card p-4 p-sm-5">
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       <div class="text-center mb-4">
-        <div class="brand-icon mx-auto mb-3" style="width: 48px; height: 48px;">
+        <div class="brand-icon mx-auto mb-3" style="width: 44px; height: 44px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
             <circle cx="19" cy="6" r="2" fill="currentColor" stroke="none" />
@@ -16,21 +22,35 @@
             <path d="M7.5 12h3c2 0 3.5 5 5.5 6h2" />
           </svg>
         </div>
+<<<<<<< HEAD
         <h1 class="h4 fw-bold mb-1 text-dark">{{projectName}} ログイン</h1>
         <p class="text-secondary small mb-0">AI Gateway 管理ポータルへサインイン</p>
+=======
+        <h1 class="fs-4 fw-bold mb-1">mini-aigw ログイン</h1>
+        <p class="text-muted small mb-0">AI Gateway 管理ポータルへサインイン</p>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       </div>
 
       {{if .Error}}
       <div class="alert alert-danger py-2 px-3 small mb-4" role="alert">
+<<<<<<< HEAD
         <i class="bi bi-exclamation-triangle-fill me-1"></i>
         <span>{{.Error}}</span>
+=======
+        {{.Error}}
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       </div>
       {{end}}
 
       {{if .OIDCEnabled}}
       <div class="mb-4">
+<<<<<<< HEAD
         <a href="{{basePath}}/auth/oidc/login" class="btn-modern-primary w-100 justify-content-center text-decoration-none py-2 mb-2">
           <i class="bi bi-shield-lock-fill me-1"></i> mini-id でログイン (SSO)
+=======
+        <a href="{{basePath}}/auth/oidc/login" class="btn btn-primary w-100 mb-2">
+          <i class="bi bi-shield-lock"></i> mini-id でログイン (SSO)
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         </a>
         <div class="d-flex align-items-center my-3">
           <hr class="flex-grow-1 my-0 text-secondary">
@@ -42,35 +62,45 @@
 
       <form method="POST" action="{{basePath}}/login">
         <div class="mb-3">
+<<<<<<< HEAD
           <label for="username" class="dads-form-label">
             ユーザー名 <span class="dads-badge-required">必須</span>
           </label>
+=======
+          <label for="username" class="form-label">ユーザー名</label>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           <input
             type="text"
-            class="form-control form-control-modern"
+            class="form-control form-control"
             id="username"
             name="username"
             required
             placeholder="例: admin"
             autofocus
+            autocomplete="username"
           >
         </div>
 
         <div class="mb-4">
+<<<<<<< HEAD
           <label for="password" class="dads-form-label">
             パスワード <span class="dads-badge-required">必須</span>
           </label>
+=======
+          <label for="password" class="form-label">パスワード</label>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           <input
             type="password"
-            class="form-control form-control-modern"
+            class="form-control form-control"
             id="password"
             name="password"
             required
             placeholder="••••••••"
+            autocomplete="current-password"
           >
         </div>
 
-        <button type="submit" class="btn-modern-primary w-100 justify-content-center py-2">
+        <button type="submit" class="btn btn-primary w-100">
           ログイン
         </button>
       </form>

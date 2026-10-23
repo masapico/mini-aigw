@@ -79,6 +79,18 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
+	// 旧バージョンで平文保存していた API キー (raw_key) を物理的に削除する。
+	// キーは発行時に1回のみ表示し、以降はハッシュのみを保持する。
+	if db.Migrator().HasColumn("api_keys", "raw_key") {
+		if err := db.Exec("ALTER TABLE api_keys DROP COLUMN raw_key").Error; err != nil {
+			// DROP COLUMN に失敗した場合でも平文を残さないよう NULL 化する
+			if err2 := db.Exec("UPDATE api_keys SET raw_key = NULL").Error; err2 != nil {
+				return nil, fmt.Errorf("failed to scrub legacy raw_key: %w", err2)
+			}
+			log.Printf("warning: could not drop api_keys.raw_key (values nulled): %v", err)
+		}
+	}
+
 	DB = db
 	log.Printf("SQLite initialized successfully at %s (WAL mode enabled)", dbPath)
 	return db, nil

@@ -136,7 +136,6 @@ func (h *APIKeysHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		Name:         name,
 		KeyHash:      keyHash,
 		Prefix:       prefix,
-		RawKey:       &rawKey,
 		ModelID:      modelIDPtr,
 		SystemPrompt: systemPromptPtr,
 		RateLimitRPM: rateLimitRPM,

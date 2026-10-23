@@ -3,6 +3,7 @@ package web
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -101,7 +102,7 @@ func (h *AuthHandler) HandleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   600,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: h.sameSiteMode(),
 		Secure:   h.isCookieSecure(r),
 	})
 
@@ -185,7 +186,7 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: h.sameSiteMode(),
 		Secure:   h.isCookieSecure(r),
 	})
 
@@ -228,7 +229,7 @@ func (h *AuthHandler) createSessionAndRedirect(w http.ResponseWriter, r *http.Re
 		Path:     "/",
 		MaxAge:   h.cfg.SessionMaxAgeSeconds,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: h.sameSiteMode(),
 		Secure:   h.isCookieSecure(r),
 	})
 
@@ -247,3 +248,15 @@ func (h *AuthHandler) renderLoginError(w http.ResponseWriter, errMsg string) {
 	_ = h.renderer.Render(w, "login.html", data)
 }
 
+
+// sameSiteMode は SESSION_COOKIE_SAMESITE 設定を反映する (未知の値は Lax)。
+func (h *AuthHandler) sameSiteMode() http.SameSite {
+	switch strings.ToLower(strings.TrimSpace(h.cfg.SessionCookieSameSite)) {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "none":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteLaxMode
+	}
+}

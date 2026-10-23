@@ -162,3 +162,36 @@ func TestExistingTableMigration(t *testing.T) {
 		t.Errorf("expected new model to have SupportsTemperature=false, got true")
 	}
 }
+
+// 旧バージョンの平文 raw_key カラムが起動時に物理削除されることを検証する。
+func TestLegacyRawKeyColumnDropped(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "legacy.db")
+	cfg := &config.Config{DatabaseURL: "sqlite:///" + dbPath}
+
+	d, err := InitDB(cfg)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	if err := d.Exec("ALTER TABLE api_keys ADD COLUMN raw_key varchar(128)").Error; err != nil {
+		t.Fatalf("failed to add legacy column: %v", err)
+	}
+	if err := d.Exec("INSERT INTO api_keys (id, name, key_hash, prefix, raw_key, allowed_groups, created_at) VALUES ('k1','n','h1','p','sk-live-secret','[]',datetime('now'))").Error; err != nil {
+		t.Fatalf("failed to insert legacy row: %v", err)
+	}
+	sqlDB, _ := d.DB()
+	_ = sqlDB.Close()
+
+	d2, err := InitDB(cfg)
+	if err != nil {
+		t.Fatalf("re-InitDB failed: %v", err)
+	}
+	if d2.Migrator().HasColumn("api_keys", "raw_key") {
+		t.Fatalf("raw_key column should have been dropped")
+	}
+	var cnt int64
+	d2.Model(&models.ApiKey{}).Where("id = ?", "k1").Count(&cnt)
+	if cnt != 1 {
+		t.Fatalf("api key row should be preserved, got %d", cnt)
+	}
+}

@@ -204,7 +204,7 @@ func SetupRouter(
 
 		// Web UI Auth Routes
 		sub.Get("/login", authHandler.ShowLogin)
-		sub.Post("/login", authHandler.HandleLocalLogin)
+		sub.With(middleware.SameOriginForUnsafeMethods).Post("/login", authHandler.HandleLocalLogin)
 		sub.Get("/logout", authHandler.HandleLogout)
 		sub.Get("/auth/oidc/login", authHandler.HandleOIDCLogin)
 		sub.Get("/auth/oidc/callback", authHandler.HandleOIDCCallback)
@@ -212,6 +212,7 @@ func SetupRouter(
 		// Web UI Protected Routes (RequireAuth)
 		sub.Group(func(webRouter chi.Router) {
 			webRouter.Use(middleware.RequireAuth)
+			webRouter.Use(middleware.SameOriginForUnsafeMethods)
 
 			// Dashboard
 			webRouter.Get("/", dashboardHandler.ShowDashboard)

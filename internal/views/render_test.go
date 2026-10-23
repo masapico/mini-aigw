@@ -239,7 +239,6 @@ func TestRenderer_RenderAPIKeys(t *testing.T) {
 		ID:            "key-uuid-1",
 		Name:          "テストキー",
 		Prefix:        "sk-live-test12...",
-		RawKey:        &rawKey,
 		ModelID:       &modelID,
 		SystemPrompt:  &sysPrompt,
 		AllowedGroups: `["public","sales"]`,
@@ -284,8 +283,8 @@ func TestRenderer_RenderAPIKeys(t *testing.T) {
 	if !bytes.Contains([]byte(partialBody), []byte("editKeyModal-key-uuid-1")) {
 		t.Errorf("expected partial to contain 'editKeyModal-key-uuid-1'")
 	}
-	if !bytes.Contains([]byte(partialBody), []byte(rawKey)) {
-		t.Errorf("expected partial to contain rawKey in modal")
+	if bytes.Contains([]byte(partialBody), []byte(rawKey)) {
+		t.Errorf("partial must not contain a stored raw key")
 	}
 	if !bytes.Contains([]byte(partialBody), []byte("editBuiltinPromptCollapse-key-uuid-1")) {
 		t.Errorf("expected partial to contain builtin prompt accordion")

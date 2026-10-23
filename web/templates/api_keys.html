@@ -1,10 +1,15 @@
 ﻿{{template "base" .}}
 
+<<<<<<< HEAD
 {{define "title"}}API キー管理 - {{projectName}}{{end}}
+=======
+{{define "title"}}APIキー - mini-aigw{{end}}
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 
 {{define "content"}}
-<div class="mb-4 d-flex justify-content-between align-items-center">
+<div class="page-header">
   <div>
+<<<<<<< HEAD
     <h1 class="h3 fw-bold mb-1 text-dark">AIプロキシ APIキー管理</h1>
     <p class="text-secondary small mb-0">
       OpenAI 互換 <code>/v1/chat/completions</code> 呼び出し用の Bearer トークンを発行・管理します
@@ -222,33 +227,109 @@
   <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
     <h2 class="h5 fw-bold mb-0 text-dark">有効な API キー一覧</h2>
     <span class="text-secondary small">シークレットキーのコピーやシステムプロンプト等の編集がいつでも可能です</span>
+=======
+    <h1 class="page-title">AIプロキシ APIキー管理</h1>
+    <p class="page-subtitle">OpenAI 互換 <code>/v1/chat/completions</code> 呼び出し用の Bearer トークンを発行・管理します</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createKeyModal" id="btn-new-key">
+      <i class="bi bi-plus-lg"></i>新規発行
+    </button>
+  </div>
+</div>
+
+<div class="app-card card-flush">
+  <div class="card-head">
+    <h2 class="section-title">発行済みキー</h2>
+    <span class="section-hint">シークレットは発行時のみ表示されます (再表示不可)</span>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   </div>
   <div id="api-keys-container">
     {{template "api_keys_section.html" .}}
   </div>
 </div>
-{{end}}
 
-{{define "scripts"}}
-<script>
-  const PROMPT_EXAMPLES = {
-    business: "あなたは業務アシスタントです。丁寧な敬語を用い、要点を整理して箇条書きで簡潔・明確に回答してください。",
-    general: "あなたは親切で誠実なAIアシスタントです。質問に対して具体的かつ分かりやすく回答してください。"
-  };
+<!-- 新規発行モーダル -->
+<div class="modal fade" id="createKeyModal" tabindex="-1" aria-labelledby="createKeyModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title fs-6 fw-bold" id="createKeyModalTitle">新規 API キーの発行</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <form
+        hx-post="{{basePath}}/api-keys/create"
+        hx-target="#api-keys-container"
+        hx-swap="innerHTML"
+        hx-indicator="#key-spinner"
+        data-key-form
+        data-reset-after-submit
+        data-modal-hide-on-submit="#createKeyModal"
+      >
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-5">
+              <label class="form-label" for="keyNameInput">キーの名称 / 用途 <span class="text-danger">*</span></label>
+              <input type="text" id="keyNameInput" class="form-control" name="name" placeholder="例: チャットボット (一般利用)" required>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label" for="keyModelSelect">固定 LLM モデル</label>
+              <select name="model_id" id="keyModelSelect" class="form-select">
+                <option value="">指定なし (既定モデル)</option>
+                {{range .AvailableModels}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label" for="keyRpmInput">レート制限 (RPM)</label>
+              <input type="number" min="0" step="1" class="form-control" id="keyRpmInput" name="rate_limit_rpm" value="0">
+              <div class="form-text">0: 無制限</div>
+            </div>
 
-  function insertPromptExample(targetId, type) {
-    const el = document.getElementById(targetId);
-    if (el && PROMPT_EXAMPLES[type]) {
-      el.value = PROMPT_EXAMPLES[type];
-      el.focus();
-    }
-  }
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="form-label mb-0">検索を許可するナレッジグループ</span>
+                  <span id="keyModeBadge" data-mode-badge class="status-badge status-success">ナレッジ検索 有効</span>
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn btn-outline-secondary" data-check-all>全選択</button>
+                  <button type="button" class="btn btn-outline-secondary" data-check-none>全解除</button>
+                </div>
+              </div>
+              <div id="key-groups-container" class="d-flex flex-wrap gap-2 p-2 border rounded bg-white">
+                {{range .AvailableGroups}}
+                <div class="form-check form-check-inline m-0">
+                  <input class="form-check-input" type="checkbox" name="allowed_groups" value="{{.}}" id="grp-check-{{.}}" {{if eq . "public"}}checked{{end}}>
+                  <label class="form-check-label" for="grp-check-{{.}}">{{.}}</label>
+                </div>
+                {{end}}
+              </div>
+            </div>
 
-  function onKeyGroupsChanged() {
-    const checkboxes = document.querySelectorAll('#key-groups-container input[type=checkbox]');
-    let checkedCount = 0;
-    checkboxes.forEach(cb => { if (cb.checked) checkedCount++; });
+            <div class="col-12" id="keyBuiltinPromptContainer" data-builtin-box>
+              <div class="border rounded p-2 px-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <span class="section-hint"><i class="bi bi-info-circle me-1"></i>ナレッジ検索時は組み込みプロンプトが自動適用されます (重複記述は不要)</span>
+                  <button type="button" class="btn btn-ghost btn-sm" data-bs-toggle="collapse" data-bs-target="#builtinPromptCollapse" aria-expanded="false" aria-controls="builtinPromptCollapse">内容を確認<i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div class="collapse mt-2 pt-2 border-top" id="builtinPromptCollapse">
+                  <div class="row g-2">
+                    <div class="col-12 col-lg-6">
+                      <div class="section-hint fw-semibold mb-1">① ツール利用判定ガイドライン</div>
+                      <pre class="mb-0 small text-muted" style="white-space: pre-wrap; font-family: inherit; max-height: 140px; overflow-y: auto;">{{.BuiltinKnowledgePrompt}}</pre>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                      <div class="section-hint fw-semibold mb-1">② 回答・根拠提示ルール</div>
+                      <pre class="mb-0 small text-muted" style="white-space: pre-wrap; font-family: inherit; max-height: 140px; overflow-y: auto;">{{.BuiltinGroundingRules}}</pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+<<<<<<< HEAD
     const badge = document.getElementById('keyModeBadge');
     const hint = document.getElementById('keyPromptHint');
     const builtinContainer = document.getElementById('keyBuiltinPromptContainer');
@@ -334,4 +415,27 @@
     onKeyGroupsChanged();
   });
 </script>
+=======
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label mb-0" for="keySystemPromptInput">システムプロンプト (ペルソナ・口調等 / 任意)</label>
+                <button type="button" class="btn btn-ghost btn-sm" data-insert-example="business" data-insert-target="#keySystemPromptInput"><i class="bi bi-lightbulb"></i>指示例を挿入</button>
+              </div>
+              <textarea id="keySystemPromptInput" name="system_prompt" class="form-control" rows="3" placeholder="例: あなたは業務アシスタントです。丁寧な敬語を用い、要点を整理して回答してください。"></textarea>
+              <div class="form-text" data-mode-hint>ナレッジ検索有効時: 組み込みプロンプトに上乗せされます。口調やペルソナ等の追加指示のみ記述してください。</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="spinner-border spinner-border-sm htmx-indicator" id="key-spinner" role="status"></span>
+            キーを発行
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 {{end}}

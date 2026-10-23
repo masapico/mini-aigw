@@ -3,20 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
   <title>{{block "title" .}}{{projectName}}{{end}}</title>
   
+=======
+  <title>{{block "title" .}}mini-aigw{{end}}</title>
+
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   <!-- 完全閉域ローカル静的配信 (外部CDN禁止) -->
   <link rel="icon" type="image/svg+xml" href="{{basePath}}/static/favicon.svg">
   <link rel="stylesheet" href="{{basePath}}/static/vendor/bootstrap/css/bootstrap.min.css">
   <link rel="stylesheet" href="{{basePath}}/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
   <link rel="stylesheet" href="{{basePath}}/static/css/app.css">
-  
+
   <script src="{{basePath}}/static/vendor/bootstrap/js/bootstrap.bundle.min.js" defer></script>
   <script src="{{basePath}}/static/vendor/htmx/htmx.min.js"></script>
   <script src="{{basePath}}/static/vendor/chartjs/chart.umd.min.js"></script>
+  <script src="{{basePath}}/static/js/app.js" defer></script>
   {{block "extra_head" .}}{{end}}
 </head>
 <body>
+<<<<<<< HEAD
   <!-- キーボードアクセシビリティ: スキップリンク -->
   <a href="#main-content" class="dads-skip-link">本文へスキップ</a>
 
@@ -127,10 +134,71 @@
           ログイン
         </a>
       </div>
-      {{end}}
-    </div>
-  </nav>
+=======
+{{if .User}}
+<div class="app-shell">
+  <!-- モバイル用トップバー -->
+  <header class="app-topbar d-lg-none">
+    <button class="btn btn-ghost btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebar" aria-controls="appSidebar" aria-label="メニューを開く">
+      <i class="bi bi-list fs-5"></i>
+    </button>
+    <span class="fw-bold">mini-aigw</span>
+  </header>
 
+  <!-- サイドバー (lg 以上は固定、未満はオフキャンバス) -->
+  <aside class="app-sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="appSidebar" aria-label="メインナビゲーション">
+    <a href="{{basePath}}/" class="brand-badge">
+      <span class="brand-icon">{{template "brand_icon"}}</span>
+      <span>mini-aigw</span>
+    </a>
+
+    <nav class="side-nav">
+      <a href="{{basePath}}/" class="side-link {{if or (eq .CurrentPath "/") (eq .CurrentPath "/dashboard")}}active{{end}}" {{if eq .CurrentPath "/"}}aria-current="page"{{end}}>
+        <i class="bi bi-speedometer2"></i>ダッシュボード
+      </a>
+
+      <div class="side-nav-heading">ナレッジ</div>
+      <a href="{{basePath}}/knowledge" class="side-link {{if eq .CurrentPath "/knowledge"}}active{{end}}" {{if eq .CurrentPath "/knowledge"}}aria-current="page"{{end}}>
+        <i class="bi bi-folder2-open"></i>ドキュメント
+      </a>
+      <a href="{{basePath}}/rag-test" class="side-link {{if eq .CurrentPath "/rag-test"}}active{{end}}" {{if eq .CurrentPath "/rag-test"}}aria-current="page"{{end}}>
+        <i class="bi bi-search"></i>RAGテスト
+      </a>
+      <a href="{{basePath}}/zero-hit-queries" class="side-link {{if eq .CurrentPath "/zero-hit-queries"}}active{{end}}" {{if eq .CurrentPath "/zero-hit-queries"}}aria-current="page"{{end}}>
+        <i class="bi bi-question-circle"></i>未解決クエリ
+      </a>
+
+      {{if hasRole .User "admin"}}
+      <div class="side-nav-heading">管理</div>
+      <a href="{{basePath}}/eval-reports" class="side-link {{if eq .CurrentPath "/eval-reports"}}active{{end}}" {{if eq .CurrentPath "/eval-reports"}}aria-current="page"{{end}}>
+        <i class="bi bi-clipboard2-check"></i>品質評価
+      </a>
+      <a href="{{basePath}}/api-keys" class="side-link {{if eq .CurrentPath "/api-keys"}}active{{end}}" {{if eq .CurrentPath "/api-keys"}}aria-current="page"{{end}}>
+        <i class="bi bi-key"></i>APIキー
+      </a>
+      <a href="{{basePath}}/models" class="side-link {{if eq .CurrentPath "/models"}}active{{end}}" {{if eq .CurrentPath "/models"}}aria-current="page"{{end}}>
+        <i class="bi bi-cpu"></i>モデル
+      </a>
+      <a href="{{basePath}}/users" class="side-link {{if eq .CurrentPath "/users"}}active{{end}}" {{if eq .CurrentPath "/users"}}aria-current="page"{{end}}>
+        <i class="bi bi-people"></i>ユーザー・グループ
+      </a>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
+      {{end}}
+    </nav>
+
+    <div class="side-user">
+      <div class="avatar" aria-hidden="true">{{.User.GetEffectiveName | printf "%.1s"}}</div>
+      <div class="flex-grow-1 min-w-0">
+        <div class="side-user-name truncate-1">{{.User.GetEffectiveName}}</div>
+        <div class="side-user-sub">{{if eq .User.AuthType "oidc"}}SSO (OIDC){{else}}ローカル{{end}}</div>
+      </div>
+      <a href="{{basePath}}/logout" class="btn btn-ghost btn-sm" title="ログアウト" aria-label="ログアウト">
+        <i class="bi bi-box-arrow-right"></i>
+      </a>
+    </div>
+  </aside>
+
+<<<<<<< HEAD
   <!-- メインコンテンツ -->
   <main id="main-content" class="container-fluid px-3 px-md-4 py-4" style="max-width: 1400px; flex: 1 0 auto;">
     {{block "content" .}}{{end}}
@@ -153,3 +221,46 @@
 </body>
 </html>
 {{end}}
+=======
+  <div class="app-main-wrap">
+    <main class="app-main">
+      {{block "content" .}}{{end}}
+    </main>
+  </div>
+</div>
+{{else}}
+<main class="app-bare">
+  {{template "content" .}}
+</main>
+{{end}}
+
+<!-- 共通: トースト / 確認モーダル -->
+<div class="toast-area" id="toast-area" aria-live="polite"></div>
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body p-4">
+        <h6 class="fw-bold mb-2" id="confirmModalTitle">確認</h6>
+        <p class="mb-4 text-muted" data-confirm-message></p>
+        <div class="d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">キャンセル</button>
+          <button type="button" class="btn btn-danger btn-sm" data-confirm-ok>実行する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{block "scripts" .}}{{end}}
+</body>
+</html>
+{{end}}
+
+{{define "brand_icon"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <circle cx="5" cy="12" r="2.5" fill="currentColor" stroke="none" />
+  <circle cx="19" cy="6" r="2" fill="currentColor" stroke="none" />
+  <circle cx="19" cy="18" r="2" fill="currentColor" stroke="none" />
+  <path d="M7.5 12h3c2 0 3.5-5 5.5-6h2" />
+  <path d="M7.5 12h3c2 0 3.5 5 5.5 6h2" />
+</svg>{{end}}
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)

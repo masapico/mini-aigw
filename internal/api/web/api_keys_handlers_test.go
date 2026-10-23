@@ -141,10 +141,12 @@ func TestAPIKeysHandler_CreateAndEditKey(t *testing.T) {
 	if err := handler.db.Where("name = ?", "初期キー").First(&key).Error; err != nil {
 		t.Fatalf("key not found in db: %v", err)
 	}
-	if key.RawKey == nil || !strings.HasPrefix(*key.RawKey, "sk-live-") {
-		t.Errorf("expected raw_key to start with sk-live-")
+	if strings.Contains(key.KeyHash, "sk-live-") || key.KeyHash == "" {
+		t.Errorf("expected only a hash to be stored")
 	}
-	originalRawKey := *key.RawKey
+	if handler.db.Migrator().HasColumn(&models.ApiKey{}, "raw_key") {
+		t.Errorf("raw_key column must not exist (plaintext keys must not be stored)")
+	}
 
 	// 2. Edit API key via POST /api-keys/{id}/edit
 	newPrompt := "更新後システムプロンプト。丁寧な敬語で回答してください。"
@@ -168,8 +170,11 @@ func TestAPIKeysHandler_CreateAndEditKey(t *testing.T) {
 	if !strings.Contains(editBody, "更新後キー") {
 		t.Errorf("expected partial to contain '更新後キー'")
 	}
-	if !strings.Contains(editBody, originalRawKey) {
-		t.Errorf("expected rawKey to be preserved in edit modal")
+	if strings.Contains(editBody, "sk-live-") && strings.Contains(editBody, "NewRawKey") {
+		t.Errorf("edit response must not re-display a secret key")
+	}
+	if strings.Contains(editBody, `value="sk-live-`) {
+		t.Errorf("edit response must not expose full API key")
 	}
 
 	var updatedKey models.ApiKey
@@ -180,8 +185,8 @@ func TestAPIKeysHandler_CreateAndEditKey(t *testing.T) {
 	if updatedKey.SystemPrompt == nil || *updatedKey.SystemPrompt != newPrompt {
 		t.Errorf("expected updated system prompt")
 	}
-	if updatedKey.RawKey == nil || *updatedKey.RawKey != originalRawKey {
-		t.Errorf("expected raw_key to be preserved untouched")
+	if updatedKey.KeyHash != key.KeyHash {
+		t.Errorf("expected key hash to be preserved untouched")
 	}
 	if len(updatedKey.GetAllowedGroups()) != 1 || updatedKey.GetAllowedGroups()[0] != "public" {
 		t.Errorf("expected allowed groups ['public'], got %v", updatedKey.GetAllowedGroups())

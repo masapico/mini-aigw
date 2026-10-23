@@ -1,5 +1,6 @@
 {{define "api_keys_section.html"}}
 {{if .NewRawKey}}
+<<<<<<< HEAD
 <div class="alert alert-success p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
   <div>
     <div class="fw-bold mb-1">
@@ -24,22 +25,46 @@
       >
         <i class="bi bi-clipboard me-1"></i> コピー
       </button>
+=======
+<!-- 発行直後のみシークレットキーを表示 (以降はハッシュのみ保持し再表示不可) -->
+<div class="modal fade" id="newKeyModal" tabindex="-1" aria-labelledby="newKeyModalTitle" aria-hidden="true" data-auto-show data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold" id="newKeyModalTitle"><i class="bi bi-check-circle-fill text-success me-1"></i>APIキー「{{.NewKeyName}}」を発行しました</h6>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning small d-flex gap-2 mb-3" role="alert">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          <div>このキーが表示されるのは<strong>今回だけ</strong>です。セキュリティのため再表示はできません。必ずコピーして安全な場所に保管してください。紛失した場合は新しいキーを発行してください。</div>
+        </div>
+        <div class="input-group">
+          <input type="text" id="rawKeyInput" class="form-control font-monospace" value="{{.NewRawKey}}" readonly aria-label="発行されたAPIキー">
+          <button type="button" class="btn btn-primary" data-copy-target="#rawKeyInput"><i class="bi bi-clipboard"></i>コピー</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">保管しました。閉じる</button>
+      </div>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
     </div>
   </div>
 </div>
 {{end}}
 
 <div class="table-responsive">
+<<<<<<< HEAD
   <table class="table align-middle mb-0" style="font-size: 0.92rem;">
+=======
+  <table class="table table-hover align-middle mb-0">
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
     <thead>
       <tr>
         <th>名前</th>
-        <th>キープレフィックス</th>
+        <th>キー</th>
         <th>固定モデル</th>
-        <th>制限 (RPM)</th>
         <th>許可KBグループ</th>
         <th>最終利用</th>
-        <th>発行日時</th>
         <th class="text-end">操作</th>
       </tr>
     </thead>
@@ -47,6 +72,7 @@
       {{range $k := .Keys}}
       <tr id="key-row-{{$k.ID}}">
         <td>
+<<<<<<< HEAD
           <div class="fw-bold text-dark">{{$k.Name}}</div>
           {{if and $k.SystemPrompt (ne $k.GetSystemPrompt "")}}
           <div class="mt-1">
@@ -74,9 +100,18 @@
               <i class="bi bi-clipboard"></i> コピー
             </button>
             {{end}}
+=======
+          <div class="fw-semibold">{{$k.Name}}</div>
+          <div class="section-hint d-flex flex-wrap gap-2 mt-1">
+            {{if gt $k.RateLimitRPM 0}}<span><i class="bi bi-speedometer me-1"></i>{{$k.RateLimitRPM}} RPM</span>{{else}}<span>無制限</span>{{end}}
+            {{if and $k.SystemPrompt (ne $k.GetSystemPrompt "")}}<span title="{{$k.GetSystemPrompt}}"><i class="bi bi-chat-quote me-1"></i>プロンプト設定あり</span>{{end}}
+            <span>発行: {{formatDate $k.CreatedAt}}</span>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           </div>
         </td>
+        <td><span class="font-monospace text-muted">{{$k.Prefix}}</span></td>
         <td>
+<<<<<<< HEAD
           {{if $k.ModelID}}
           <span class="badge bg-light text-dark border px-2 py-1 small font-monospace" style="font-size: 0.78rem;">
             {{$k.GetModelID}}
@@ -111,10 +146,22 @@
         </td>
         <td class="text-secondary small">
           {{formatTime $k.CreatedAt}}
+=======
+          {{if $k.ModelID}}<span class="code-badge">{{$k.GetModelID}}</span>{{else}}<span class="text-muted">指定なし</span>{{end}}
         </td>
+        <td>
+          {{$currentGroups := $k.GetAllowedGroups}}
+          <div class="d-flex flex-wrap gap-1">
+            {{range $currentGroups}}<span class="badge-pill-modern badge-group">{{.}}</span>{{else}}<span class="text-muted">なし (LLM専用)</span>{{end}}
+          </div>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
+        </td>
+        <td class="text-muted">{{if $k.LastUsedAt}}{{formatTime $k.LastUsedAt}}{{else}}-{{end}}</td>
         <td class="text-end">
           <div class="d-inline-flex gap-1">
+            <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editKeyModal-{{$k.ID}}"><i class="bi bi-pencil"></i>編集</button>
             <button
+<<<<<<< HEAD
               class="btn-modern-secondary py-1 px-2"
               style="font-size: 0.82rem;"
               data-bs-toggle="modal"
@@ -344,17 +391,127 @@
                 </form>
               </div>
             </div>
+=======
+              class="btn btn-outline-danger btn-sm"
+              hx-delete="{{basePath}}/api-keys/{{$k.ID}}"
+              hx-confirm="APIキー「{{$k.Name}}」を失効しますか？失効すると元に戻せません。"
+              hx-target="#key-row-{{$k.ID}}"
+              hx-swap="outerHTML swap:0.15s"
+              aria-label="{{$k.Name}} を失効"
+            ><i class="bi bi-slash-circle"></i>失効</button>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           </div>
         </td>
       </tr>
       {{else}}
       <tr>
+<<<<<<< HEAD
         <td colspan="8" class="text-center py-5 text-secondary">
           発行された API キーはありません。上部から新しく発行してください。
+=======
+        <td colspan="6">
+          <div class="empty-state"><i class="bi bi-key"></i>発行された API キーはありません。右上の「新規発行」から作成してください。</div>
+>>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         </td>
       </tr>
       {{end}}
     </tbody>
   </table>
 </div>
+
+{{range $k := .Keys}}
+{{$currentGroups := $k.GetAllowedGroups}}
+<!-- 編集モーダル -->
+<div class="modal fade" id="editKeyModal-{{$k.ID}}" tabindex="-1" aria-labelledby="editKeyModalTitle-{{$k.ID}}" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-bold" id="editKeyModalTitle-{{$k.ID}}">APIキー設定の編集: {{$k.Name}}</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <form hx-post="{{basePath}}/api-keys/{{$k.ID}}/edit" hx-target="#api-keys-container" hx-swap="innerHTML" data-modal-hide-on-submit="#editKeyModal-{{$k.ID}}" data-key-form>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-5">
+              <label class="form-label" for="edit-name-{{$k.ID}}">キーの名称 / 用途 <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="edit-name-{{$k.ID}}" name="name" value="{{$k.Name}}" required>
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label" for="edit-model-{{$k.ID}}">固定 LLM モデル</label>
+              <select name="model_id" id="edit-model-{{$k.ID}}" class="form-select">
+                <option value="">指定なし (既定モデル)</option>
+                {{range $m := $.AvailableModels}}
+                <option value="{{$m.ID}}" {{if eq $k.GetModelID $m.ID}}selected{{end}}>{{$m.Name}}</option>
+                {{end}}
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label" for="edit-rpm-{{$k.ID}}">レート制限 (RPM)</label>
+              <input type="number" min="0" step="1" class="form-control" id="edit-rpm-{{$k.ID}}" name="rate_limit_rpm" value="{{$k.RateLimitRPM}}">
+              <div class="form-text">0: 無制限</div>
+            </div>
+
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="form-label mb-0">検索を許可するナレッジグループ</span>
+                  <span data-mode-badge class="status-badge {{if $currentGroups}}status-success{{else}}status-neutral{{end}}">
+                    {{if $currentGroups}}ナレッジ検索 有効{{else}}LLM単体モード{{end}}
+                  </span>
+                </div>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn btn-outline-secondary" data-check-all>全選択</button>
+                  <button type="button" class="btn btn-outline-secondary" data-check-none>全解除</button>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-2 p-2 border rounded bg-white">
+                {{range $grp := $.AvailableGroups}}
+                <div class="form-check form-check-inline m-0">
+                  <input class="form-check-input" type="checkbox" name="allowed_groups" value="{{$grp}}" id="edit-grp-{{$k.ID}}-{{$grp}}" {{if sliceContains $currentGroups $grp}}checked{{end}}>
+                  <label class="form-check-label" for="edit-grp-{{$k.ID}}-{{$grp}}">{{$grp}}</label>
+                </div>
+                {{end}}
+              </div>
+            </div>
+
+            <div class="col-12" id="editBuiltinPromptContainer-{{$k.ID}}" data-builtin-box {{if not $currentGroups}}hidden{{end}}>
+              <div class="border rounded p-2 px-3 bg-white">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <span class="section-hint"><i class="bi bi-info-circle me-1"></i>ナレッジ検索時は組み込みプロンプトが自動適用されます (重複記述は不要)</span>
+                  <button type="button" class="btn btn-ghost btn-sm" data-bs-toggle="collapse" data-bs-target="#editBuiltinPromptCollapse-{{$k.ID}}" aria-expanded="false" aria-controls="editBuiltinPromptCollapse-{{$k.ID}}">内容を確認<i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div class="collapse mt-2 pt-2 border-top" id="editBuiltinPromptCollapse-{{$k.ID}}">
+                  <div class="row g-2">
+                    <div class="col-12 col-lg-6">
+                      <div class="section-hint fw-semibold mb-1">① ツール利用判定ガイドライン</div>
+                      <pre class="mb-0 small text-muted" style="white-space: pre-wrap; font-family: inherit; max-height: 140px; overflow-y: auto;">{{$.BuiltinKnowledgePrompt}}</pre>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                      <div class="section-hint fw-semibold mb-1">② 回答・根拠提示ルール</div>
+                      <pre class="mb-0 small text-muted" style="white-space: pre-wrap; font-family: inherit; max-height: 140px; overflow-y: auto;">{{$.BuiltinGroundingRules}}</pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label mb-0" for="editSystemPromptInput-{{$k.ID}}">システムプロンプト (ペルソナ・口調等 / 任意)</label>
+                <button type="button" class="btn btn-ghost btn-sm" data-insert-example="business" data-insert-target="#editSystemPromptInput-{{$k.ID}}"><i class="bi bi-lightbulb"></i>指示例を挿入</button>
+              </div>
+              <textarea id="editSystemPromptInput-{{$k.ID}}" name="system_prompt" class="form-control" rows="4" placeholder="例: あなたは業務アシスタントです。丁寧な敬語を用い、要点を整理して回答してください。">{{$k.GetSystemPrompt}}</textarea>
+              <div class="form-text" data-mode-hint>{{if $currentGroups}}ナレッジ検索有効時: 組み込みプロンプトに上乗せされます。口調やペルソナ等の追加指示のみ記述してください。{{else}}LLM単体モード: 役割やルールを固定したい場合は本欄に入力してください。{{end}}</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}
 {{end}}

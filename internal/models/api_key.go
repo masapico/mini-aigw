@@ -14,7 +14,6 @@ type ApiKey struct {
 	Name          string    `gorm:"size:100;not null" json:"name"`
 	KeyHash       string    `gorm:"size:64;uniqueIndex;not null" json:"key_hash"`
 	Prefix        string    `gorm:"size:32;not null" json:"prefix"`
-	RawKey        *string   `gorm:"size:128" json:"raw_key,omitempty"` // 作成時・再コピー用
 	AllowedGroups string    `gorm:"type:text;not null;default:'[\"public\"]'" json:"allowed_groups"`
 	ModelID       *string    `gorm:"size:100" json:"model_id"`
 	SystemPrompt  *string    `gorm:"type:text" json:"system_prompt"`
@@ -65,10 +64,4 @@ func (k *ApiKey) GetSystemPrompt() string {
 	return *k.SystemPrompt
 }
 
-func (k *ApiKey) GetRawKey() string {
-	if k.RawKey == nil {
-		return ""
-	}
-	return *k.RawKey
-}
 
