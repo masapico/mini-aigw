@@ -112,7 +112,43 @@ go run ./scripts/release -version v1.0.0
 - `mini-aigw_v1.0.0_linux_arm64.tar.gz` (Linux arm64 / AWS Graviton)
 - `SHA256SUMS.txt` (全アーカイブの SHA-256 チェックサム一覧)
 
-### 3.3 テスト実行
+### 3.3 コンテナでのビルド & 起動 (Docker / Docker Compose)
+
+Alpine ベースのマルチステージビルドにより、イメージサイズ約 35MB の軽量・セキュア（非rootユーザー実行 / ヘルスチェック内包）なコンテナを構築できます。
+
+#### Docker Compose を使用する場合（推奨）
+```bash
+# ビルド & バックグラウンド起動
+docker compose up -d --build
+
+# ログ確認
+docker compose logs -f
+
+# 停止
+docker compose down
+```
+
+#### Docker 単体コマンドを使用する場合
+```bash
+# イメージのビルド
+docker build -t mini-aigw:latest .
+
+# コンテナ起動 (SQLite データを名前付きボリュームで永続化)
+docker run -d \
+  --name mini-aigw \
+  -p 8000:8000 \
+  -v mini-aigw-data:/app/data \
+  -e AWS_REGION=ap-northeast-1 \
+  mini-aigw:latest
+```
+
+ヘルスチェックの確認:
+```bash
+curl http://localhost:8000/health
+# {"status":"healthy","database":"ok","version":"dev"}
+```
+
+### 3.4 テスト実行
 
 ```bash
 go test -v ./...

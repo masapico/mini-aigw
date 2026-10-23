@@ -1,0 +1,28 @@
+services:
+  mini-aigw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mini-aigw:latest
+    container_name: mini-aigw
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - AWS_REGION=ap-northeast-1
+      # ホストマシンのAWS環境変数を透過（または IAM ロール利用時は不要）
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      # ナレッジベース設定（利用時）
+      - BEDROCK_KB_ID=${BEDROCK_KB_ID:-SAMPLE_KB_ID}
+      - BEDROCK_DATA_SOURCE_ID=${BEDROCK_DATA_SOURCE_ID:-SAMPLE_DS_ID}
+      - KNOWLEDGE_S3_BUCKET=${KNOWLEDGE_S3_BUCKET:-sample-knowledge-bucket}
+    volumes:
+      - mini-aigw-data:/app/data
+
+volumes:
+  mini-aigw-data:
+
