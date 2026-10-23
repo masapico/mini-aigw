@@ -85,6 +85,9 @@ body {
 .text-muted { color: var(--text-muted) !important; }
 .text-indigo { color: var(--primary) !important; }
 .text-tabular { font-variant-numeric: tabular-nums; }
+.text-xs { font-size: var(--fs-xs) !important; }
+.text-sm { font-size: var(--fs-sm) !important; }
+.text-base { font-size: var(--fs-base) !important; }
 
 h1, h2, h3, h4, h5, h6 { letter-spacing: -0.005em; }
 
