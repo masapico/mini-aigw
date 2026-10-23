@@ -357,6 +357,39 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.005em; }
 }
 .badge-group { background: var(--primary-light); color: var(--primary-ink); }
 
+/* LLM モデル表示用バッジ (主張を抑えた繊細なタグスタイル) */
+.badge-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-muted);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.badge-model:hover {
+  background-color: #ffffff;
+  color: var(--text-main);
+  border-color: var(--border-strong);
+}
+.badge-model i {
+  font-size: 0.68rem;
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+
 /* 状態色 (意味に限定: success / warning / danger / neutral) */
 .badge-status-synced, .status-success { background: var(--success-light); color: var(--success-ink); }
 .badge-status-pending, .badge-status-s3_uploaded, .status-warning { background: var(--warning-light); color: var(--warning-ink); border: 0; }

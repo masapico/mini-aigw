@@ -1,4 +1,4 @@
-﻿{{template "base" .}}
+{{template "base" .}}
 
 {{define "title"}}ダッシュボード - {{projectName}}{{end}}
 
@@ -241,8 +241,8 @@
                   <td class="text-secondary small text-nowrap">{{formatTime .CreatedAt}}</td>
                   <td class="fw-bold text-dark text-nowrap">{{.ApiKeyName}}</td>
                   <td class="text-nowrap">
-                    <span class="badge bg-light text-dark border font-monospace">
-                      {{.ModelID}}
+                    <span class="badge-model" title="{{.ModelID}}">
+                      <i class="bi bi-cpu"></i>{{.ModelID}}
                     </span>
                   </td>
                   <td class="text-nowrap text-center">

@@ -1,4 +1,4 @@
-﻿{{template "base" .}}
+{{template "base" .}}
 
 {{define "title"}}品質評価レポート - {{projectName}}{{end}}
 
@@ -209,13 +209,15 @@
           </td>
           <td>
             {{if .Models}}
-            <div class="d-flex flex-wrap gap-1" style="max-width: 260px;">
+            <div class="d-flex flex-wrap gap-1 align-items-center" style="max-width: 280px;">
               {{range .Models}}
-              <span class="badge bg-light text-dark border font-monospace" style="font-size: 0.75rem; padding: 0.2rem 0.45rem;">{{.}}</span>
+              <span class="badge-model" title="{{.}}">
+                <i class="bi bi-cpu"></i>{{.}}
+              </span>
               {{end}}
             </div>
             {{else}}
-            <span >検索単体 (Retriever)</span>
+            <span class="text-muted small">検索単体 (Retriever)</span>
             {{end}}
           </td>
           <td class="text-center">

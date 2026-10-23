@@ -50,7 +50,7 @@
         </td>
         <td><span class="font-monospace text-muted">{{$k.Prefix}}</span></td>
         <td>
-          {{if $k.ModelID}}<span class="code-badge">{{$k.GetModelID}}</span>{{else}}<span class="text-muted">指定なし</span>{{end}}
+          {{if $k.ModelID}}<span class="badge-model" title="{{$k.GetModelID}}"><i class="bi bi-cpu"></i>{{$k.GetModelID}}</span>{{else}}<span class="text-muted">指定なし</span>{{end}}
         </td>
         <td>
           {{$currentGroups := $k.GetAllowedGroups}}
