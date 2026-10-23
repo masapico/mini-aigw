@@ -1,11 +1,6 @@
 {{define "knowledge_sync_status.html"}}
 <div
-<<<<<<< HEAD
-  class="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-white rounded-1 border"
-  style="border-left: 4px solid {{if .LatestSyncJob}}{{if eq .LatestSyncJob.Status "COMPLETE"}}var(--dads-color-success){{else if eq .LatestSyncJob.Status "FAILED"}}var(--dads-color-danger){{else}}var(--dads-color-blue-900){{end}}{{else}}var(--dads-color-gray-400){{end}} !important;"
-=======
   class="d-flex flex-wrap align-items-center justify-content-between gap-3 px-3 py-2 bg-white rounded border"
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   {{if .IsSyncing}}
   hx-get="{{basePath}}/knowledge/sync/status"
   hx-trigger="every 10s"
@@ -15,17 +10,6 @@
 >
   <div class="d-flex align-items-center gap-3 flex-wrap">
     <div class="d-flex align-items-center gap-2">
-<<<<<<< HEAD
-      <span class="text-secondary small fw-bold">KB同期ステータス:</span>
-      {{if .LatestSyncJob}}
-        {{$status := .LatestSyncJob.Status}}
-        {{if eq $status "COMPLETE"}}
-          <span class="badge-pill-modern badge-status-synced">
-            <i class="bi bi-check-circle-fill"></i> 同期完了 (COMPLETE)
-          </span>
-        {{else if or (eq $status "IN_PROGRESS") (eq $status "STARTING")}}
-          <span class="badge-pill-modern badge-status-pending">
-=======
       <span class="section-hint fw-semibold">KB同期:</span>
       {{if .LatestSyncJob}}
         {{$status := .LatestSyncJob.Status}}
@@ -35,33 +19,20 @@
           </span>
         {{else if or (eq $status "IN_PROGRESS") (eq $status "STARTING")}}
           <span class="status-badge badge-group">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <span class="spinner-border spinner-border-sm" role="status" style="width: 0.8rem; height: 0.8rem;"></span>
             同期中 ({{$status}})
           </span>
         {{else if eq $status "FAILED"}}
-<<<<<<< HEAD
-          <span class="badge-pill-modern badge-status-error">
-            <i class="bi bi-exclamation-triangle-fill"></i> 同期エラー (FAILED)
-          </span>
-        {{else}}
-          <span class="badge-pill-modern" style="background-color: var(--dads-color-gray-100); color: var(--dads-color-gray-900); border: 1px solid var(--dads-color-gray-300);">
-=======
           <span class="status-badge status-danger">
             <i class="bi bi-exclamation-triangle"></i>同期エラー (FAILED)
           </span>
         {{else}}
           <span class="status-badge status-neutral">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             {{$status}}
           </span>
         {{end}}
       {{else}}
-<<<<<<< HEAD
-        <span class="badge-pill-modern" style="background-color: var(--dads-color-gray-100); color: var(--dads-color-gray-700); border: 1px solid var(--dads-color-gray-300);">
-=======
         <span class="status-badge status-neutral">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           同期履歴なし
         </span>
       {{end}}
@@ -82,21 +53,13 @@
 
   <div class="d-flex align-items-center gap-2">
     {{if .JustStartedJobID}}
-<<<<<<< HEAD
-    <span class="text-success small fw-bold">
-=======
     <span class="text-success small">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       ジョブ開始: <code>{{.JustStartedJobID}}</code>
     </span>
     {{end}}
 
     {{if .SyncError}}
-<<<<<<< HEAD
-    <span class="text-danger small fw-bold">{{.SyncError}}</span>
-=======
     <span class="text-danger small">{{.SyncError}}</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
     {{end}}
 
     {{if .IsAdmin}}

@@ -5,13 +5,8 @@
 {{define "content"}}
 <div class="page-header">
   <div>
-<<<<<<< HEAD
-    <h1 class="h3 fw-bold mb-1 text-dark">ナレッジベース ドキュメント管理</h1>
-    <p class="text-secondary small mb-0">Amazon S3 Vectors ドキュメント管理 & Bedrock Knowledge Base 同期</p>
-=======
     <h1 class="page-title">ナレッジベース ドキュメント管理</h1>
     <p class="page-subtitle">Amazon S3 Vectors ドキュメント管理 &amp; Bedrock Knowledge Base 同期 ・ Bucket: <code>{{.Bucket}}</code></p>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   </div>
   <div class="page-actions">
     <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#uploadModal" id="btn-toggle-upload">
@@ -21,101 +16,13 @@
 </div>
 
 <!-- 最新KB同期ステータス・手動同期バー -->
-<<<<<<< HEAD
-<div
-  class="mb-4"
-  id="kb-sync-status-container"
-  hx-get="{{basePath}}/knowledge/sync/status"
-  hx-trigger="load"
-  hx-swap="innerHTML"
->
-  <div class="d-flex align-items-center gap-2 p-3 bg-white rounded-1 border text-secondary small">
-=======
 <div class="mb-4" id="kb-sync-status-container" hx-get="{{basePath}}/knowledge/sync/status" hx-trigger="load" hx-swap="innerHTML">
   <div class="d-flex align-items-center gap-2 p-3 bg-white rounded border text-muted small">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
     <span class="spinner-border spinner-border-sm" role="status"></span>
     <span>KB同期ステータスを取得中...</span>
   </div>
 </div>
 
-<<<<<<< HEAD
-<!-- アップロードカード (DADS仕様) -->
-<div class="collapse mb-4" id="uploadCollapse">
-  <div class="modern-card">
-    <div class="dads-card-header d-flex justify-content-between align-items-center">
-      <div>
-        <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-          <i class="bi bi-cloud-arrow-up text-primary"></i> 新規ドキュメント アップロード
-        </h2>
-        <span class="text-secondary small">ドキュメントは管理S3領域に暗号化保存され、次回のKB同期でRAG検索に反映されます</span>
-      </div>
-      <button
-        type="button"
-        class="btn-close"
-        data-bs-toggle="collapse"
-        data-bs-target="#uploadCollapse"
-        aria-label="アップロードパネルを閉じる"
-      ></button>
-    </div>
-
-    {{if and (not .IsAdmin) (not .Groups)}}
-    <div class="alert alert-warning mb-0" role="alert">
-      <strong>グループがありません:</strong> ナレッジを登録するには所属グループが必要です。管理者にグループ所属の付与を依頼してください。
-    </div>
-    {{else}}
-    <form
-      id="upload-form"
-      hx-post="{{basePath}}/knowledge/upload"
-      hx-target="#knowledge-table-container"
-      hx-swap="innerHTML"
-      hx-encoding="multipart/form-data"
-      hx-indicator="#upload-spinner"
-      onsubmit="clearUploadForm()"
-    >
-      <div class="row g-3 align-items-start mb-3">
-        <div class="col-12 col-md-4">
-          <label class="dads-form-label">
-            ドキュメント分類 <span class="dads-badge-required">必須</span>
-            {{if not .IsAdmin}}
-            <span class="dads-badge-optional">所属限定</span>
-            {{end}}
-          </label>
-          <span class="dads-form-help">アクセス権限グループを指定します</span>
-          <select class="form-select form-select-modern" name="group_name" required>
-            {{if .IsAdmin}}
-            <option value="public" selected>public (全体共有)</option>
-            {{end}}
-            {{range .Groups}}
-            <option value="{{.Name}}">
-              {{.DisplayName}} ({{.Name}})
-            </option>
-            {{end}}
-          </select>
-        </div>
-
-        <div class="col-12 col-md-8">
-          <label class="dads-form-label">
-            タグ設定 <span class="dads-badge-optional">任意</span>
-          </label>
-          <span class="dads-form-help">入力後に Enter または「追加」を押下。バッジクリックで削除</span>
-          <div class="d-flex gap-2 mb-2">
-            <input
-              type="text"
-              id="tag-input-box"
-              class="form-control form-control-modern"
-              placeholder="タグを入力 (例: 2024, 議事録, 規程)"
-              autocomplete="off"
-            >
-            <button type="button" id="tag-add-btn" class="btn-modern-secondary text-nowrap px-3">
-              追加
-            </button>
-          </div>
-          <input type="hidden" name="tags" id="tags-hidden-input" value="[]">
-          <div id="tag-badges-container" class="d-flex flex-wrap gap-1 align-items-center" style="min-height: 28px;">
-            <span class="text-secondary small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>
-          </div>
-=======
 <!-- アップロードモーダル -->
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -131,7 +38,6 @@
       <div class="modal-body">
         <div class="alert alert-warning mb-0" role="alert">
           <strong>グループがありません:</strong> ナレッジを登録するには所属グループが必要です。管理者にグループ所属の付与を依頼してください。
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         </div>
       </div>
       {{else}}
@@ -159,27 +65,6 @@
               </select>
             </div>
 
-<<<<<<< HEAD
-      <div class="row g-3 align-items-end">
-        <div class="col-12 col-md-9">
-          <label class="dads-form-label">
-            ファイル選択 <span class="dads-badge-required">必須</span>
-          </label>
-          <span class="dads-form-help">対応形式: PDF, DOCX, XLSX, CSV, TXT, Markdown等</span>
-          <input
-            type="file"
-            class="form-control form-control-modern"
-            name="file"
-            id="file-input"
-            required
-          >
-        </div>
-
-        <div class="col-12 col-md-3">
-          <button type="submit" class="btn-modern-primary w-100 justify-content-center">
-            <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="upload-spinner" role="status"></span>
-            <span>S3へアップロード</span>
-=======
             <div class="col-12 col-md-7">
               <label class="form-label" for="tag-input-box">タグ (任意)</label>
               <div class="input-group mb-2">
@@ -204,7 +89,6 @@
           <button type="submit" class="btn btn-primary">
             <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
             <i class="bi bi-cloud-arrow-up"></i>S3へアップロード
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           </button>
         </div>
       </form>
@@ -213,91 +97,11 @@
   </div>
 </div>
 
-<<<<<<< HEAD
-<!-- 一覧テーブルカード -->
-<div class="modern-card p-0 overflow-hidden">
-  <div class="p-3 border-bottom bg-white">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
-      <div>
-        <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-          <i class="bi bi-folder2-open text-primary"></i> 登録ドキュメント一覧
-        </h2>
-        <span class="text-secondary small">ファイル名をクリックすると S3 から原本を取得（ダウンロード）できます</span>
-      </div>
-    </div>
-
-    <!-- 検索フィルターフォーム -->
-    <form
-      id="knowledge-filter-form"
-      hx-get="{{basePath}}/knowledge/table"
-      hx-target="#knowledge-table-container"
-      hx-swap="innerHTML"
-      hx-indicator="#search-spinner"
-      class="row g-2 align-items-center"
-    >
-      <div class="col-12 col-md-4">
-        <div class="input-group input-group-sm">
-          <span class="input-group-text bg-light text-secondary border-end-0">
-            <i class="bi bi-search"></i>
-          </span>
-          <input
-            type="text"
-            name="q"
-            id="filter-q"
-            class="form-control form-control-sm border-start-0"
-            placeholder="ファイル名 / タグで検索..."
-            value="{{.Query}}"
-            autocomplete="off"
-          >
-        </div>
-      </div>
-
-      <div class="col-6 col-md-3">
-        <div class="input-group input-group-sm">
-          <span class="input-group-text bg-light text-secondary">
-            <i class="bi bi-people"></i>
-          </span>
-          <select name="group" id="filter-group" class="form-select form-select-sm">
-            <option value="">全グループ</option>
-            {{range .FilterGroups}}
-            <option value="{{.}}" {{if eq $.SelectedGroup .}}selected{{end}}>
-              {{.}}
-            </option>
-            {{end}}
-          </select>
-        </div>
-      </div>
-
-      <div class="col-6 col-md-2">
-        <select name="status" id="filter-status" class="form-select form-select-sm">
-          <option value="">全ステータス</option>
-          <option value="SYNCED" {{if eq .SelectedStatus "SYNCED"}}selected{{end}}>同期済</option>
-          <option value="S3_UPLOADED" {{if eq .SelectedStatus "S3_UPLOADED"}}selected{{end}}>S3保管</option>
-          <option value="PENDING" {{if eq .SelectedStatus "PENDING"}}selected{{end}}>保留</option>
-          <option value="ERROR" {{if eq .SelectedStatus "ERROR"}}selected{{end}}>エラー</option>
-        </select>
-      </div>
-
-      <div class="col-12 col-md-3 d-flex gap-2">
-        <button type="submit" class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-1">
-          <span class="spinner-border spinner-border-sm htmx-indicator" id="search-spinner" role="status"></span>
-          <i class="bi bi-search"></i> 検索
-        </button>
-        <a
-          href="{{basePath}}/knowledge"
-          class="btn btn-outline-secondary btn-sm px-2 d-inline-flex align-items-center gap-1 text-decoration-none"
-        >
-          <i class="bi bi-arrow-counterclockwise"></i> リセット
-        </a>
-      </div>
-    </form>
-=======
 <!-- 一覧 -->
 <div class="app-card card-flush">
   <div class="card-head">
     <h2 class="section-title"><i class="bi bi-folder2-open me-1 text-muted"></i>登録ドキュメント一覧</h2>
     <span class="section-hint">ファイル名をクリックすると原本をダウンロードできます</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   </div>
 
   <form
@@ -356,11 +160,7 @@
   function renderTags() {
     tagBadgesContainer.innerHTML = '';
     if (currentTags.length === 0) {
-<<<<<<< HEAD
-      tagBadgesContainer.innerHTML = '<span class="text-secondary small fst-italic" id="tag-empty-hint">設定されたタグはありません</span>';
-=======
       tagBadgesContainer.innerHTML = '<span class="section-hint fst-italic" id="tag-empty-hint">設定されたタグはありません</span>';
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       tagsHiddenInput.value = '[]';
       return;
     }

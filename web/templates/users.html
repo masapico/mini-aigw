@@ -5,13 +5,8 @@
 {{define "content"}}
 <div class="page-header">
   <div>
-<<<<<<< HEAD
-    <h1 class="h3 fw-bold mb-1 text-dark">ユーザー & グループ管理</h1>
-    <p class="text-secondary small mb-0">
-=======
     <h1 class="page-title">ユーザー & グループ管理</h1>
     <p class="page-subtitle">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       ローカルユーザーアカウントの発行、ロール割り当て、およびグループ（S3 Vectors 分離）の動的管理
     </p>
   </div>
@@ -47,16 +42,8 @@
 <div class="tab-content" id="userMgmtTabsContent">
   <!-- 1. ユーザー管理タブ -->
   <div class="tab-pane fade show active" id="users-panel" role="tabpanel">
-<<<<<<< HEAD
-    <div class="modern-card mb-4">
-      <div class="dads-card-header">
-        <h2 class="h5 fw-bold mb-0 text-dark">新規ローカルユーザー作成</h2>
-        <span class="text-secondary small">ポータルログイン用のローカル認証アカウントを発行します</span>
-      </div>
-=======
     <div class="app-card mb-4">
       <h2 class="section-title">新規ローカルユーザー作成</h2>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       <form
         id="create-user-form"
         hx-post="{{basePath}}/users/create"
@@ -67,13 +54,7 @@
       >
         <div class="row g-3 mb-3 align-items-start">
           <div class="col-12 col-md-3">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              ユーザー名 <span class="dads-badge-required">必須</span>
-            </label>
-=======
             <label class="form-label">ユーザー名 <span class="text-danger">*</span></label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="text"
               class="form-control form-control"
@@ -84,13 +65,7 @@
             >
           </div>
           <div class="col-12 col-md-3">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              初期パスワード <span class="dads-badge-required">必須</span>
-            </label>
-=======
             <label class="form-label">初期パスワード <span class="text-danger">*</span></label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="password"
               class="form-control form-control"
@@ -101,13 +76,7 @@
             >
           </div>
           <div class="col-12 col-md-3">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              表示名 <span class="dads-badge-optional">任意</span>
-            </label>
-=======
             <label class="form-label">表示名 (任意)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="text"
               class="form-control form-control"
@@ -116,13 +85,7 @@
             >
           </div>
           <div class="col-12 col-md-3">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              メールアドレス <span class="dads-badge-optional">任意</span>
-            </label>
-=======
             <label class="form-label">メールアドレス (任意)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="email"
               class="form-control form-control"
@@ -134,24 +97,15 @@
 
         <div class="row g-3 mb-3 align-items-start">
           <div class="col-12 col-md-4">
-<<<<<<< HEAD
-            <label class="dads-form-label mb-1">管理者権限ロール</label>
-=======
             <label class="form-label mb-1">管理者権限ロール</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <div class="form-check form-switch mt-1">
               <input class="form-check-input" type="checkbox" name="is_admin" value="true" id="isAdminSwitch">
               <label class="form-check-label small fw-bold text-dark" for="isAdminSwitch">admin ロールを付与する</label>
             </div>
           </div>
           <div class="col-12 col-md-8">
-<<<<<<< HEAD
-            <label class="dads-form-label mb-1">所属グループ (アクセス許可範囲)</label>
-            <div class="d-flex flex-wrap gap-2 p-2 border rounded-1 bg-white">
-=======
             <label class="form-label mb-1">所属グループ (アクセス許可範囲)</label>
             <div class="d-flex flex-wrap gap-2 p-2 border rounded-3 bg-white">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
               {{range .Groups}}
               <label class="px-3 py-1 border rounded-1 bg-light d-inline-flex align-items-center gap-2 m-0 user-select-none" style="cursor: pointer; font-size: 0.85rem;">
                 <input class="form-check-input m-0" type="checkbox" name="groups" value="{{.Name}}">
@@ -183,16 +137,8 @@
 
   <!-- 2. グループ管理タブ -->
   <div class="tab-pane fade" id="groups-panel" role="tabpanel">
-<<<<<<< HEAD
-    <div class="modern-card mb-4">
-      <div class="dads-card-header">
-        <h2 class="h5 fw-bold mb-0 text-dark">新規グループ作成</h2>
-        <span class="text-secondary small">S3 Vectors による RAG 検索範囲の権限分離グループを定義します</span>
-      </div>
-=======
     <div class="app-card mb-4">
       <h2 class="section-title">新規グループ作成</h2>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       <form
         hx-post="{{basePath}}/groups/create"
         hx-target="#groups-table-container"
@@ -201,14 +147,7 @@
       >
         <div class="row g-3">
           <div class="col-12 col-md-4">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              グループ識別名 (半角英数) <span class="dads-badge-required">必須</span>
-            </label>
-            <span class="dads-form-help">S3キーと連携する一意の識別名</span>
-=======
             <label class="form-label">グループ識別名 (半角英数小文字) <span class="text-danger">*</span></label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="text"
               class="form-control form-control font-monospace"
@@ -219,14 +158,7 @@
             >
           </div>
           <div class="col-12 col-md-4">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              表示名 <span class="dads-badge-required">必須</span>
-            </label>
-            <span class="dads-form-help">画面表示用の名称</span>
-=======
             <label class="form-label">表示名 <span class="text-danger">*</span></label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="text"
               class="form-control form-control"
@@ -236,14 +168,7 @@
             >
           </div>
           <div class="col-12 col-md-4">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              説明 <span class="dads-badge-optional">任意</span>
-            </label>
-            <span class="dads-form-help">用途・対象の補足メモ</span>
-=======
             <label class="form-label">説明 (任意)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <input
               type="text"
               class="form-control form-control"

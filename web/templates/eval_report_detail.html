@@ -63,13 +63,8 @@
 <!-- 実行パラメータ メタボックス (DADS仕様) -->
 <div class="row g-3 mb-4">
   <div class="col-12 col-md-4">
-<<<<<<< HEAD
-    <div class="metric-card text-center">
-      <div class="text-secondary small fw-bold text-uppercase">Retriever Hit@{{.Report.TopK}}</div>
-=======
     <div class="app-card text-center">
       <div class="text-muted small fw-semibold text-uppercase">Retriever Hit@{{.Report.TopK}}</div>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
         <span class="fs-2 fw-bold {{if ge .Report.HitAtKRate 80.0}}text-success{{else}}text-warning{{end}}">
           {{formatPercent .Report.HitAtKRate}}
@@ -80,13 +75,8 @@
   </div>
 
   <div class="col-12 col-md-4">
-<<<<<<< HEAD
-    <div class="metric-card text-center">
-      <div class="text-secondary small fw-bold text-uppercase">MRR (平均逆順位)</div>
-=======
     <div class="app-card text-center">
       <div class="text-muted small fw-semibold text-uppercase">MRR (平均逆順位)</div>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
         <span class="fs-2 fw-bold text-primary">
           {{formatScore .Report.MeanReciprocalRank}}
@@ -98,13 +88,8 @@
   </div>
 
   <div class="col-12 col-md-4">
-<<<<<<< HEAD
-    <div class="metric-card text-center">
-      <div class="text-secondary small fw-bold text-uppercase">権限分離リーク数</div>
-=======
     <div class="app-card text-center">
       <div class="text-muted small fw-semibold text-uppercase">権限分離リーク数</div>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       <div class="d-flex justify-content-center align-items-baseline gap-1 mt-2">
         <span class="fs-2 fw-bold {{if eq .Report.TotalLeaks 0}}text-success{{else}}text-danger{{end}}">
           {{.Report.TotalLeaks}}
@@ -144,20 +129,6 @@
 
 <!-- モデル別 総合比較サマリーテーブル (E2E時) -->
 {{if .Report.ModelSummaries}}
-<<<<<<< HEAD
-<div class="modern-card mb-4 p-0 overflow-hidden">
-  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-white">
-    <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-      <i class="bi bi-speedometer2 text-primary"></i> モデル別 総合品質・レイテンシ比較
-    </h2>
-    <span class="text-secondary small">全 {{.Report.TotalCases}} テストケース平均</span>
-  </div>
-
-  <div class="table-responsive">
-    <table class="table align-middle mb-0 table-compact" style="font-size: 0.88rem;">
-      <thead>
-        <tr>
-=======
 <div class="app-card mb-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="fw-bold mb-0 text-dark">
@@ -170,7 +141,6 @@
     <table class="table table-hover table-sm align-middle mb-0 table-compact">
       <thead>
         <tr class="text-secondary" style="font-size: 0.78rem; text-transform: uppercase;">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           <th>モデルID</th>
           <th class="text-center">平均レイテンシ</th>
           <th class="text-center">平均トークン (In / Out)</th>
@@ -231,21 +201,12 @@
 {{end}}
 
 <!-- テストケース別 詳細アコーディオン -->
-<<<<<<< HEAD
-<div class="modern-card">
-  <div class="dads-card-header d-flex justify-content-between align-items-center">
-    <h2 class="h5 fw-bold mb-0 text-dark d-flex align-items-center gap-2">
-      <i class="bi bi-list-check text-primary"></i> テストケース別 検証結果一覧
-    </h2>
-    <span class="text-secondary small">全 {{len .Report.CaseResults}} 件</span>
-=======
 <div class="app-card">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="fw-bold mb-0 text-dark">
       <i class="bi bi-list-check text-primary me-2"></i>テストケース別 検証結果一覧
     </h2>
     <span class="text-muted small">全 {{len .Report.CaseResults}} 件</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   </div>
 
   <div class="accordion" id="casesAccordion">

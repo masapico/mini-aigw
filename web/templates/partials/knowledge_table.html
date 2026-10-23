@@ -1,16 +1,9 @@
 {{define "knowledge_table.html"}}
 <div class="table-responsive">
-<<<<<<< HEAD
-  <table class="table align-middle mb-0" style="font-size: 0.92rem;">
-    <thead>
-      <tr>
-        <th>ファイル名 (原本DL)</th>
-=======
   <table class="table table-hover align-middle mb-0">
     <thead>
       <tr>
         <th>ファイル名</th>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <th>グループ</th>
         <th>登録者</th>
         <th>タグ</th>
@@ -44,11 +37,7 @@
             {{range .GetTags}}
             <span class="status-badge status-neutral">#{{.}}</span>
             {{else}}
-<<<<<<< HEAD
-            <span class="text-secondary small">-</span>
-=======
             <span class="text-muted">-</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             {{end}}
           </div>
         </td>
@@ -85,21 +74,13 @@
             <i class="bi bi-trash"></i> 削除
           </button>
           {{else}}
-<<<<<<< HEAD
-          <span class="text-secondary small">-</span>
-=======
           <span class="text-muted">-</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           {{end}}
         </td>
       </tr>
       {{else}}
       <tr>
-<<<<<<< HEAD
-        <td colspan="8" class="text-center py-5 text-secondary">
-=======
         <td colspan="8">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           {{if or $.Query $.SelectedGroup $.SelectedStatus}}
           <div class="empty-state">
             <i class="bi bi-search"></i>
@@ -120,13 +101,8 @@
 </div>
 
 <!-- ページネーション & 件数サマリー -->
-<<<<<<< HEAD
-<div class="p-3 border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 bg-light">
-  <div class="text-secondary small">
-=======
 <div class="px-4 py-3 border-top d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
   <div class="text-muted small">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
     {{if gt .TotalCount 0}}
     全 <strong>{{.TotalCount}}</strong> 件中
     <strong>{{.StartIdx}}</strong> 〜 <strong>{{.EndIdx}}</strong> 件を表示

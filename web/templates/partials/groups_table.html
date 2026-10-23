@@ -1,14 +1,8 @@
 {{define "groups_table.html"}}
 <div class="table-responsive">
-<<<<<<< HEAD
-  <table class="table align-middle mb-0" style="font-size: 0.92rem;">
-    <thead>
-      <tr>
-=======
   <table class="table table-hover align-middle mb-0">
     <thead>
       <tr >
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <th>グループ識別名</th>
         <th>表示名</th>
         <th>説明</th>
@@ -19,11 +13,7 @@
     <tbody>
       {{range $g := .Groups}}
       <tr id="group-row-{{$g.ID}}">
-<<<<<<< HEAD
-        <td>
-=======
         <td class="fw-semibold">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           <span class="badge-pill-modern badge-group font-monospace">{{$g.Name}}</span>
         </td>
         <td class="fw-bold text-dark">
@@ -71,20 +61,6 @@
                 >
                   <div class="modal-body p-4">
                     <div class="mb-3">
-<<<<<<< HEAD
-                      <label class="dads-form-label">グループ識別名 (プレフィックス)</label>
-                      <input type="text" class="form-control form-control-modern font-monospace bg-light" value="{{$g.Name}}" disabled readonly>
-                      <div class="dads-form-help">※ プレフィックス（S3およびナレッジ検索キー）は変更できません</div>
-                    </div>
-                    <div class="mb-3">
-                      <label class="dads-form-label">グループ表示名 <span class="dads-badge-required">必須</span></label>
-                      <input type="text" name="display_name" class="form-control form-control-modern" value="{{$g.DisplayName}}" required>
-                      <div class="dads-form-help">画面表示用の名称</div>
-                    </div>
-                    <div class="mb-3">
-                      <label class="dads-form-label">説明 <span class="dads-badge-optional">任意</span></label>
-                      <input type="text" name="description" class="form-control form-control-modern" value="{{$g.GetDescription}}" placeholder="用途・対象">
-=======
                       <label class="form-label">グループ識別名 (プレフィックス)</label>
                       <input type="text" class="form-control form-control font-monospace bg-light" value="{{$g.Name}}" disabled readonly>
                       <div class="form-text text-muted" style="font-size: 0.75rem;">※ プレフィックス（S3およびナレッジ検索キー）は変更できません</div>
@@ -97,7 +73,6 @@
                     <div class="mb-3">
                       <label class="form-label">説明 (任意)</label>
                       <input type="text" name="description" class="form-control form-control" value="{{$g.GetDescription}}" placeholder="用途・対象">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                     </div>
                   </div>
                   <div class="modal-footer border-top bg-light">

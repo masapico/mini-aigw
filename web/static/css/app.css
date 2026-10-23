@@ -1,153 +1,4 @@
 /* ==========================================================================
-<<<<<<< HEAD
-   mini-aigw - デジタル庁デザインシステム (DADS) 準拠スタイルシート
-   参考: https://github.com/digital-go-jp/design-system-example-components-html
-   ========================================================================== */
-
-:root {
-  /* --- デジタル庁デザインシステム (DADS) カラー・トークン --- */
-  --dads-color-blue-1000: #002b66; /* 濃紺 / アクティブ */
-  --dads-color-blue-900:  #18489a; /* デジタル庁メインブルー */
-  --dads-color-blue-800:  #225fba; /* ホバー */
-  --dads-color-blue-700:  #2b71d9;
-  --dads-color-blue-200:  #b5d5ff;
-  --dads-color-blue-100:  #dcebff;
-  --dads-color-blue-50:   #f0f6ff; /* 淡い青背景・選択行 */
-
-  --dads-color-gray-950:  #111827;
-  --dads-color-gray-900:  #1a1a1a; /* 本文メインテキスト (高コントラスト) */
-  --dads-color-gray-700:  #454545; /* 補足・ラベル (WCAG AA 4.5:1以上) */
-  --dads-color-gray-500:  #707070; /* フォーム枠線 */
-  --dads-color-gray-400:  #8e8e8e;
-  --dads-color-gray-300:  #b3b3b3; /* テーブル区切り */
-  --dads-color-gray-200:  #d6d6d6; /* カード枠線 */
-  --dads-color-gray-100:  #f2f4f7; /* テーブル見出し・中立背景 */
-  --dads-color-gray-50:   #f8f9fa; /* ページ背景 */
-  --dads-color-white:     #ffffff;
-
-  /* セマンティックステータス */
-  --dads-color-success:        #00703c;
-  --dads-color-success-bg:     #f0f9f4;
-  --dads-color-success-border: #2e8b57;
-  --dads-color-warning:        #b55a00;
-  --dads-color-warning-bg:     #fffbf0;
-  --dads-color-warning-border: #d97706;
-  --dads-color-danger:         #b01020;
-  --dads-color-danger-bg:      #fdf2f2;
-  --dads-color-danger-border:  #dc2626;
-  --dads-color-info:           #004ea1;
-  --dads-color-info-bg:        #f0f6ff;
-  --dads-color-info-border:    #2563eb;
-
-  /* DADS 高コントラスト・フォーカスリング */
-  --dads-color-focus-yellow:   #ffd700;
-  --dads-color-focus-black:    #000000;
-
-  /* タイポグラフィ */
-  --dads-font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --dads-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  --dads-line-height-body: 1.7;
-
-  /* 角丸 (過剰な円形を排し、端正な矩形・適度なR) */
-  --dads-radius-xs: 2px;
-  --dads-radius-sm: 4px;
-  --dads-radius-md: 6px;
-  --dads-radius-lg: 8px;
-
-  /* シャドウ (自然で控えめな境界強調) */
-  --dads-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --dads-shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.08);
-
-  /* --- 従来変数との互換エイリアス --- */
-  --font-sans: var(--dads-font-sans);
-  --font-mono: var(--dads-font-mono);
-  --bg-main: var(--dads-color-gray-50);
-  --bg-card: var(--dads-color-white);
-  --border-color: var(--dads-color-gray-200);
-  --border-focus: var(--dads-color-blue-900);
-  --text-main: var(--dads-color-gray-900);
-  --text-muted: var(--dads-color-gray-700);
-  --text-light: var(--dads-color-gray-500);
-  --primary: var(--dads-color-blue-900);
-  --primary-hover: var(--dads-color-blue-1000);
-  --primary-light: var(--dads-color-blue-50);
-  --success: var(--dads-color-success);
-  --success-light: var(--dads-color-success-bg);
-  --warning: var(--dads-color-warning);
-  --warning-light: var(--dads-color-warning-bg);
-  --danger: var(--dads-color-danger);
-  --danger-light: var(--dads-color-danger-bg);
-  --radius-sm: var(--dads-radius-sm);
-  --radius-md: var(--dads-radius-md);
-  --radius-lg: var(--dads-radius-lg);
-  --shadow-sm: var(--dads-shadow-sm);
-  --shadow-md: var(--dads-shadow-md);
-}
-
-/* ==========================================================================
-   ベース要素 & アクセシビリティ
-   ========================================================================== */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: var(--dads-font-sans);
-  background-color: var(--dads-color-gray-50);
-  color: var(--dads-color-gray-900);
-  line-height: var(--dads-line-height-body);
-  min-height: 100vh;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* スキップリンク (キーボードユーザー向け) */
-.dads-skip-link {
-  position: absolute;
-  top: -9999px;
-  left: 1rem;
-  background: var(--dads-color-blue-1000);
-  color: var(--dads-color-white);
-  padding: 0.75rem 1.25rem;
-  z-index: 10000;
-  font-weight: 700;
-  text-decoration: none;
-  border-radius: var(--dads-radius-sm);
-}
-
-.dads-skip-link:focus {
-  top: 1rem;
-  outline: 4px solid var(--dads-color-focus-yellow);
-  box-shadow: 0 0 0 2px var(--dads-color-focus-black);
-}
-
-/* DADS フォーカスリング (WCAG 2.1 AA 準拠・高視認性) */
-:focus-visible {
-  outline: 4px solid var(--dads-color-focus-yellow) !important;
-  outline-offset: 2px !important;
-  box-shadow: 0 0 0 2px var(--dads-color-focus-black) !important;
-}
-
-/* ==========================================================================
-   ヘッダー & ナビゲーションバー
-   ========================================================================== */
-.dads-header-top-bar {
-  height: 4px;
-  background-color: var(--dads-color-blue-900);
-  width: 100%;
-}
-
-.app-navbar {
-  background-color: var(--dads-color-white);
-  border-bottom: 1px solid var(--dads-color-gray-200);
-  padding: 0.5rem 1.5rem;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: var(--dads-shadow-sm);
-=======
    mini-aigw design system
    - Bootstrap 5.3 をデザイントークンで再テーマ化
    - ブランド色は Indigo 1色。状態色は success / warning / danger / neutral のみ
@@ -257,7 +108,6 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.005em; }
   top: 0;
   height: 100vh;
   overflow-y: auto;
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
 
 .app-main-wrap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
@@ -294,74 +144,16 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.005em; }
 .brand-badge {
   display: flex;
   align-items: center;
-<<<<<<< HEAD
-  gap: 0.75rem;
-  color: var(--dads-color-gray-900);
-  text-decoration: none;
-  padding: 0.25rem 0;
-}
-
-.brand-badge:hover {
-  color: var(--dads-color-blue-900);
-=======
   gap: 0.6rem;
   padding: var(--sp-4) var(--sp-4) var(--sp-3);
   font-weight: 700;
   font-size: var(--fs-lg);
   color: var(--text-main);
   text-decoration: none;
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
 .brand-badge:hover { color: var(--text-main); }
 
 .brand-icon {
-<<<<<<< HEAD
-  width: 32px;
-  height: 32px;
-  background-color: var(--dads-color-blue-900);
-  border-radius: var(--dads-radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--dads-color-white);
-  flex-shrink: 0;
-}
-
-.brand-icon svg {
-  width: 60%;
-  height: 60%;
-  display: block;
-}
-
-.brand-title {
-  font-weight: 700;
-  font-size: 1.15rem;
-  letter-spacing: -0.01em;
-  color: var(--dads-color-blue-1000);
-  line-height: 1.2;
-}
-
-.brand-subtitle {
-  padding: 0.25rem;
-  font-size: 0.6rem;
-  color: var(--dads-color-gray-700);
-  font-weight: 500;
-  line-height: 1;
-}
-
-/* ナビゲーションリンク (DADS アンダーライン型) */
-.nav-pill-link, .dads-nav-link {
-  color: var(--dads-color-gray-900);
-  font-weight: 500;
-  font-size: 0.92rem;
-  padding: 0.65rem 0.85rem;
-  text-decoration: none;
-  border-bottom: 3px solid transparent;
-  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-=======
   width: 30px;
   height: 30px;
   background: var(--primary);
@@ -562,250 +354,9 @@ h1, h2, h3, h4, h5, h6 { letter-spacing: -0.005em; }
   white-space: nowrap;
   background: var(--bg-subtle);
   color: var(--text-muted);
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
 .badge-group { background: var(--primary-light); color: var(--primary-ink); }
 
-<<<<<<< HEAD
-.nav-pill-link:hover, .dads-nav-link:hover {
-  color: var(--dads-color-blue-900);
-  text-decoration: underline;
-  background-color: var(--dads-color-blue-50);
-}
-
-.nav-pill-link.active, .dads-nav-link.active {
-  color: var(--dads-color-blue-1000);
-  font-weight: 700;
-  border-bottom: 3px solid var(--dads-color-blue-900);
-  background-color: transparent;
-  text-decoration: none;
-}
-
-.dropdown-item {
-  color: var(--dads-color-gray-900);
-  font-size: 0.9rem;
-  padding: 0.55rem 1rem;
-}
-
-.dropdown-item:hover {
-  background-color: var(--dads-color-blue-50);
-  color: var(--dads-color-blue-900);
-}
-
-.dropdown-item.active, .dropdown-item:active {
-  background-color: var(--dads-color-blue-900);
-  color: var(--dads-color-white);
-  font-weight: 600;
-}
-
-.dropdown-menu {
-  border: 1px solid var(--dads-color-gray-300);
-  border-radius: var(--dads-radius-sm);
-  box-shadow: var(--dads-shadow-md);
-  padding: 0.4rem 0;
-}
-
-/* ==========================================================================
-   ボタン (Buttons) - DADS ソリッド & ハイコントラスト
-   ========================================================================== */
-.btn-modern-primary, .btn-dads-primary {
-  background-color: var(--dads-color-blue-900);
-  color: var(--dads-color-white) !important;
-  border: 1px solid var(--dads-color-blue-900);
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 0.55rem 1.25rem;
-  border-radius: var(--dads-radius-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-  min-height: 40px;
-}
-
-.btn-modern-primary:hover, .btn-dads-primary:hover {
-  background-color: var(--dads-color-blue-1000);
-  border-color: var(--dads-color-blue-1000);
-  color: var(--dads-color-white) !important;
-}
-
-.btn-modern-primary:active, .btn-dads-primary:active {
-  background-color: #001f4d;
-  border-color: #001f4d;
-}
-
-.btn-modern-secondary, .btn-dads-secondary {
-  background-color: var(--dads-color-white);
-  color: var(--dads-color-blue-900) !important;
-  border: 1px solid var(--dads-color-blue-900);
-  font-weight: 600;
-  font-size: 0.92rem;
-  padding: 0.55rem 1.25rem;
-  border-radius: var(--dads-radius-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-  min-height: 40px;
-}
-
-.btn-modern-secondary:hover, .btn-dads-secondary:hover {
-  background-color: var(--dads-color-blue-50);
-  color: var(--dads-color-blue-1000) !important;
-}
-
-.btn-modern-secondary:active, .btn-dads-secondary:active {
-  background-color: var(--dads-color-blue-100);
-}
-
-.btn-modern-danger, .btn-dads-danger {
-  background-color: var(--dads-color-white);
-  color: var(--dads-color-danger) !important;
-  border: 1px solid var(--dads-color-danger);
-  font-weight: 600;
-  font-size: 0.88rem;
-  padding: 0.4rem 0.9rem;
-  border-radius: var(--dads-radius-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-modern-danger:hover, .btn-dads-danger:hover {
-  background-color: var(--dads-color-danger-bg);
-  border-color: #900c19;
-  color: #900c19 !important;
-}
-
-/* ==========================================================================
-   カード & パネル (Cards)
-   ========================================================================== */
-.modern-card, .dads-card {
-  background-color: var(--dads-color-white);
-  border: 1px solid var(--dads-color-gray-200);
-  border-radius: var(--dads-radius-md);
-  box-shadow: var(--dads-shadow-sm);
-  padding: 1.5rem;
-  position: relative;
-}
-
-.dads-card-header {
-  border-bottom: 1px solid var(--dads-color-gray-200);
-  padding-bottom: 0.85rem;
-  margin-bottom: 1.25rem;
-}
-
-/* 統計カード (Dashboard) */
-.metric-card {
-  background-color: var(--dads-color-white);
-  border: 1px solid var(--dads-color-gray-200);
-  border-left: 4px solid var(--dads-color-blue-900);
-  border-radius: var(--dads-radius-sm);
-  padding: 1.25rem;
-  box-shadow: var(--dads-shadow-sm);
-}
-
-.metric-card.border-success {
-  border-left-color: var(--dads-color-success) !important;
-}
-
-.metric-card.border-warning {
-  border-left-color: var(--dads-color-warning) !important;
-}
-
-/* ==========================================================================
-   フォーム・入力要素 (Forms & Controls)
-   ========================================================================== */
-.form-label, .dads-form-label {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--dads-color-gray-900);
-  margin-bottom: 0.35rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-/* DADS 必須 / 任意バッジ */
-.dads-badge-required, .badge-required {
-  background-color: var(--dads-color-danger);
-  color: var(--dads-color-white);
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--dads-radius-xs);
-  line-height: 1.2;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.dads-badge-optional, .badge-optional {
-  background-color: var(--dads-color-gray-100);
-  color: var(--dads-color-gray-700);
-  border: 1px solid var(--dads-color-gray-300);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--dads-radius-xs);
-  line-height: 1.2;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-/* サポートテキスト (ヘルプテキスト) */
-.dads-form-help, .form-text {
-  font-size: 0.82rem;
-  color: var(--dads-color-gray-700);
-  margin-top: 0.25rem;
-  margin-bottom: 0.4rem;
-  display: block;
-  line-height: 1.5;
-}
-
-.form-control-modern, .form-select-modern, .dads-form-control, .dads-form-select {
-  border: 1px solid var(--dads-color-gray-500);
-  border-radius: var(--dads-radius-sm);
-  padding: 0.55rem 0.85rem;
-  font-size: 0.95rem;
-  color: var(--dads-color-gray-900);
-  background-color: var(--dads-color-white);
-  height: 42px;
-  line-height: 1.5;
-  box-sizing: border-box;
-  transition: border-color 0.15s ease;
-}
-
-.form-control-modern:focus, .form-select-modern:focus,
-.dads-form-control:focus, .dads-form-select:focus {
-  border-color: var(--dads-color-blue-1000);
-  outline: 4px solid var(--dads-color-focus-yellow) !important;
-  outline-offset: 2px !important;
-  box-shadow: 0 0 0 2px var(--dads-color-focus-black) !important;
-}
-
-select[multiple].form-select-modern {
-  height: auto;
-  min-height: 42px;
-}
-
-textarea.form-control-modern, textarea.dads-form-control {
-  height: auto;
-  min-height: 90px;
-=======
 /* 状態色 (意味に限定: success / warning / danger / neutral) */
 .badge-status-synced, .status-success { background: var(--success-light); color: var(--success-ink); }
 .badge-status-pending, .badge-status-s3_uploaded, .status-warning { background: var(--warning-light); color: var(--warning-ink); border: 0; }
@@ -827,38 +378,12 @@ textarea.form-control-modern, textarea.dads-form-control {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
   outline: none;
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
 .form-control-sm, .form-select-sm { min-height: 32px; font-size: var(--fs-sm); padding: 0.25rem 0.6rem; }
 textarea.form-control, textarea.form-control-modern { height: auto; }
 select[multiple].form-select, select[multiple].form-select-modern { height: auto; }
 .form-text { font-size: var(--fs-xs); }
 
-<<<<<<< HEAD
-/* ファイルインプット補正 */
-input[type="file"].form-control-modern, input[type="file"].dads-form-control {
-  height: 42px;
-  padding: 0 0.85rem 0 0;
-  line-height: 40px;
-  overflow: hidden;
-}
-
-input[type="file"].form-control-modern::file-selector-button,
-input[type="file"].dads-form-control::file-selector-button {
-  height: 40px;
-  padding: 0 0.85rem;
-  margin: 0;
-  margin-inline-end: 0.85rem;
-  border-color: var(--dads-color-gray-500);
-  border-style: solid;
-  border-width: 0 1px 0 0;
-  line-height: 40px;
-  background-color: var(--dads-color-gray-100);
-  color: var(--dads-color-gray-900);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-=======
 input[type="file"].form-control-modern, input[type="file"].form-control { padding: 0; line-height: 36px; overflow: hidden; }
 input[type="file"].form-control-modern::file-selector-button,
 input[type="file"].form-control::file-selector-button {
@@ -896,23 +421,10 @@ input[type="file"].form-control::file-selector-button {
   font-weight: 500;
   border-radius: var(--radius-sm);
   padding: 0.4rem 0.9rem;
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
 .nav-pills .nav-link.active { background: var(--primary-light); color: var(--primary-ink); font-weight: 600; }
 .nav-pills .nav-link.rounded-pill { border-radius: var(--radius-sm) !important; }
 
-<<<<<<< HEAD
-input[type="file"].form-control-modern:hover:not(:disabled):not([readonly])::file-selector-button {
-  background-color: var(--dads-color-gray-200);
-}
-
-/* ドラッグ＆ドロップ ゾーン */
-.dropzone-container {
-  border: 2px dashed var(--dads-color-gray-400);
-  border-radius: var(--dads-radius-md);
-  background-color: var(--dads-color-gray-50);
-  padding: 2.25rem 1.5rem;
-=======
 .dropdown-menu { border-color: var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-pop); font-size: var(--fs-base); }
 .dropdown-item.active, .dropdown-item:active { background-color: var(--primary-light); color: var(--primary-ink); font-weight: 600; }
 .dropdown-item:hover { background-color: var(--bg-subtle); }
@@ -932,279 +444,12 @@ input[type="file"].form-control-modern:hover:not(:disabled):not([readonly])::fil
   border-radius: var(--radius-md);
   background: var(--bg-main);
   padding: var(--sp-5) var(--sp-4);
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   text-align: center;
   transition: border-color 0.15s ease, background-color 0.15s ease;
   cursor: pointer;
 }
 .dropzone-container:hover, .dropzone-container.dragover { border-color: var(--primary); background: var(--primary-light); }
 
-<<<<<<< HEAD
-.dropzone-container:hover, .dropzone-container.dragover {
-  border-color: var(--dads-color-blue-900);
-  background-color: var(--dads-color-blue-50);
-}
-
-/* ==========================================================================
-   テーブル (Tables) - DADS 高視認性デザイン
-   ========================================================================== */
-.table {
-  color: var(--dads-color-gray-900);
-  border-color: var(--dads-color-gray-200);
-  vertical-align: middle;
-}
-
-.table > thead {
-  background-color: var(--dads-color-gray-100);
-  border-bottom: 2px solid var(--dads-color-gray-300);
-}
-
-.table th {
-  font-weight: 700;
-  color: var(--dads-color-gray-900);
-  padding: 0.75rem 0.85rem;
-  font-size: 0.88rem;
-  white-space: nowrap;
-}
-
-.table td {
-  padding: 0.75rem 0.85rem;
-  font-size: 0.9rem;
-  border-bottom: 1px solid var(--dads-color-gray-200);
-}
-
-.table-hover > tbody > tr:hover {
-  background-color: var(--dads-color-blue-50) !important;
-}
-
-.table-compact th {
-  font-size: 0.82rem;
-  padding: 0.55rem 0.65rem;
-}
-
-.table-compact td {
-  font-size: 0.85rem;
-  padding: 0.55rem 0.65rem;
-}
-
-/* ==========================================================================
-   バッジ・タグ (Badges & Tags) - WCAG 2.1 AA 適合高コントラスト
-   ========================================================================== */
-.badge-pill-modern, .dads-badge {
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.25rem 0.65rem;
-  border-radius: var(--dads-radius-sm);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
-  line-height: 1.3;
-}
-
-.badge-status-synced {
-  background-color: var(--dads-color-success-bg);
-  color: var(--dads-color-success);
-  border: 1px solid var(--dads-color-success-border);
-}
-
-.badge-status-pending {
-  background-color: var(--dads-color-warning-bg);
-  color: var(--dads-color-warning);
-  border: 1px solid var(--dads-color-warning-border);
-}
-
-.badge-status-s3_uploaded {
-  background-color: #fef9c3;
-  color: #854d0e;
-  border: 1px solid #ca8a04;
-}
-
-.badge-status-deleting, .badge-status-error {
-  background-color: var(--dads-color-danger-bg);
-  color: var(--dads-color-danger);
-  border: 1px solid var(--dads-color-danger-border);
-}
-
-.badge-group {
-  background-color: var(--dads-color-blue-50);
-  color: var(--dads-color-blue-1000);
-  border: 1px solid var(--dads-color-blue-200);
-}
-
-.tag-pill {
-  font-size: 0.82rem;
-  font-weight: 600;
-  border-radius: var(--dads-radius-sm);
-  background-color: var(--dads-color-gray-100);
-  border: 1px solid var(--dads-color-gray-300);
-  color: var(--dads-color-gray-900);
-  padding: 0.2rem 0.55rem;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-.tag-pill:hover {
-  background-color: var(--dads-color-danger-bg) !important;
-  border-color: var(--dads-color-danger-border) !important;
-  color: var(--dads-color-danger) !important;
-}
-
-/* ==========================================================================
-   アラート & コールアウト (Alerts / Callouts) - DADS 太枠インジケータ
-   ========================================================================== */
-.alert, .dads-callout {
-  border-radius: var(--dads-radius-sm);
-  padding: 1rem 1.25rem;
-  border: 1px solid transparent;
-  border-left-width: 5px;
-  box-shadow: var(--dads-shadow-sm);
-  line-height: 1.6;
-}
-
-.alert-success {
-  background-color: var(--dads-color-success-bg);
-  border-color: var(--dads-color-success-border);
-  color: #064e3b;
-}
-
-.alert-warning {
-  background-color: var(--dads-color-warning-bg);
-  border-color: var(--dads-color-warning-border);
-  color: #78350f;
-}
-
-.alert-danger {
-  background-color: var(--dads-color-danger-bg);
-  border-color: var(--dads-color-danger-border);
-  color: #7f1d1d;
-}
-
-.alert-info {
-  background-color: var(--dads-color-info-bg);
-  border-color: var(--dads-color-info-border);
-  color: #1e3a8a;
-}
-
-/* ==========================================================================
-   タブ (Tabs) - DADS アンダーライン型
-   ========================================================================== */
-.nav-pills {
-  border-bottom: 2px solid var(--dads-color-gray-200);
-  padding-bottom: 0;
-  gap: 0.5rem;
-}
-
-.nav-pills .nav-link {
-  border-radius: 0;
-  color: var(--dads-color-gray-700);
-  font-weight: 600;
-  font-size: 0.95rem;
-  padding: 0.75rem 1.25rem;
-  border: none;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
-  background: transparent;
-  transition: all 0.15s ease;
-}
-
-.nav-pills .nav-link:hover {
-  color: var(--dads-color-blue-900);
-  background-color: var(--dads-color-blue-50);
-}
-
-.nav-pills .nav-link.active {
-  color: var(--dads-color-blue-1000) !important;
-  background-color: transparent !important;
-  border-bottom: 3px solid var(--dads-color-blue-900) !important;
-  font-weight: 700;
-}
-
-/* ==========================================================================
-   対話シミュレーション・チャット & 引用文献
-   ========================================================================== */
-.chat-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.chat-bubble-user {
-  align-self: flex-end;
-  max-width: 80%;
-  background-color: var(--dads-color-blue-900);
-  color: var(--dads-color-white);
-  padding: 0.9rem 1.25rem;
-  border-radius: var(--dads-radius-md) var(--dads-radius-md) var(--dads-radius-xs) var(--dads-radius-md);
-  font-size: 0.95rem;
-  box-shadow: var(--dads-shadow-sm);
-  line-height: 1.6;
-}
-
-.chat-bubble-assistant {
-  align-self: flex-start;
-  max-width: 85%;
-  background-color: var(--dads-color-white);
-  border: 1px solid var(--dads-color-gray-300);
-  border-left: 4px solid var(--dads-color-blue-900);
-  color: var(--dads-color-gray-900);
-  padding: 1.25rem;
-  border-radius: var(--dads-radius-xs) var(--dads-radius-md) var(--dads-radius-md) var(--dads-radius-md);
-  font-size: 0.95rem;
-  box-shadow: var(--dads-shadow-sm);
-  line-height: 1.7;
-}
-
-.citation-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background-color: var(--dads-color-gray-100);
-  color: var(--dads-color-gray-900);
-  border: 1px solid var(--dads-color-gray-300);
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--dads-radius-sm);
-  margin-right: 0.4rem;
-  margin-top: 0.4rem;
-  text-decoration: none;
-}
-
-.citation-chip:hover {
-  background-color: var(--dads-color-blue-50);
-  border-color: var(--dads-color-blue-800);
-  color: var(--dads-color-blue-1000);
-}
-
-/* ==========================================================================
-   フッター (Footer)
-   ========================================================================== */
-.dads-footer {
-  margin-top: auto;
-  background-color: var(--dads-color-white);
-  border-top: 1px solid var(--dads-color-gray-200);
-  padding: 1.25rem 1.5rem;
-  font-size: 0.82rem;
-  color: var(--dads-color-gray-700);
-}
-
-/* ==========================================================================
-   HTMX インジケータ & 汎用ユーティリティ
-   ========================================================================== */
-.htmx-indicator {
-  display: none;
-}
-.htmx-request .htmx-indicator {
-  display: inline-block;
-}
-.htmx-request.htmx-indicator {
-  display: inline-block;
-}
-
-pre, code {
-  font-family: var(--dads-font-mono);
-=======
 /* ---------- htmx ---------- */
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-block; }
@@ -1240,22 +485,11 @@ code { font-size: 0.85em; color: var(--primary-ink); background: var(--bg-subtle
   border-radius: var(--radius-md);
   padding: var(--sp-4);
   font-size: var(--fs-sm);
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
 .code-block pre { margin: 0; color: inherit; white-space: pre-wrap; }
 .code-block code { background: transparent; color: inherit; padding: 0; }
 .code-block .copy-btn { position: absolute; top: var(--sp-2); right: var(--sp-2); }
 
-<<<<<<< HEAD
-.code-badge {
-  font-family: var(--dads-font-mono);
-  font-size: 0.84rem;
-  background-color: var(--dads-color-gray-100);
-  color: var(--dads-color-gray-900);
-  padding: 0.2rem 0.45rem;
-  border-radius: var(--dads-radius-xs);
-  border: 1px solid var(--dads-color-gray-300);
-=======
 /* ---------- Toast ---------- */
 .toast-area { position: fixed; right: var(--sp-4); bottom: var(--sp-4); z-index: 1200; display: flex; flex-direction: column; gap: var(--sp-2); }
 .app-toast {
@@ -1276,5 +510,19 @@ code { font-size: 0.85em; color: var(--primary-ink); background: var(--bg-subtle
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 }
+
+/* ---------- 互換: 旧 dads-* トークン/クラス (残存テンプレート用) ---------- */
+:root {
+  --dads-color-white: #ffffff;
+  --dads-color-gray-50: var(--bg-main);
+  --dads-color-gray-100: var(--bg-subtle);
+  --dads-color-gray-200: var(--border-color);
+  --dads-color-gray-300: var(--border-strong);
+  --dads-color-gray-700: var(--text-muted);
+  --dads-color-blue-900: var(--primary-ink);
+  --dads-color-success: var(--success-ink);
+  --dads-color-danger: var(--danger-ink);
+}
+.dads-form-help { font-size: var(--fs-xs); color: var(--text-muted); }
+.dads-card-header { font-weight: 600; }

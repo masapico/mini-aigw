@@ -5,30 +5,16 @@
 {{define "content"}}
 <div class="page-header">
   <div>
-<<<<<<< HEAD
-    <h1 class="h3 fw-bold mb-1 text-dark">LLM モデル管理</h1>
-    <p class="text-secondary small mb-0">
-=======
     <h1 class="page-title">LLM モデル管理</h1>
     <p class="page-subtitle">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       mini-aigw で公開・利用可能な Bedrock 基底モデルを管理します。<code>/v1/models</code> や APIキー発行時の選択肢に反映されます。
     </p>
   </div>
 </div>
 
-<<<<<<< HEAD
-<!-- モデル新規登録カード (DADS仕様) -->
-<div class="modern-card mb-4">
-  <div class="dads-card-header">
-    <h2 class="h5 fw-bold mb-0 text-dark">新規モデルの登録</h2>
-    <span class="text-secondary small">利用可能な Bedrock 基底モデルまたは推論プロファイル ARN を登録します</span>
-  </div>
-=======
 <!-- モデル新規登録カード -->
 <div class="app-card mb-4">
   <h2 class="section-title">新規モデルの登録</h2>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
   <form
     hx-post="{{basePath}}/models/create"
     hx-target="#models-container"
@@ -38,14 +24,7 @@
   >
     <div class="row g-3">
       <div class="col-12 col-md-5">
-<<<<<<< HEAD
-        <label class="dads-form-label">
-          Bedrock モデル ID / ARN <span class="dads-badge-required">必須</span>
-        </label>
-        <span class="dads-form-help">BedrockのモデルIDまたはCross-Region推論プロファイルARN</span>
-=======
         <label class="form-label">Bedrock モデル ID / ARN <span class="text-danger">*</span></label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <input
           type="text"
           id="modelIdInput"
@@ -57,14 +36,7 @@
       </div>
 
       <div class="col-12 col-md-4">
-<<<<<<< HEAD
-        <label class="dads-form-label">
-          表示名 <span class="dads-badge-required">必須</span>
-        </label>
-        <span class="dads-form-help">画面やAPIで表示するフレンドリー名</span>
-=======
         <label class="form-label">表示名 <span class="text-danger">*</span></label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <input
           type="text"
           id="modelNameInput"
@@ -76,12 +48,7 @@
       </div>
 
       <div class="col-12 col-md-3">
-<<<<<<< HEAD
-        <label class="dads-form-label">プロバイダ</label>
-        <span class="dads-form-help">基盤インフラ</span>
-=======
         <label class="form-label">プロバイダ</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <input
           type="text"
           class="form-control form-control"
@@ -92,13 +59,7 @@
       </div>
 
       <div class="col-12 col-md-3">
-<<<<<<< HEAD
-        <label class="dads-form-label">
-          入力単価 (USD / 1M) <span class="dads-badge-optional">任意</span>
-        </label>
-=======
         <label class="form-label">入力単価 (USD / 1M tokens)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <div class="input-group">
           <span class="input-group-text bg-light text-secondary small">$</span>
           <input
@@ -113,13 +74,7 @@
       </div>
 
       <div class="col-12 col-md-3">
-<<<<<<< HEAD
-        <label class="dads-form-label">
-          出力単価 (USD / 1M) <span class="dads-badge-optional">任意</span>
-        </label>
-=======
         <label class="form-label">出力単価 (USD / 1M tokens)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <div class="input-group">
           <span class="input-group-text bg-light text-secondary small">$</span>
           <input
@@ -134,13 +89,7 @@
       </div>
 
       <div class="col-12 col-md-6">
-<<<<<<< HEAD
-        <label class="dads-form-label">
-          説明・用途メモ <span class="dads-badge-optional">任意</span>
-        </label>
-=======
         <label class="form-label">説明・用途メモ (任意)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <input
           type="text"
           class="form-control form-control"
@@ -163,15 +112,9 @@
       </div>
 
       <div class="col-12 col-md-3 ms-auto d-flex align-items-end">
-<<<<<<< HEAD
-        <button type="submit" class="btn-modern-primary w-100 justify-content-center" style="height: 42px;">
-          <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="model-spinner" role="status"></span>
-          <span>モデルを登録</span>
-=======
         <button type="submit" class="btn btn-primary" style="height: 42px;">
           <span class="spinner-border spinner-border-sm htmx-indicator" id="model-spinner" role="status"></span>
           モデルを登録
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         </button>
       </div>
     </div>

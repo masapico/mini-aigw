@@ -1,12 +1,7 @@
 {{define "models_section.html"}}
 {{if .Error}}
-<<<<<<< HEAD
-<div class="alert alert-danger p-3 mb-4 d-flex align-items-center">
-  <div class="fw-bold text-danger">⚠️ {{.Error}}</div>
-=======
 <div class="alert alert-danger border-0 rounded-3 p-3 mb-4 d-flex align-items-center shadow-sm">
   <div class="fw-semibold text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{.Error}}</div>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
 </div>
 {{end}}
 
@@ -17,15 +12,9 @@
 {{end}}
 
 <div class="table-responsive">
-<<<<<<< HEAD
-  <table class="table align-middle mb-0" style="font-size: 0.92rem;">
-    <thead>
-      <tr>
-=======
   <table class="table table-hover align-middle mb-0">
     <thead>
       <tr >
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         <th>表示名</th>
         <th>基盤モデル (profileId)</th>
         <th>プロバイダ</th>
@@ -131,24 +120,6 @@
                   </div>
                   <div class="modal-body px-4 py-3">
                     <div class="mb-3">
-<<<<<<< HEAD
-                      <label class="dads-form-label">表示名 <span class="dads-badge-required">必須</span></label>
-                      <input type="text" class="form-control form-control-modern" name="name" value="{{$m.Name}}" required>
-                    </div>
-                    <div class="row g-2 mb-3">
-                      <div class="col-6">
-                        <label class="dads-form-label">入力単価 (USD/1M)</label>
-                        <div class="input-group">
-                          <span class="input-group-text bg-light text-secondary small">$</span>
-                          <input type="number" step="0.0001" class="form-control form-control-modern" name="input_price_per_1m" value="{{$m.InputPricePer1M}}">
-                        </div>
-                      </div>
-                      <div class="col-6">
-                        <label class="dads-form-label">出力単価 (USD/1M)</label>
-                        <div class="input-group">
-                          <span class="input-group-text bg-light text-secondary small">$</span>
-                          <input type="number" step="0.0001" class="form-control form-control-modern" name="output_price_per_1m" value="{{$m.OutputPricePer1M}}">
-=======
                       <label class="form-label">表示名</label>
                       <input type="text" class="form-control form-control" name="name" value="{{$m.Name}}" required>
                     </div>
@@ -165,18 +136,12 @@
                         <div class="input-group">
                           <span class="input-group-text bg-light text-muted small">$</span>
                           <input type="number" step="0.0001" class="form-control form-control" name="output_price_per_1m" value="{{$m.OutputPricePer1M}}">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                         </div>
                       </div>
                     </div>
                     <div class="mb-3">
-<<<<<<< HEAD
-                      <label class="dads-form-label">説明・メモ</label>
-                      <input type="text" class="form-control form-control-modern" name="description" value="{{if $m.Description}}{{$m.Description}}{{end}}">
-=======
                       <label class="form-label">説明・メモ</label>
                       <input type="text" class="form-control form-control" name="description" value="{{if $m.Description}}{{$m.Description}}{{end}}">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                     </div>
                     <div class="mb-2">
                       <input type="hidden" name="supports_temperature_submitted" value="1">
@@ -191,15 +156,9 @@
                       </div>
                     </div>
                   </div>
-<<<<<<< HEAD
-                  <div class="modal-footer border-top bg-light px-4 py-2">
-                    <button type="button" class="btn-modern-secondary py-1 px-3" data-bs-dismiss="modal">キャンセル</button>
-                    <button type="submit" class="btn-modern-primary py-1 px-3">保存</button>
-=======
                   <div class="modal-footer border-top px-4 py-2">
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">キャンセル</button>
                     <button type="submit" class="btn btn-primary btn-sm">保存</button>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
                   </div>
                 </form>
               </div>

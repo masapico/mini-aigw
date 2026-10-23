@@ -3,26 +3,16 @@
 {{define "title"}}RAG テスト - {{projectName}}{{end}}
 
 {{define "content"}}
-<<<<<<< HEAD
-<div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-  <div>
-    <h1 class="h3 fw-bold mb-1 text-dark">
-=======
 <div class="page-header">
   <div>
     <h1 class="page-title">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       {{if .IsAdmin}}
       RAG 動作検証・テスト
       {{else}}
       ナレッジ検索・単体検証 (Retrieve)
       {{end}}
     </h1>
-<<<<<<< HEAD
-    <p class="text-secondary small mb-0">
-=======
     <p class="page-subtitle">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
       {{if .IsAdmin}}
       S3 Vectors プリフィルタリング（権限分離）と Bedrock Converse API 引用元連携のリアルタイム確認
       {{else}}
@@ -65,19 +55,11 @@
 <div class="tab-content" id="ragTabsContent">
   <!-- 1. Retrieve 単体タブ -->
   <div class="tab-pane fade show active" id="retrieve-panel" role="tabpanel">
-<<<<<<< HEAD
-    <div class="modern-card">
-      <div class="dads-card-header d-flex justify-content-between align-items-center">
-        <div>
-          <h2 class="h5 fw-bold mb-0 text-dark">ナレッジ検索単体テスト (Retrieve API)</h2>
-          <span class="text-secondary small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
-=======
     <div class="app-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h2 class="section-title">ナレッジ検索単体テスト (Retrieve API)</h2>
           <span class="text-muted small">LLM呼び出しを行わず、検索されたチャンクとスコアのみを高速に確認します</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         </div>
         <button
           type="button"
@@ -96,36 +78,20 @@
       >
         <div class="row g-3">
           <div class="col-12 col-md-3">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              対象グループ <span class="dads-badge-required">必須</span>
-            </label>
-            <span class="dads-form-help">Pre-filtering 適用範囲</span>
-            <select class="form-select form-select-modern" name="group">
-=======
             <label class="form-label">
               対象グループ (Pre-filtering)
             </label>
             <select class="form-select form-select" name="group">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
               {{range .Groups}}
               <option value="{{.}}" {{if $.InitGroup}}{{if eq . $.InitGroup}}selected{{end}}{{else if eq . "public"}}selected{{end}}>{{.}}</option>
               {{end}}
             </select>
           </div>
           <div class="col-12 col-md-3">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              タグ絞り込み <span class="dads-badge-optional">任意</span>
-            </label>
-            <span class="dads-form-help">タグ一致条件</span>
-            <select class="form-select form-select-modern" name="tag">
-=======
             <label class="form-label">
               タグ絞り込み
             </label>
             <select class="form-select form-select" name="tag">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
               <option value="">自動判定 / 全タグ対象</option>
               {{range .AvailableTags}}
               <option value="{{.}}">#{{.}}</option>
@@ -133,14 +99,7 @@
             </select>
           </div>
           <div class="col-12 col-md-6">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              検索クエリ (質問文) <span class="dads-badge-required">必須</span>
-            </label>
-            <span class="dads-form-help">自然言語で質問文を入力してください</span>
-=======
             <label class="form-label">検索クエリ (質問文)</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             <div class="input-group">
               <input
                 type="text"
@@ -150,15 +109,9 @@
                 required
                 placeholder="例: 有給休暇の申請手続きについて教えてください"
               >
-<<<<<<< HEAD
-              <button type="submit" class="btn-modern-primary">
-                <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="retrieve-spinner" role="status"></span>
-                <span>検索</span>
-=======
               <button type="submit" class="btn btn-primary">
                 <span class="spinner-border spinner-border-sm htmx-indicator" id="retrieve-spinner" role="status"></span>
                 検索
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
               </button>
             </div>
           </div>
@@ -172,19 +125,11 @@
   {{if .IsAdmin}}
   <!-- 2. Chat シミュレーションタブ -->
   <div class="tab-pane fade" id="chat-panel" role="tabpanel">
-<<<<<<< HEAD
-    <div class="modern-card">
-      <div class="dads-card-header d-flex justify-content-between align-items-center">
-        <div>
-          <h2 class="h5 fw-bold mb-0 text-dark">RAG 対話シミュレーター</h2>
-          <span class="text-secondary small">Bedrock Converse API + ナレッジ検索 (Tool Use) の対話テスト</span>
-=======
     <div class="app-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h2 class="section-title">RAG 対話シミュレーター</h2>
           <span class="text-muted small">Bedrock Converse API + ナレッジ検索 (Tool Use) の対話テスト</span>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
         </div>
         <button
           type="button"
@@ -206,15 +151,8 @@
       >
         <div class="row g-3 mb-3">
           <div class="col-12 col-md-4">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              AI モデル <span class="dads-badge-required">必須</span>
-            </label>
-            <select class="form-select form-select-modern" name="model_id">
-=======
             <label class="form-label">AI モデル</label>
             <select class="form-select form-select" name="model_id">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
               {{range .Models}}
               <option value="{{.ID}}" {{if .IsDefault}}selected{{end}}>
                 {{.Name}} ({{.ID}})
@@ -223,15 +161,8 @@
             </select>
           </div>
           <div class="col-12 col-md-4">
-<<<<<<< HEAD
-            <label class="dads-form-label">
-              検索対象グループ <span class="dads-badge-required">必須</span>
-            </label>
-            <select class="form-select form-select-modern" name="group">
-=======
             <label class="form-label">検索対象グループ</label>
             <select class="form-select form-select" name="group">
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
               {{range .Groups}}
               <option value="{{.}}" {{if eq . "public"}}selected{{end}}>{{.}}</option>
               {{end}}
@@ -240,13 +171,7 @@
         </div>
 
         <div class="mb-3">
-<<<<<<< HEAD
-          <label class="dads-form-label">
-            質問内容 <span class="dads-badge-required">必須</span>
-          </label>
-=======
           <label class="form-label">質問内容</label>
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
           <div class="input-group">
             <input
               type="text"
@@ -255,15 +180,9 @@
               required
               placeholder="例: 就業規則における慶弔休暇の規定はどうなっていますか？"
             >
-<<<<<<< HEAD
-            <button type="submit" class="btn-modern-primary">
-              <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="chat-spinner" role="status"></span>
-              <span>送信</span>
-=======
             <button type="submit" class="btn btn-primary">
               <span class="spinner-border spinner-border-sm htmx-indicator" id="chat-spinner" role="status"></span>
               送信
->>>>>>> 8fa071f (Refactor HTML templates for improved styling and structure)
             </button>
           </div>
         </div>
