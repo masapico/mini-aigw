@@ -1,5 +1,10 @@
 # mini-aigw (AI Gateway)
 
+[![CI](https://github.com/masapico/mini-aigw/actions/workflows/ci.yml/badge.svg)](https://github.com/masapico/mini-aigw/actions/workflows/ci.yml)
+[![RELEASE](https://github.com/masapico/mini-aigw/actions/workflows/release.yml/badge.svg)](https://github.com/masapico/mini-aigw/actions/workflows/release.yml)
+
+
+
 **mini-aigw** は、閉域AWS環境（EC2）上で稼働し、業務チャットツール（OpenAI互換リクエスト）と基幹LLM/ナレッジ基盤（Amazon Bedrock Converse API / Bedrock Knowledge Bases with S3 Vectors）の中間に位置する**Go製 AIミドルウェア（ゲートウェイ）**です。
 
 CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI アセット（Bootstrap 5.3 + htmx 2.x）をバイナリ内部に完全内包（Go `embed.FS`）しているため、外部依存のない単一バイナリとして完全閉域環境で動作します。
