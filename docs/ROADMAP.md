@@ -16,7 +16,7 @@
 │  [流量制御 & 認証]                                     │
 │  ├─ APIキー認証 & 権限グループ分離                     │
 │  ├─ インメモリ・スライディングウィンドウ RPM レート制限 │
-│  └─ セッション管理 (mini-id OIDC / ローカルArgon2id)   │
+│  └─ セッション管理 (OIDC / ローカルArgon2id)   │
 │                                                        │
 │  [コア推論 & FinOps エンジン]                          │
 │  ├─ Bedrock Converse API 連携 (Nova, Claude 等)        │

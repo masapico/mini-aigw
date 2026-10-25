@@ -4,6 +4,8 @@
 
 CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI アセット（Bootstrap 5.3 + htmx 2.x）をバイナリ内部に完全内包（Go `embed.FS`）しているため、外部依存のない単一バイナリとして完全閉域環境で動作します。
 
+![mini-aigw Web 管理ダッシュボード](docs/images/01_dashboard.png)
+
 ---
 
 ## 1. 主な機能
@@ -26,7 +28,7 @@ CGO フリー（純Go SQLite採用）かつ HTML テンプレート・静的 UI 
 - **S3 Vectors プリフィルタリング**:
   - `retrievalFilter` により、グループ（`sales`, `dev` 等）および `public` のドキュメントのみを厳格に分離して検索。
 - **ハイブリッド認証**:
-  - **mini-id OIDC**: Authorization Code Flow + PKCE (`S256`)、不変の `sub` (UUID) 主識別子、RP-Initiated Logout 対応。
+  - **OIDC**: Authorization Code Flow + PKCE (`S256`)、不変の `sub` (UUID) 主識別子、RP-Initiated Logout 対応。
   - **ローカル認証**: Argon2id による高強度なパスワード認証。
   - セッション固定攻撃対策（ログイン時セッション ID 再生成）、Cookie 属性 (`HttpOnly`, `SameSite=Lax`, HTTPS時 `Secure`)。
 - **業務チャット向け API キー管理 & プロンプト/モデル紐付け**:
@@ -193,7 +195,7 @@ DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は
 # ドキュメント抽出 CLI パス (任意: 未指定時は PATH 上の "xberg" を探索、見つからない場合は平文フォールバック)
 # XBERG_PATH=/usr/local/bin/xberg
 
-# mini-id (OIDC IdP) 設定（SSO 連携時）
+# OIDC IdP 設定（SSO 連携時）
 # OIDC_ISSUER=https://mini-id.internal
 # OIDC_CLIENT_ID=your-client-id
 # OIDC_CLIENT_SECRET=your-client-secret
@@ -206,27 +208,61 @@ DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は
 
 ## 5. Web 管理画面の利用方法
 
+完全閉域環境でも外部 CDN へのアクセスを行わず、内包された Bootstrap 5.3 と htmx 2.x による快適な SPA 風操作が可能です。
 ブラウザで `http://localhost:8000/login` にアクセスします。
 
 ### 初期ログインアカウント（初回自動シード）
 - **ユーザー名**: `admin`
 - **パスワード**: `Password1234`
+- ※ 初回ログイン後、速やかにパスワードの変更および本番用管理者アカウントの作成を行ってください。
 
-### 主要画面
-1. **ダッシュボード (`/`)**:
-   - ナレッジ登録件数、有効 API キー数、Bedrock リージョン、グループを表示。
-   - OpenAI SDK 接続サンプルコードのクイックコピー。
-2. **ナレッジ管理 (`/knowledge`)**:
-   - グループ（`public`, `sales` 等）を指定してドキュメントをドラッグ＆ドロップまたはファイル選択でアップロード。
-   - S3 実体および `.metadata.json` が同期され、Bedrock KB Ingestion ジョブがトリガーされます。
-   - 不要なドキュメントの安全な削除（S3 実体・メタデータ・DB 連動削除）。
-3. **RAG テスト画面 (`/rag-test`)**:
-   - **Retrieve 単体テスト**: クエリとグループフィルタを入力し、取得チャンク、スコア（%）、メタデータをリアルタイム確認。
-   - **対話シミュレーション**: モデルとグループを指定して質問し、引用元（Citations）付きの回答をシミュレート。
-4. **API キー管理 (`/api-keys`)**:
-   - 業務チャットボット用にアクセス可能なナレッジグループ、固定LLMモデル、事前定義システムプロンプトを指定して API キー（`sk-live-...`）を発行・失効。
-5. **モデル管理 (`/models`)**:
-   - Bedrock 基底モデルの新規登録、有効/無効の切り替え、既定モデルの設定、削除をブラウザ上で実行。登録するモデル ID / 推論プロファイル ID の確認方法は [Bedrock モデル情報取得・登録ガイド (docs/GET_FOUNDATION_MODELS.md)](docs/GET_FOUNDATION_MODELS.md) を参照。
+### 主要機能と画面一覧
+
+#### 1. ダッシュボード (`/`)
+ナレッジ登録件数、有効 API キー数、Bedrock 接続リージョン、登録グループ状況を俯瞰。OpenAI SDK や `curl` による接続用サンプルコードをワンクリックでコピーできます。
+
+![ダッシュボード](docs/images/01_dashboard.png)
+
+#### 2. ナレッジ管理 (`/knowledge`)
+グループ（`public`, `sales`, `dev` 等）を指定してドキュメントをドラッグ＆ドロップまたはファイル選択でアップロード。S3 実体および `.metadata.json` サイドカーが自動生成・同期され、Bedrock KB Ingestion ジョブがトリガーされます。不要なドキュメントの安全な整合性連動削除にも対応。
+
+![ナレッジドキュメント管理](docs/images/02_docs.png)
+
+#### 3. RAG 対話テスト・検証 (`/rag-test`)
+- **Retrieve 単体テスト**: クエリとグループフィルタを指定し、取得チャンク、スコア（%）、S3 メタデータをリアルタイム確認。
+- **対話シミュレーション**: モデルとグループを指定して質問し、引用元（Citations）付きの回答生成をブラウザ上でシミュレーション。
+
+![RAG対話テスト・検証](docs/images/03_rag-converse-test.png)
+
+#### 4. ゼロヒットクエリ分析・補正 (`/zero-hits`)
+Bedrock Managed KB 特有の「単語単体クエリで 0 件ヒットになる」挙動を監視。ユーザーが入力した失敗クエリを記録・分析し、自然文補完ルールやナレッジ改善に役立てることができます。
+
+![ゼロヒットクエリ管理](docs/images/04_zero-hit-query.png)
+
+#### 5. RAG 品質評価・モデル比較レポート (`/eval-reports`)
+ナレッジベースに対する回答精度、引用網羅性、応答速度などの評価指標や、複数 LLM モデルの回答並列比較レポートを可視化。モデル選定やプロンプトチューニングの意思決定を支援します。
+
+![RAG品質評価レポート](docs/images/05_rag-eval.png)
+
+#### 6. API キー管理 (`/api-keys`)
+業務チャットボットや社内システム向けに、アクセス許可グループ（KB 権限）、固定 LLM モデル、事前定義システムプロンプトを設定した API キー（`sk-live-...`）を発行・即時失効。トークンは SHA-256 で安全にハッシュ化保管されます。
+
+![APIキー管理](docs/images/06_api-keys.png)
+
+#### 7. LLM モデル動的管理 (`/models`)
+Amazon Bedrock 上で利用可能な基底モデル（Claude、Amazon Nova 等）の追加、有効/無効の切り替え、既定（デフォルト）モデルの設定を Web 画面から動的に管理。コード再ビルドなしで即座に `/v1/models` やチャット機能へ反映されます。
+
+![LLMモデル管理](docs/images/07_llm-models.png)
+
+#### 8. ユーザー管理 (`/users`)
+ローカル認証ユーザーの追加、ロール（Admin / User）の付与、パスワード変更、有効/無効化を管理。OIDC 連携時にも不変 UUID（`sub`）をベースにアカウント状態を同期します。
+
+![ユーザー管理](docs/images/08_users.png)
+
+#### 9. グループ管理 (`/groups`)
+ナレッジベースや API キーに付与する権限グループ（`sales`, `dev`, `hr` 等）の作成・編集。グループごとのデータ分離プリフィルタリングにより、部署や役職をまたぐ情報漏洩を確実に防止します。
+
+![グループ管理](docs/images/09_groups.png)
 
 ---
 
