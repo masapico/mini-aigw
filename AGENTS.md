@@ -67,6 +67,9 @@ type DocumentExtractor interface {
 ```
 - 画像ファイル（PNG, JPEG等）: Bedrock `ImageBlock` へ自動マッピング。
 - ドキュメント（PDF, DOCX, XLSX, CSV等）: `XbergService` により Markdown テキストに自動抽出・正規化してプロンプトまたは `DocumentBlock` へ注入。
+  - **サニタイズ**: ヌルバイト（`\x00`）および改行・タブ以外の制御文字（`0x00`-`0x1F`, `0x7F`）を自動除去し、Bedrock の `ValidationException`（Malformed request）を防止。
+  - **抽出テキスト上限（安全トランケート）**: 1ファイルあたり最大 **100,000 文字（`DefaultMaxExtractedLength`、約30,000〜50,000トークン相当）**。上限超過時は末尾に警告注記を付与して安全に切り詰め、モデルのコンテキスト長超過を防止。
+  - **ストリーミングエラー耐性**: Bedrock エラー発生時、無言切断せず OpenAI 互換 SSE エラーチャンク（`data: {"error": ...}`）を送信して正常クローズ。
 
 ### 2.2 S3 Vectors サイドカーメタデータ管理
 S3 アップロード時には、必ず同一ディレクトリに `.metadata.json` を付与し、プレフィックスと属性を整合させる。

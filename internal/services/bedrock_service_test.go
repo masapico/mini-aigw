@@ -327,3 +327,55 @@ func TestSupportsTemperature_DBIntegration(t *testing.T) {
 	}
 }
 
+type mockResponseWriterFlusher struct {
+	header http.Header
+	buf    strings.Builder
+}
+
+func (m *mockResponseWriterFlusher) Header() http.Header {
+	if m.header == nil {
+		m.header = make(http.Header)
+	}
+	return m.header
+}
+
+func (m *mockResponseWriterFlusher) Write(b []byte) (int, error) {
+	return m.buf.Write(b)
+}
+
+func (m *mockResponseWriterFlusher) WriteHeader(statusCode int) {}
+
+func (m *mockResponseWriterFlusher) Flush() {}
+
+func TestSendSSEError(t *testing.T) {
+	mw := &mockResponseWriterFlusher{}
+	errMsg := "ValidationException: input token count exceeded"
+
+	sendSSEError(mw, mw, errMsg)
+
+	output := mw.buf.String()
+	if !strings.Contains(output, `data: {"error":{"message":"ValidationException: input token count exceeded","type":"bedrock_error"}}`) {
+		t.Fatalf("expected SSE error JSON payload, got: %q", output)
+	}
+	if !strings.Contains(output, "data: [DONE]\n\n") {
+		t.Fatalf("expected [DONE] terminator, got: %q", output)
+	}
+}
+
+func TestFormatAttachedDocumentBlock(t *testing.T) {
+	// Case 1: text with null bytes and control characters
+	raw := "Contract Body\x00\x02\nSection 1\tValid"
+	block := formatAttachedDocumentBlock("contract.pdf", raw, nil)
+	expected := "--- Attached Document: contract.pdf ---\nContract Body\nSection 1\tValid\n--- End of Document ---"
+	if block.Value != expected {
+		t.Fatalf("expected %q, got %q", expected, block.Value)
+	}
+
+	// Case 2: empty text fallback
+	emptyBlock := formatAttachedDocumentBlock("empty.pdf", "", nil)
+	expectedEmpty := "--- Attached Document: empty.pdf ---\n[Empty document content: empty.pdf]\n--- End of Document ---"
+	if emptyBlock.Value != expectedEmpty {
+		t.Fatalf("expected %q, got %q", expectedEmpty, emptyBlock.Value)
+	}
+}
+

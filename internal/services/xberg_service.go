@@ -59,8 +59,11 @@ func (s *XbergService) resolveXbergBinary() (string, error) {
 		}
 	}
 
-	// 2. Check current working directory for xberg / xberg.exe
-	for _, candidate := range []string{"./xberg.exe", "xberg.exe", "./xberg", "xberg"} {
+	// 2. Check current working directory for xberg / xberg.exe, and xberg-cli/xberg
+	for _, candidate := range []string{
+		"./xberg-cli/xberg.exe", "xberg-cli/xberg.exe", "./xberg-cli/xberg", "xberg-cli/xberg",
+		"./xberg.exe", "xberg.exe", "./xberg", "xberg",
+	} {
 		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
 			abs, err := filepath.Abs(candidate)
 			if err == nil {
@@ -83,22 +86,62 @@ func (s *XbergService) resolveXbergBinary() (string, error) {
 	return "", fmt.Errorf("xberg binary not found")
 }
 
-// cleanXbergOutput removes the CLI diagnostic footer ("--- extraction envelope ---") from stdout
-func cleanXbergOutput(raw string) string {
-	const marker = "--- extraction envelope ---"
-	if idx := strings.Index(raw, "\r\n"+marker); idx != -1 {
-		return strings.TrimSpace(raw[:idx])
-	}
-	if idx := strings.Index(raw, "\n"+marker); idx != -1 {
-		return strings.TrimSpace(raw[:idx])
-	}
-	if strings.HasPrefix(raw, marker) {
+// DefaultMaxExtractedLength is the maximum rune length allowed for extracted attachment text
+// (approx. 30,000 - 50,000 tokens) to prevent exceeding Bedrock context window / token limits.
+const DefaultMaxExtractedLength = 100000
+
+// SanitizeExtractedText removes null bytes and harmful control characters (0x00-0x1F except \n, \r, \t),
+// removes 0x7F (DEL), and strips invalid UTF-8 runes to avoid Bedrock ValidationException.
+func SanitizeExtractedText(raw string) string {
+	if raw == "" {
 		return ""
 	}
-	return strings.TrimSpace(raw)
+	var sb strings.Builder
+	sb.Grow(len(raw))
+	for _, r := range raw {
+		if r == 0x00 {
+			continue
+		}
+		if r == '\n' || r == '\r' || r == '\t' {
+			sb.WriteRune(r)
+			continue
+		}
+		if r < 0x20 || r == 0x7F || r == utf8.RuneError {
+			continue
+		}
+		sb.WriteRune(r)
+	}
+	return strings.TrimSpace(sb.String())
 }
 
-// ExtractContentFromBytes extracts Markdown text from bytes using xberg CLI with UTF-8 fallback
+// TruncateExtractedText safely truncates text to maxLen runes and appends a warning note if truncated.
+func TruncateExtractedText(text string, maxLen int) string {
+	if maxLen <= 0 {
+		maxLen = DefaultMaxExtractedLength
+	}
+	runes := []rune(text)
+	if len(runes) <= maxLen {
+		return text
+	}
+	return string(runes[:maxLen]) + "\n\n[... Warning: Document content truncated because it exceeded the size limit ...]"
+}
+
+// cleanXbergOutput removes the CLI diagnostic footer ("--- extraction envelope ---") from stdout and sanitizes the output
+func cleanXbergOutput(raw string) string {
+	cleaned := raw
+	const marker = "--- extraction envelope ---"
+	if idx := strings.Index(raw, "\r\n"+marker); idx != -1 {
+		cleaned = raw[:idx]
+	} else if idx := strings.Index(raw, "\n"+marker); idx != -1 {
+		cleaned = raw[:idx]
+	} else if strings.HasPrefix(raw, marker) {
+		return ""
+	}
+	return SanitizeExtractedText(cleaned)
+}
+
+// ExtractContentFromBytes extracts Markdown text from bytes using xberg CLI with UTF-8 fallback,
+// with null-byte/control character sanitization and safe size truncation.
 func (s *XbergService) ExtractContentFromBytes(ctx context.Context, fileBytes []byte, filename string) string {
 	if len(fileBytes) == 0 {
 		return ""
@@ -109,7 +152,7 @@ func (s *XbergService) ExtractContentFromBytes(ctx context.Context, fileBytes []
 		// Run xberg CLI via temporary file
 		extracted, runErr := s.runXbergExtract(ctx, binPath, fileBytes, filename)
 		if runErr == nil && strings.TrimSpace(extracted) != "" {
-			return extracted
+			return TruncateExtractedText(SanitizeExtractedText(extracted), DefaultMaxExtractedLength)
 		}
 		log.Printf("xberg extraction failed for %s: %v. Falling back to UTF-8 decoding.", filename, runErr)
 	} else {
@@ -118,7 +161,10 @@ func (s *XbergService) ExtractContentFromBytes(ctx context.Context, fileBytes []
 
 	// Fallback: UTF-8 plain text check
 	if utf8.Valid(fileBytes) {
-		return string(fileBytes)
+		sanitized := SanitizeExtractedText(string(fileBytes))
+		if sanitized != "" {
+			return TruncateExtractedText(sanitized, DefaultMaxExtractedLength)
+		}
 	}
 
 	return fmt.Sprintf("[Binary file: %s (%d bytes)]", filename, len(fileBytes))

@@ -346,9 +346,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 							}
 							filename := inferFilenameFromHeaderOrData(header, hintName, b64Body)
 							extracted := s.xberg.ExtractContentFromBase64(ctx, url, filename)
-							contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{
-								Value: fmt.Sprintf("--- Attached Document: %s ---\n%s\n--- End of Document ---", filename, extracted),
-							})
+							contentBlocks = append(contentBlocks, formatAttachedDocumentBlock(filename, extracted, s.cfg))
 						}
 					} else {
 						contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: fmt.Sprintf("[Image URL: %s]", url)})
@@ -368,9 +366,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 						}
 					}
 					extracted := s.xberg.ExtractContentFromBase64(ctx, b64Body, filename)
-					contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{
-						Value: fmt.Sprintf("--- Attached Document: %s ---\n%s\n--- End of Document ---", filename, extracted),
-					})
+					contentBlocks = append(contentBlocks, formatAttachedDocumentBlock(filename, extracted, s.cfg))
 				default:
 					if b64Body, rawFilename, mimeHeader := extractAttachmentFields(part); b64Body != "" {
 						filename := inferFilenameFromHeaderOrData(mimeHeader, rawFilename, b64Body)
@@ -386,9 +382,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 							}
 						}
 						extracted := s.xberg.ExtractContentFromBase64(ctx, b64Body, filename)
-						contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{
-							Value: fmt.Sprintf("--- Attached Document: %s ---\n%s\n--- End of Document ---", filename, extracted),
-						})
+						contentBlocks = append(contentBlocks, formatAttachedDocumentBlock(filename, extracted, s.cfg))
 					}
 				}
 			}
@@ -691,6 +685,7 @@ func (s *BedrockService) CallConverseStream(
 		if s.cfg != nil && s.cfg.Debug {
 			log.Printf("[DEBUG] Bedrock ConverseStream failed for model %s: %v", modelID, err)
 		}
+		sendSSEError(w, flusher, err.Error())
 		return fmt.Errorf("bedrock converse_stream error: %w", err)
 	}
 	stream := res.GetStream()
@@ -749,6 +744,14 @@ func (s *BedrockService) CallConverseStream(
 				}
 			}
 		}
+	}
+
+	if err := stream.Err(); err != nil {
+		if s.cfg != nil && s.cfg.Debug {
+			log.Printf("[DEBUG] Bedrock ConverseStream event stream error: %v", err)
+		}
+		sendSSEError(w, flusher, err.Error())
+		return fmt.Errorf("bedrock converse_stream event error: %w", err)
 	}
 
 	// Calculate combined usage
@@ -860,6 +863,34 @@ func sendSSEChunk(w http.ResponseWriter, flusher http.Flusher, chunk StreamChunk
 	data, _ := json.Marshal(chunk)
 	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 	flusher.Flush()
+}
+
+func sendSSEError(w http.ResponseWriter, flusher http.Flusher, errMsg string) {
+	errPayload := map[string]interface{}{
+		"error": map[string]interface{}{
+			"message": errMsg,
+			"type":    "bedrock_error",
+		},
+	}
+	data, _ := json.Marshal(errPayload)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+	_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	if flusher != nil {
+		flusher.Flush()
+	}
+}
+
+func formatAttachedDocumentBlock(filename string, extracted string, cfg *config.Config) *bedrockTypes.ContentBlockMemberText {
+	sanitized := SanitizeExtractedText(extracted)
+	if cfg != nil && cfg.Debug {
+		log.Printf("[DEBUG] [ATTACHMENT] Prepared document '%s' (content length: %d chars)", filename, len(sanitized))
+	}
+	if sanitized == "" {
+		sanitized = fmt.Sprintf("[Empty document content: %s]", filename)
+	}
+	return &bedrockTypes.ContentBlockMemberText{
+		Value: fmt.Sprintf("--- Attached Document: %s ---\n%s\n--- End of Document ---", filename, sanitized),
+	}
 }
 
 // ==============================================================================

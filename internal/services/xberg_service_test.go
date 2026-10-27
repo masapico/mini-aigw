@@ -61,6 +61,60 @@ func TestCleanXbergOutput(t *testing.T) {
 	}
 }
 
+func TestSanitizeExtractedText(t *testing.T) {
+	// Text containing null bytes, harmful control characters, but valid newlines and tabs
+	raw := "Line 1\x00\x01\x02\r\nLine 2\twith tab\x07 and bell\x7F"
+	sanitized := SanitizeExtractedText(raw)
+	expected := "Line 1\r\nLine 2\twith tab and bell"
+	if sanitized != expected {
+		t.Fatalf("expected %q, got %q", expected, sanitized)
+	}
+}
+
+func TestTruncateExtractedText(t *testing.T) {
+	text := "1234567890"
+	truncated := TruncateExtractedText(text, 5)
+	if !strings.HasPrefix(truncated, "12345\n\n[... Warning:") {
+		t.Fatalf("expected truncated text starting with '12345\\n\\n[... Warning:', got: %s", truncated)
+	}
+
+	notTruncated := TruncateExtractedText(text, 20)
+	if notTruncated != text {
+		t.Fatalf("expected unchanged text, got: %s", notTruncated)
+	}
+}
+
+func TestXbergService_ResolveXbergCliSubdirectory(t *testing.T) {
+	// Create temporary directory mimicking project root with xberg-cli/xberg
+	tmpDir, err := os.MkdirTemp("", "xberg-cli-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cliDir := filepath.Join(tmpDir, "xberg-cli")
+	if err := os.MkdirAll(cliDir, 0755); err != nil {
+		t.Fatalf("failed to create cli dir: %v", err)
+	}
+	fakeBin := filepath.Join(cliDir, "xberg")
+	if err := os.WriteFile(fakeBin, []byte("#!/bin/sh\nexit 0"), 0755); err != nil {
+		t.Fatalf("failed to write fake xberg: %v", err)
+	}
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+
+	svc := NewXbergService(&config.Config{XbergPath: "xberg"})
+	resolved, err := svc.resolveXbergBinary()
+	if err != nil {
+		t.Fatalf("expected to resolve xberg-cli/xberg, got error: %v", err)
+	}
+	if !strings.HasSuffix(resolved, filepath.Join("xberg-cli", "xberg")) {
+		t.Fatalf("expected resolved path to end with xberg-cli/xberg, got: %s", resolved)
+	}
+}
+
 func TestXbergService_ResolveBinaryFromDirectory(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "xberg-dir-test-*")
 	if err != nil {

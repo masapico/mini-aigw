@@ -112,7 +112,8 @@ BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
 KNOWLEDGE_S3_BUCKET=your-s3-knowledge-bucket
 DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は GET_FOUNDATION_MODELS.md 参照)
 
-# ドキュメント抽出 CLI パス (任意: xberg を配置した場合)
+# ドキュメント抽出 CLI パス (任意: xberg を配置した場合。./xberg-cli/xberg や ./xberg も自動検出)
+# 抽出テキストは最大100,000文字（約30,000〜50,000トークン相当）に安全ガードされます。
 # XBERG_PATH=/usr/local/bin/xberg
 ```
 
