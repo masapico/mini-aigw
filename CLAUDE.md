@@ -1,4 +1,4 @@
-# 開発ガイドライン・実装指示書 (AGENTS.md)
+# CLAUDE.md
 
 本ドキュメントは、AI実装エージェントおよび開発者が本システム（Go + Pure-Go SQLite + AWS SDK for Go v2 + Bedrock + mini-id + S3 Vectors）を実装・保守するための指示書である。
 
