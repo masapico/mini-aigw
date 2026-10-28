@@ -379,3 +379,82 @@ func TestFormatAttachedDocumentBlock(t *testing.T) {
 	}
 }
 
+
+func fileAttachmentMessage(docs map[string]string, order []string) []map[string]interface{} {
+	var parts []interface{}
+	parts = append(parts, map[string]interface{}{"type": "text", "text": "summarize"})
+	for _, name := range order {
+		parts = append(parts, map[string]interface{}{
+			"type": "file",
+			"file": map[string]interface{}{
+				"filename":  name,
+				"file_data": "data:text/plain;base64," + base64.StdEncoding.EncodeToString([]byte(docs[name])),
+			},
+		})
+	}
+	return []map[string]interface{}{{"role": "user", "content": parts}}
+}
+
+func attachmentTexts(t *testing.T, msgs []bedrockTypes.Message) []string {
+	t.Helper()
+	var out []string
+	for _, block := range msgs[0].Content[1:] {
+		tb, ok := block.(*bedrockTypes.ContentBlockMemberText)
+		if !ok {
+			t.Fatalf("expected text block, got %T", block)
+		}
+		out = append(out, tb.Value)
+	}
+	return out
+}
+
+func TestConvertOpenAIMessagesToBedrock_TotalAttachmentLimit(t *testing.T) {
+	cfg := &config.Config{XbergPath: "non_existent_xberg_binary", MaxTotalAttachmentChars: 50}
+	svc := NewBedrockService(nil, NewXbergService(cfg), cfg)
+
+	docs := map[string]string{
+		"a.txt": strings.Repeat("あ", 30),
+		"b.txt": strings.Repeat("い", 30),
+		"c.txt": strings.Repeat("う", 30),
+	}
+	_, msgs, infos := svc.ConvertOpenAIMessagesToBedrockWithAttachments(context.Background(), fileAttachmentMessage(docs, []string{"a.txt", "b.txt", "c.txt"}))
+
+	texts := attachmentTexts(t, msgs)
+	if len(texts) != 3 || len(infos) != 3 {
+		t.Fatalf("expected 3 attachment blocks and infos, got %d / %d", len(texts), len(infos))
+	}
+	// 1件目: 上限内でそのまま
+	if !strings.Contains(texts[0], docs["a.txt"]) || infos[0].Truncated {
+		t.Fatalf("expected first attachment intact, got %q (%+v)", texts[0], infos[0])
+	}
+	// 2件目: 残り20文字に切り詰め
+	if !strings.Contains(texts[1], strings.Repeat("い", 20)+"\n\n[... Warning") || strings.Contains(texts[1], strings.Repeat("い", 21)) {
+		t.Fatalf("expected second attachment truncated to 20 chars, got %q", texts[1])
+	}
+	if !infos[1].Truncated || infos[1].ExtractedChars <= 20 {
+		t.Fatalf("expected second attachment info marked truncated, got %+v", infos[1])
+	}
+	// 3件目: 上限到達後は注記のみ
+	if !strings.Contains(texts[2], "[Attachment omitted: 合計文字数上限 50 を超過]") || strings.Contains(texts[2], "う") {
+		t.Fatalf("expected third attachment omitted, got %q", texts[2])
+	}
+	if !infos[2].OmittedByTotalLimit {
+		t.Fatalf("expected third attachment info marked omitted, got %+v", infos[2])
+	}
+}
+
+func TestConvertOpenAIMessagesToBedrock_TotalAttachmentLimitDisabled(t *testing.T) {
+	cfg := &config.Config{XbergPath: "non_existent_xberg_binary", MaxTotalAttachmentChars: 0}
+	svc := NewBedrockService(nil, NewXbergService(cfg), cfg)
+
+	docs := map[string]string{"a.txt": strings.Repeat("x", 300), "b.txt": strings.Repeat("y", 300)}
+	_, msgs, infos := svc.ConvertOpenAIMessagesToBedrockWithAttachments(context.Background(), fileAttachmentMessage(docs, []string{"a.txt", "b.txt"}))
+
+	texts := attachmentTexts(t, msgs)
+	if !strings.Contains(texts[0], docs["a.txt"]) || !strings.Contains(texts[1], docs["b.txt"]) {
+		t.Fatalf("expected attachments intact when limit <= 0")
+	}
+	if infos[0].Truncated || infos[1].Truncated || infos[1].OmittedByTotalLimit {
+		t.Fatalf("expected no truncation when limit <= 0, got %+v", infos)
+	}
+}

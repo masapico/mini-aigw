@@ -69,7 +69,12 @@ type DocumentExtractor interface {
 - ドキュメント（PDF, DOCX, XLSX, CSV等）: `XbergService` により Markdown テキストに自動抽出・正規化してプロンプトまたは `DocumentBlock` へ注入。
   - **サニタイズ**: ヌルバイト（`\x00`）および改行・タブ以外の制御文字（`0x00`-`0x1F`, `0x7F`）を自動除去し、Bedrock の `ValidationException`（Malformed request）を防止。
   - **抽出テキスト上限（安全トランケート）**: 1ファイルあたり最大 **100,000 文字（`DefaultMaxExtractedLength`、約30,000〜50,000トークン相当）**。上限超過時は末尾に警告注記を付与して安全に切り詰め、モデルのコンテキスト長超過を防止。
+  - **合計文字数上限**: 1リクエスト内の全添付の抽出テキスト合計は `MAX_TOTAL_ATTACHMENT_CHARS`（既定 **50,000** 文字、0 以下で無制限）まで。超過分は警告注記付きで切り詰め、上限到達後の添付は `[Attachment omitted: ...]` 注記のみとする。
+  - **xberg 呼び出し**: `extract <file> --content-format markdown --extract-images false --pdf-extract-images false --ocr <XBERG_OCR> --no-config-discovery --log-level error`。画像抽出は常に無効、OCR は既定 false（`XBERG_OCR=true` で有効化）。タイムアウトは `XBERG_TIMEOUT_SEC`（既定 60 秒）。
   - **ストリーミングエラー耐性**: Bedrock エラー発生時、無言切断せず OpenAI 互換 SSE エラーチャンク（`data: {"error": ...}`）を送信して正常クローズ。
+  - **エラーレスポンス**: 非ストリーム時は AWS エラーコードに応じて 400（ValidationException）/ 429（Throttling 等）/ 504（タイムアウト）/ 502（その他）を OpenAI 互換 JSON で返す。一律 500 を返さない。
+  - **エラーログ**: チャット処理のエラー・xberg フォールバック・panic は `ERROR_LOG_FILE`（既定 `data/logs/error.log`）へ JSON Lines で追記する（`internal/logging`）。request_id、モデル、添付メタ（ファイル名・サイズ・xberg 終了コード/stderr 末尾・抽出文字数）、AWS エラーコード/RequestID を記録し、**base64 本文や抽出テキストは記録しない**。
+  - **再現手段**: `scripts/repro/send_pdf.{sh,ps1}`（業務チャットと同形式で送信）、`scripts/repro/xberg_check.{sh,ps1}`（本番と同じ引数で xberg 単体実行）。実ファイルは `error_sample/`（git 管理外）に置き、`go test ./internal/services -run RealSamplePDFs -v` で抽出を検証できる。
 
 ### 2.2 S3 Vectors サイドカーメタデータ管理
 S3 アップロード時には、必ず同一ディレクトリに `.metadata.json` を付与し、プレフィックスと属性を整合させる。

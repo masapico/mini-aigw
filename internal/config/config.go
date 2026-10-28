@@ -3,6 +3,7 @@ package config
 import (
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -60,7 +61,17 @@ type Config struct {
 	OIDCEndSessionEndpoint string
 
 	// Document Extraction (xberg)
-	XbergPath string
+	XbergPath               string
+	XbergOCR                bool
+	XbergTimeoutSec         int
+	MaxTotalAttachmentChars int
+
+	// Chat API / Server limits
+	ChatMaxBodyMB         int
+	ServerWriteTimeoutSec int
+
+	// Logging
+	ErrorLogFile string
 
 	// RAG Evaluation
 	EvalReportsDir  string
@@ -113,10 +124,16 @@ func LoadConfig() *Config {
 		OIDCScopes:             getEnv("OIDC_SCOPES", "openid profile email groups"),
 		OIDCEndSessionEndpoint: getEnv("OIDC_END_SESSION_ENDPOINT", ""),
 
-		XbergPath:       getEnv("XBERG_PATH", "xberg"),
-		EvalReportsDir:  getEnv("EVAL_REPORTS_DIR", "eval_reports"),
-		EvalDatasetsDir: getEnv("EVAL_DATASETS_DIR", "testdata/eval"),
+		XbergPath:               getEnv("XBERG_PATH", "xberg"),
+		XbergOCR:                getEnvAsBool("XBERG_OCR", false),
+		XbergTimeoutSec:         getEnvAsInt("XBERG_TIMEOUT_SEC", 60),
+		MaxTotalAttachmentChars: getEnvAsInt("MAX_TOTAL_ATTACHMENT_CHARS", 50000),
+		ChatMaxBodyMB:           getEnvAsInt("CHAT_MAX_BODY_MB", 30),
+		ServerWriteTimeoutSec:   getEnvAsInt("SERVER_WRITE_TIMEOUT_SEC", 300),
+		EvalReportsDir:          getEnv("EVAL_REPORTS_DIR", "eval_reports"),
+		EvalDatasetsDir:         getEnv("EVAL_DATASETS_DIR", "testdata/eval"),
 	}
+	cfg.ErrorLogFile = getEnv("ERROR_LOG_FILE", filepath.Join(cfg.DataDir, "logs", "error.log"))
 
 	if tempStr := os.Getenv("DEFAULT_TEMPERATURE"); tempStr != "" {
 		if val, err := strconv.ParseFloat(tempStr, 64); err == nil {

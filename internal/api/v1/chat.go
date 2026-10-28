@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,7 @@ import (
 
 	"mini-aigw/internal/api/middleware"
 	"mini-aigw/internal/config"
+	"mini-aigw/internal/logging"
 	"mini-aigw/internal/models"
 	"mini-aigw/internal/prompts"
 	"mini-aigw/internal/services"
@@ -64,12 +66,23 @@ func (h *ChatHandler) HandleChatCompletions(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if h.cfg.ChatMaxBodyMB > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, int64(h.cfg.ChatMaxBodyMB)<<20)
+	}
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		if h.cfg.Debug {
-			log.Printf("[DEBUG] [ERROR] Failed to read request body: %v", err)
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			log.Printf("[ERROR] Request body too large: limit=%d bytes", maxErr.Limit)
+			logging.Error(r.Context(), "chat request body too large",
+				"limit_bytes", maxErr.Limit, "api_key_id", apiKey.ID, "api_key_name", apiKey.Name)
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "invalid_request_error", "request_too_large",
+				fmt.Sprintf("Request body exceeds the limit of %d MB (CHAT_MAX_BODY_MB)", h.cfg.ChatMaxBodyMB))
+			return
 		}
-		http.Error(w, `{"error":{"message":"Failed to read request body","type":"invalid_request_error"}}`, http.StatusBadRequest)
+		log.Printf("[ERROR] Failed to read request body: %v", err)
+		logging.Error(r.Context(), "failed to read chat request body", "error", err.Error(), "api_key_id", apiKey.ID)
+		writeJSONError(w, http.StatusBadRequest, "invalid_request_error", "", "Failed to read request body")
 		return
 	}
 	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
@@ -79,6 +92,8 @@ func (h *ChatHandler) HandleChatCompletions(w http.ResponseWriter, r *http.Reque
 		if h.cfg.Debug {
 			log.Printf("[DEBUG] [ERROR] Invalid JSON request body: %v\nBody: %s", err, string(bodyBytes))
 		}
+		logging.Error(r.Context(), "invalid chat request JSON",
+			"error", err.Error(), "body_bytes", len(bodyBytes), "api_key_id", apiKey.ID)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -137,13 +152,24 @@ func (h *ChatHandler) HandleChatCompletions(w http.ResponseWriter, r *http.Reque
 		)
 	}
 
+	meta := &chatLogMeta{
+		ModelID:    effectiveModelID,
+		Stream:     req.Stream,
+		RAG:        ragEnabled,
+		APIKeyID:   apiKey.ID,
+		APIKeyName: apiKey.Name,
+		BodyBytes:  len(bodyBytes),
+		StartTime:  startTime,
+	}
+
 	// Check if flusher is supported when stream=true
 	var flusher http.Flusher
 	if req.Stream {
 		var ok bool
 		flusher, ok = w.(http.Flusher)
 		if !ok {
-			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			logChatError(r.Context(), "stream_setup", errors.New("streaming unsupported by response writer"), meta)
+			writeJSONError(w, http.StatusInternalServerError, "api_error", "", "Streaming unsupported")
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -156,12 +182,12 @@ func (h *ChatHandler) HandleChatCompletions(w http.ResponseWriter, r *http.Reque
 
 	if !ragEnabled {
 		// Pure LLM inference (No Knowledge Tool)
-		h.handleDirectConverse(r.Context(), w, flusher, apiKey, effectiveModelID, messages, req.Temperature, req.TopP, maxTokens, req.Stream, startTime)
+		h.handleDirectConverse(r.Context(), w, flusher, apiKey, effectiveModelID, messages, req.Temperature, req.TopP, maxTokens, req.Stream, startTime, meta)
 		return
 	}
 
 	// RAG Tool Use inference
-	h.handleRAGConverse(r.Context(), w, flusher, r, apiKey, effectiveModelID, messages, req.Temperature, req.TopP, maxTokens, req.Stream, allowedGroups, startTime)
+	h.handleRAGConverse(r.Context(), w, flusher, r, apiKey, effectiveModelID, messages, req.Temperature, req.TopP, maxTokens, req.Stream, allowedGroups, startTime, meta)
 }
 
 func (h *ChatHandler) handleDirectConverse(
@@ -176,8 +202,10 @@ func (h *ChatHandler) handleDirectConverse(
 	maxTokens *int,
 	isStream bool,
 	startTime time.Time,
+	meta *chatLogMeta,
 ) {
-	sysBlocks, bedrockMsgs := h.bedrockService.ConvertOpenAIMessagesToBedrock(ctx, rawMessages)
+	sysBlocks, bedrockMsgs, attachments := h.bedrockService.ConvertOpenAIMessagesToBedrockWithAttachments(ctx, rawMessages)
+	meta.Attachments = attachments
 
 	if isStream {
 		if h.cfg.Debug {
@@ -201,6 +229,7 @@ func (h *ChatHandler) handleDirectConverse(
 		})
 		if err != nil {
 			log.Printf("[ERROR] ConverseStream error: %v", err)
+			logChatError(ctx, "direct_converse_stream", err, meta)
 			if h.cfg.Debug {
 				log.Printf("\n========== [DEBUG: DIRECT STREAM ERROR] ==========\n"+
 					"Error   : %v\n"+
@@ -228,10 +257,8 @@ func (h *ChatHandler) handleDirectConverse(
 				err, time.Since(startTime),
 			)
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{"message": err.Error(), "type": "api_error"},
-		})
+		logChatError(ctx, "direct_converse", err, meta)
+		writeBedrockError(w, err)
 		h.recordUsageLog(apiKey, modelID, false, false, nil, nil, nil, startTime, "error", awsStr(err.Error()))
 		return
 	}
@@ -274,8 +301,10 @@ func (h *ChatHandler) handleRAGConverse(
 	isStream bool,
 	allowedGroups []string,
 	startTime time.Time,
+	meta *chatLogMeta,
 ) {
-	sysBlocks, bedrockMsgs := h.bedrockService.ConvertOpenAIMessagesToBedrock(ctx, rawMessages)
+	sysBlocks, bedrockMsgs, attachments := h.bedrockService.ConvertOpenAIMessagesToBedrockWithAttachments(ctx, rawMessages)
+	meta.Attachments = attachments
 
 	// Add Knowledge Tool System Prompt
 	sysBlocks = append(sysBlocks, &bedrockTypes.SystemContentBlockMemberText{
@@ -300,13 +329,11 @@ func (h *ChatHandler) handleRAGConverse(
 				err, time.Since(startTime),
 			)
 		}
+		logChatError(ctx, "rag_turn1_converse", err, meta)
 		if isStream {
-			h.bedrockService.StreamPrebuiltTextAsSSE(w, flusher, modelID, "推論処理中にエラーが発生しました。", "stop", nil, nil, nil)
+			services.SendSSEError(w, flusher, err.Error())
 		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{"message": err.Error(), "type": "api_error"},
-			})
+			writeBedrockError(w, err)
 		}
 		h.recordUsageLog(apiKey, modelID, isStream, false, nil, nil, nil, startTime, "error", awsStr(err.Error()))
 		return
@@ -406,6 +433,7 @@ func (h *ChatHandler) handleRAGConverse(
 	)
 	if err != nil {
 		log.Printf("[ERROR] Retrieve knowledge failed: %v", err)
+		logging.Warn(ctx, "retrieve knowledge failed", "error", err.Error(), "model", modelID, "api_key_id", meta.APIKeyID)
 	}
 
 	// Filter by score threshold
@@ -563,6 +591,7 @@ func (h *ChatHandler) handleRAGConverse(
 		)
 		if err != nil {
 			log.Printf("[ERROR] Turn 2 ConverseStream error: %v", err)
+			logChatError(ctx, "rag_turn2_converse_stream", err, meta)
 			if h.cfg.Debug {
 				log.Printf("\n========== [DEBUG: RAG TURN 2 STREAM ERROR] ==========\n"+
 					"Error   : %v\n"+
@@ -587,10 +616,8 @@ func (h *ChatHandler) handleRAGConverse(
 				err, time.Since(startTime),
 			)
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{"message": err.Error(), "type": "api_error"},
-		})
+		logChatError(ctx, "rag_turn2_converse", err, meta)
+		writeBedrockError(w, err)
 		h.recordUsageLog(apiKey, modelID, false, true, searchQueries, citations, &turn1Resp.Usage, startTime, "error", awsStr(err.Error()))
 		return
 	}

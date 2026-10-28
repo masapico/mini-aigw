@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockagentruntime"
@@ -248,25 +248,79 @@ func extractAttachmentFields(part map[string]interface{}) (b64Body string, filen
 }
 
 func decodeBase64Flexible(b64 string) ([]byte, error) {
-	raw := b64
-	if idx := strings.Index(raw, ";base64,"); idx != -1 {
-		raw = raw[idx+len(";base64,"):]
-	} else if idx := strings.Index(raw, ","); idx != -1 {
-		raw = raw[idx+1:]
-	}
-	data, err := base64.StdEncoding.DecodeString(raw)
-	if err != nil {
-		data, err = base64.RawStdEncoding.DecodeString(raw)
-	}
-	return data, err
+	return decodeBase64Payload(b64)
 }
 
+// attachmentBudget は1リクエスト内の添付抽出テキスト合計文字数（MAX_TOTAL_ATTACHMENT_CHARS）を管理する。
+type attachmentBudget struct {
+	limit     int // 0 以下は無制限
+	remaining int
+}
+
+func newAttachmentBudget(cfg *config.Config) *attachmentBudget {
+	limit := 0
+	if cfg != nil {
+		limit = cfg.MaxTotalAttachmentChars
+	}
+	return &attachmentBudget{limit: limit, remaining: limit}
+}
+
+func (b *attachmentBudget) exhausted() bool {
+	return b.limit > 0 && b.remaining <= 0
+}
+
+// consume は残り文字数に収まるようテキストを切り詰め、切り詰めた場合は true を返す。
+func (b *attachmentBudget) consume(text string) (string, bool) {
+	if b.limit <= 0 {
+		return text, false
+	}
+	n := utf8.RuneCountInString(text)
+	if n <= b.remaining {
+		b.remaining -= n
+		return text, false
+	}
+	truncated := TruncateExtractedText(text, b.remaining)
+	b.remaining = 0
+	return truncated, true
+}
+
+// ConvertOpenAIMessagesToBedrock converts OpenAI-style messages into Bedrock Converse messages.
 func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 	ctx context.Context,
 	rawMessages []map[string]interface{},
 ) ([]bedrockTypes.SystemContentBlock, []bedrockTypes.Message) {
+	sys, msgs, _ := s.ConvertOpenAIMessagesToBedrockWithAttachments(ctx, rawMessages)
+	return sys, msgs
+}
+
+// ConvertOpenAIMessagesToBedrockWithAttachments は ConvertOpenAIMessagesToBedrock と同じ変換を行い、
+// 添付ドキュメントごとの抽出メタ情報（エラーログ用）も返す。
+func (s *BedrockService) ConvertOpenAIMessagesToBedrockWithAttachments(
+	ctx context.Context,
+	rawMessages []map[string]interface{},
+) ([]bedrockTypes.SystemContentBlock, []bedrockTypes.Message, []AttachmentInfo) {
 	var systemPrompts []bedrockTypes.SystemContentBlock
 	var bedrockMessages []bedrockTypes.Message
+	var attachments []AttachmentInfo
+
+	budget := newAttachmentBudget(s.cfg)
+	extractDocument := func(b64Data, filename, mimeType string) bedrockTypes.ContentBlock {
+		if budget.exhausted() {
+			attachments = append(attachments, AttachmentInfo{Filename: filename, MimeType: mimeType, OmittedByTotalLimit: true})
+			return &bedrockTypes.ContentBlockMemberText{
+				Value: fmt.Sprintf("--- Attached Document: %s ---\n[Attachment omitted: 合計文字数上限 %d を超過]\n--- End of Document ---", filename, budget.limit),
+			}
+		}
+		extracted, info := s.xberg.ExtractWithInfoFromBase64(ctx, b64Data, filename)
+		info.MimeType = mimeType
+		if limited, truncated := budget.consume(extracted); truncated {
+			extracted = limited
+			info.Truncated = true
+			info.ExtractedChars = utf8.RuneCountInString(limited)
+		}
+		attachments = append(attachments, info)
+		return formatAttachedDocumentBlock(filename, extracted, s.cfg)
+	}
 
 	for _, msg := range rawMessages {
 		role, _ := msg["role"].(string)
@@ -345,8 +399,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 								hintName, _ = part["filename"].(string)
 							}
 							filename := inferFilenameFromHeaderOrData(header, hintName, b64Body)
-							extracted := s.xberg.ExtractContentFromBase64(ctx, url, filename)
-							contentBlocks = append(contentBlocks, formatAttachedDocumentBlock(filename, extracted, s.cfg))
+							contentBlocks = append(contentBlocks, extractDocument(url, filename, strings.TrimPrefix(strings.TrimSuffix(header, ";base64"), "data:")))
 						}
 					} else {
 						contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: fmt.Sprintf("[Image URL: %s]", url)})
@@ -365,8 +418,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 							continue
 						}
 					}
-					extracted := s.xberg.ExtractContentFromBase64(ctx, b64Body, filename)
-					contentBlocks = append(contentBlocks, formatAttachedDocumentBlock(filename, extracted, s.cfg))
+					contentBlocks = append(contentBlocks, extractDocument(b64Body, filename, mimeHeader))
 				default:
 					if b64Body, rawFilename, mimeHeader := extractAttachmentFields(part); b64Body != "" {
 						filename := inferFilenameFromHeaderOrData(mimeHeader, rawFilename, b64Body)
@@ -381,8 +433,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 								continue
 							}
 						}
-						extracted := s.xberg.ExtractContentFromBase64(ctx, b64Body, filename)
-						contentBlocks = append(contentBlocks, formatAttachedDocumentBlock(filename, extracted, s.cfg))
+						contentBlocks = append(contentBlocks, extractDocument(b64Body, filename, mimeHeader))
 					}
 				}
 			}
@@ -398,7 +449,7 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrock(
 		})
 	}
 
-	return systemPrompts, bedrockMessages
+	return systemPrompts, bedrockMessages, attachments
 }
 
 // ==============================================================================
@@ -878,6 +929,11 @@ func sendSSEError(w http.ResponseWriter, flusher http.Flusher, errMsg string) {
 	if flusher != nil {
 		flusher.Flush()
 	}
+}
+
+// SendSSEError は OpenAI 互換の SSE エラーチャンクと [DONE] を送信する。
+func SendSSEError(w http.ResponseWriter, flusher http.Flusher, errMsg string) {
+	sendSSEError(w, flusher, errMsg)
 }
 
 func formatAttachedDocumentBlock(filename string, extracted string, cfg *config.Config) *bedrockTypes.ContentBlockMemberText {

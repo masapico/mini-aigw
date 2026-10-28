@@ -4,16 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"mini-aigw/internal/config"
+	"mini-aigw/internal/logging"
 )
 
 type DocumentExtractor interface {
@@ -23,6 +27,8 @@ type DocumentExtractor interface {
 
 type XbergService struct {
 	xbergPath string
+	ocr       bool
+	timeout   time.Duration
 }
 
 func NewXbergService(cfg *config.Config) *XbergService {
@@ -30,8 +36,14 @@ func NewXbergService(cfg *config.Config) *XbergService {
 	if path == "" {
 		path = "xberg"
 	}
+	timeout := defaultXbergTimeout
+	if cfg.XbergTimeoutSec > 0 {
+		timeout = time.Duration(cfg.XbergTimeoutSec) * time.Second
+	}
 	return &XbergService{
 		xbergPath: path,
+		ocr:       cfg.XbergOCR,
+		timeout:   timeout,
 	}
 }
 
@@ -140,90 +152,233 @@ func cleanXbergOutput(raw string) string {
 	return SanitizeExtractedText(cleaned)
 }
 
+// AttachmentInfo は添付ファイル1件の抽出結果メタ情報（エラーログ記録用）。本文は含めない。
+type AttachmentInfo struct {
+	Filename            string `json:"filename"`
+	MimeType            string `json:"mime,omitempty"`
+	DecodedBytes        int    `json:"decoded_bytes"`
+	DecodeError         string `json:"decode_error,omitempty"`
+	XbergUsed           bool   `json:"xberg_used"`
+	XbergExitCode       int    `json:"xberg_exit"`
+	XbergDurationMs     int64  `json:"xberg_duration_ms"`
+	XbergError          string `json:"xberg_error,omitempty"`
+	XbergStderr         string `json:"xberg_stderr,omitempty"`
+	FallbackUsed        bool   `json:"fallback_used"`
+	ExtractedChars      int    `json:"extracted_chars"`
+	Truncated           bool   `json:"truncated"`
+	OmittedByTotalLimit bool   `json:"omitted_by_total_limit,omitempty"`
+}
+
+const (
+	// xbergStderrTailBytes はログに残す xberg stderr 末尾のバイト数
+	xbergStderrTailBytes = 2048
+	// xbergMaxStdoutBytes は xberg stdout の読み取り上限（異常出力によるメモリ枯渇防止）
+	xbergMaxStdoutBytes = 32 << 20
+	defaultXbergTimeout = 60 * time.Second
+)
+
 // ExtractContentFromBytes extracts Markdown text from bytes using xberg CLI with UTF-8 fallback,
 // with null-byte/control character sanitization and safe size truncation.
 func (s *XbergService) ExtractContentFromBytes(ctx context.Context, fileBytes []byte, filename string) string {
+	text, _ := s.extractFromBytes(ctx, fileBytes, filename)
+	return text
+}
+
+// ExtractContentFromBase64 decodes Base64 (supporting data URLs) and extracts Markdown text
+func (s *XbergService) ExtractContentFromBase64(ctx context.Context, b64String string, filename string) string {
+	text, _ := s.ExtractWithInfoFromBase64(ctx, b64String, filename)
+	return text
+}
+
+// ExtractWithInfoFromBase64 は ExtractContentFromBase64 と同じ抽出を行い、計測メタ情報も返す。
+func (s *XbergService) ExtractWithInfoFromBase64(ctx context.Context, b64String string, filename string) (string, AttachmentInfo) {
+	data, err := decodeBase64Payload(b64String)
+	if err != nil {
+		log.Printf("Failed to base64 decode attachment %s: %v", filename, err)
+		info := AttachmentInfo{Filename: filename, DecodeError: err.Error()}
+		logging.Warn(ctx, "attachment base64 decode failed", "attachment", info)
+		return fmt.Sprintf("[Attachment decode error: %s]", filename), info
+	}
+	return s.extractFromBytes(ctx, data, filename)
+}
+
+func (s *XbergService) extractFromBytes(ctx context.Context, fileBytes []byte, filename string) (string, AttachmentInfo) {
+	info := AttachmentInfo{Filename: filename, DecodedBytes: len(fileBytes)}
 	if len(fileBytes) == 0 {
-		return ""
+		return "", info
+	}
+
+	finish := func(text string) (string, AttachmentInfo) {
+		info.Truncated = utf8.RuneCountInString(text) > DefaultMaxExtractedLength
+		text = TruncateExtractedText(text, DefaultMaxExtractedLength)
+		info.ExtractedChars = utf8.RuneCountInString(text)
+		return text, info
 	}
 
 	binPath, err := s.resolveXbergBinary()
 	if err == nil {
-		// Run xberg CLI via temporary file
-		extracted, runErr := s.runXbergExtract(ctx, binPath, fileBytes, filename)
+		info.XbergUsed = true
+		started := time.Now()
+		extracted, run, runErr := s.runXbergExtract(ctx, binPath, fileBytes, filename)
+		info.XbergDurationMs = time.Since(started).Milliseconds()
+		info.XbergExitCode = run.exitCode
+		info.XbergStderr = run.stderrTail
 		if runErr == nil && strings.TrimSpace(extracted) != "" {
-			return TruncateExtractedText(SanitizeExtractedText(extracted), DefaultMaxExtractedLength)
+			return finish(SanitizeExtractedText(extracted))
 		}
-		log.Printf("xberg extraction failed for %s: %v. Falling back to UTF-8 decoding.", filename, runErr)
+		if runErr != nil {
+			info.XbergError = runErr.Error()
+		} else {
+			info.XbergError = "empty output"
+		}
+		log.Printf("xberg extraction failed for %s: %v. Falling back to UTF-8 decoding.", filename, info.XbergError)
 	} else {
+		info.XbergError = err.Error()
 		log.Printf("xberg binary not available (%v). Falling back to UTF-8 decoding for %s.", err, filename)
 	}
+
+	info.FallbackUsed = true
+	defer func() {
+		logging.Warn(ctx, "xberg extraction fell back", "attachment", info)
+	}()
 
 	// Fallback: UTF-8 plain text check
 	if utf8.Valid(fileBytes) {
 		sanitized := SanitizeExtractedText(string(fileBytes))
 		if sanitized != "" {
-			return TruncateExtractedText(sanitized, DefaultMaxExtractedLength)
+			return finish(sanitized)
 		}
 	}
 
-	return fmt.Sprintf("[Binary file: %s (%d bytes)]", filename, len(fileBytes))
+	return fmt.Sprintf("[Binary file: %s (%d bytes)]", filename, len(fileBytes)), info
 }
 
-func (s *XbergService) runXbergExtract(ctx context.Context, binPath string, fileBytes []byte, filename string) (string, error) {
+type xbergRun struct {
+	exitCode   int
+	stderrTail string
+}
+
+// buildXbergArgs は xberg extract の引数を組み立てる。
+// 画像抽出は常に無効化し、OCR は XBERG_OCR=true の場合のみ有効化する。
+func (s *XbergService) buildXbergArgs(inputPath string) []string {
+	return []string{
+		"extract", inputPath,
+		"--content-format", "markdown",
+		"--extract-images", "false",
+		"--pdf-extract-images", "false",
+		"--ocr", strconv.FormatBool(s.ocr),
+		"--no-config-discovery",
+		"--log-level", "error",
+	}
+}
+
+func (s *XbergService) runXbergExtract(ctx context.Context, binPath string, fileBytes []byte, filename string) (string, xbergRun, error) {
+	run := xbergRun{exitCode: -1}
 	ext := filepath.Ext(filename)
 	if ext == "" && len(fileBytes) >= 5 && string(fileBytes[:5]) == "%PDF-" {
 		ext = ".pdf"
 	}
 	tmpFile, err := os.CreateTemp("", "aigw-doc-*"+ext)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
+		return "", run, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
 	if _, err := tmpFile.Write(fileBytes); err != nil {
 		_ = tmpFile.Close()
-		return "", fmt.Errorf("failed to write temp file: %w", err)
+		return "", run, fmt.Errorf("failed to write temp file: %w", err)
 	}
 	_ = tmpFile.Close()
 
-	// 30 seconds execution timeout
-	execCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	execCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, binPath, "extract", tmpPath, "--content-format", "markdown")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd := exec.CommandContext(execCtx, binPath, s.buildXbergArgs(tmpPath)...)
+	stdout := &limitedBuffer{limit: xbergMaxStdoutBytes}
+	stderr := &tailBuffer{limit: xbergStderrTailBytes}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("xberg exec error: %w (stderr: %s)", err, stderr.String())
+	runErr := cmd.Run()
+	run.stderrTail = stderr.String()
+	if cmd.ProcessState != nil {
+		run.exitCode = cmd.ProcessState.ExitCode()
+	}
+	if runErr != nil {
+		if errors.Is(execCtx.Err(), context.DeadlineExceeded) {
+			return "", run, fmt.Errorf("xberg timed out after %s: %w", s.timeout, runErr)
+		}
+		return "", run, fmt.Errorf("xberg exec error: %w", runErr)
+	}
+	if stdout.overflow {
+		log.Printf("xberg output for %s exceeded %d bytes; output was cut", filename, xbergMaxStdoutBytes)
 	}
 
-	return cleanXbergOutput(stdout.String()), nil
+	return cleanXbergOutput(stdout.String()), run, nil
 }
 
-// ExtractContentFromBase64 decodes Base64 (supporting data URLs) and extracts Markdown text
-func (s *XbergService) ExtractContentFromBase64(ctx context.Context, b64String string, filename string) string {
-	rawB64 := b64String
-	// Strip data:*:*;base64, prefix if present
-	if idx := strings.Index(rawB64, ";base64,"); idx != -1 {
-		rawB64 = rawB64[idx+len(";base64,"):]
-	} else if idx := strings.Index(rawB64, ","); idx != -1 {
-		rawB64 = rawB64[idx+1:]
+// decodeBase64Payload は data URL プレフィックスや改行・空白を除去し、
+// 標準 / パディングなし / URL-safe の各 Base64 形式でデコードを試みる。
+func decodeBase64Payload(b64String string) ([]byte, error) {
+	raw := b64String
+	if idx := strings.Index(raw, ";base64,"); idx != -1 {
+		raw = raw[idx+len(";base64,"):]
+	} else if idx := strings.Index(raw, ","); idx != -1 {
+		raw = raw[idx+1:]
 	}
+	raw = strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, raw)
 
-	data, err := base64.StdEncoding.DecodeString(rawB64)
-	if err != nil {
-		// Try raw unpadded decoding
-		data, err = base64.RawStdEncoding.DecodeString(rawB64)
-		if err != nil {
-			log.Printf("Failed to base64 decode attachment %s: %v", filename, err)
-			return fmt.Sprintf("[Attachment decode error: %s]", filename)
+	var firstErr error
+	for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.RawStdEncoding, base64.URLEncoding, base64.RawURLEncoding} {
+		data, err := enc.DecodeString(raw)
+		if err == nil {
+			return data, nil
+		}
+		if firstErr == nil {
+			firstErr = err
 		}
 	}
-
-	return s.ExtractContentFromBytes(ctx, data, filename)
+	return nil, firstErr
 }
 
+// limitedBuffer は limit バイトまで保持し、それ以降は破棄する io.Writer。
+type limitedBuffer struct {
+	bytes.Buffer
+	limit    int
+	overflow bool
+}
+
+func (b *limitedBuffer) Write(p []byte) (int, error) {
+	if remain := b.limit - b.Len(); remain < len(p) {
+		b.overflow = true
+		if remain > 0 {
+			b.Buffer.Write(p[:remain])
+		}
+		return len(p), nil
+	}
+	return b.Buffer.Write(p)
+}
+
+// tailBuffer は末尾 limit バイトのみを保持する io.Writer。
+type tailBuffer struct {
+	buf   []byte
+	limit int
+}
+
+func (b *tailBuffer) Write(p []byte) (int, error) {
+	b.buf = append(b.buf, p...)
+	if over := len(b.buf) - b.limit; over > 0 {
+		b.buf = b.buf[over:]
+	}
+	return len(p), nil
+}
+
+func (b *tailBuffer) String() string {
+	return strings.ToValidUTF8(string(b.buf), "")
+}

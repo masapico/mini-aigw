@@ -199,6 +199,20 @@ DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は
 
 # ドキュメント抽出 CLI パス (任意: 未指定時は PATH 上の "xberg" を探索、見つからない場合は平文フォールバック)
 # XBERG_PATH=/usr/local/bin/xberg
+# xberg の OCR (既定 false。スキャン PDF の文字起こしが必要な場合のみ true。画像抽出は常に無効)
+# XBERG_OCR=false
+# xberg 1ファイルあたりの抽出タイムアウト秒数
+# XBERG_TIMEOUT_SEC=60
+# 1リクエスト内の添付ファイル抽出テキスト合計文字数の上限 (超過分は切り詰め・省略。0 以下で無制限)
+# MAX_TOTAL_ATTACHMENT_CHARS=50000
+
+# /v1/chat/completions のリクエストボディ上限 (MB。超過時は 413)
+# CHAT_MAX_BODY_MB=30
+# HTTP サーバーの書き込みタイムアウト秒数 (長時間のストリーミング推論向け。nginx の proxy_read_timeout 以下を推奨)
+# SERVER_WRITE_TIMEOUT_SEC=300
+
+# エラーログ (JSON Lines 形式で追記。既定: ${DATA_DIR}/logs/error.log)
+# ERROR_LOG_FILE=data/logs/error.log
 
 # OIDC IdP 設定（SSO 連携時）
 # OIDC_ISSUER=https://mini-id.internal

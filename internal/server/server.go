@@ -21,6 +21,7 @@ import (
 	v1 "mini-aigw/internal/api/v1"
 	webapi "mini-aigw/internal/api/web"
 	"mini-aigw/internal/config"
+	"mini-aigw/internal/logging"
 	"mini-aigw/internal/db"
 	"mini-aigw/internal/eval"
 	"mini-aigw/internal/services"
@@ -44,6 +45,13 @@ func Run(args []string) {
 	cfg := config.LoadConfig()
 
 	log.Printf("Starting %s %s in environment (Debug=%v)...", cfg.ProjectName, version.Version, cfg.Debug)
+
+	if err := logging.Init(cfg.ErrorLogFile); err != nil {
+		log.Printf("Warning: error log file initialization failed (errors will only go to stderr): %v", err)
+	} else {
+		log.Printf("Error log file: %s", cfg.ErrorLogFile)
+	}
+	defer logging.Close()
 
 	// 1. Initialize SQLite with WAL mode
 	database, err := db.InitDB(cfg)
@@ -88,12 +96,17 @@ func Run(args []string) {
 	r := SetupRouter(cfg, database, renderer, bedrockSvc, knowledgeSvc, oidcSvc, evalSvc)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	writeTimeout := 300 * time.Second
+	if cfg.ServerWriteTimeoutSec > 0 {
+		writeTimeout = time.Duration(cfg.ServerWriteTimeoutSec) * time.Second
+	}
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      r,
-		ReadTimeout:  120 * time.Second,
-		WriteTimeout: 120 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 30 * time.Second,
+		ReadTimeout:       120 * time.Second,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Graceful shutdown handling
@@ -151,7 +164,7 @@ func SetupRouter(
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
-	r.Use(chiMiddleware.Recoverer)
+	r.Use(logging.Recoverer)
 	r.Use(middleware.SessionAuthMiddleware(database, cfg))
 
 	registerAppRoutes := func(sub chi.Router) {

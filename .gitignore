@@ -26,3 +26,6 @@ data/
 .idea/
 .vscode/
 plan.md
+
+# エラー再現用の実ファイル (機密を含み得るためコミットしない)
+error_sample/
