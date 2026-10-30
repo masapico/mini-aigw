@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	bedrockTypes "github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
@@ -211,21 +212,24 @@ func (h *ChatHandler) handleDirectConverse(
 		if h.cfg.Debug {
 			log.Printf("[DEBUG] [DIRECT] Starting stream with model=%s...", modelID)
 		}
-		err := h.bedrockService.CallConverseStream(ctx, w, flusher, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, nil, nil, nil, func(usage services.ChatCompletionUsage, _ []interface{}, fullAnswer string) {
+		err := h.bedrockService.CallConverseStream(ctx, w, flusher, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, nil, nil, nil, func(res services.StreamResult) {
 			if h.cfg.Debug {
 				log.Printf("\n========== [DEBUG: DIRECT STREAM SUCCESS] ==========\n"+
 					"Status  : 200 OK (Streamed)\n"+
 					"Model   : %s\n"+
 					"Duration: %v\n"+
 					"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+					"Finish  : %s (stopReason=%s)\n"+
 					"Answer  :\n%s\n"+
 					"====================================================",
 					modelID, time.Since(startTime),
-					usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
-					fullAnswer,
+					res.Usage.PromptTokens, res.Usage.CompletionTokens, res.Usage.TotalTokens,
+					res.FinishReason, res.StopReason,
+					res.Answer,
 				)
 			}
-			h.recordUsageLog(apiKey, modelID, true, false, nil, nil, &usage, startTime, "success", nil)
+			status := checkEmptyReply(ctx, meta, replyDiagFromStream("direct_stream", res))
+			h.recordUsageLog(apiKey, modelID, true, false, nil, nil, &res.Usage, startTime, status, nil)
 		})
 		if err != nil {
 			log.Printf("[ERROR] ConverseStream error: %v", err)
@@ -263,29 +267,29 @@ func (h *ChatHandler) handleDirectConverse(
 		return
 	}
 
-	answerText := ""
-	if len(resp.Choices) > 0 {
-		if content, ok := resp.Choices[0].Message["content"].(string); ok {
-			answerText = content
-		}
-	}
 	if h.cfg.Debug {
 		log.Printf("\n========== [DEBUG: DIRECT RESPONSE SUCCESS] ==========\n"+
 			"Status  : 200 OK\n"+
 			"Model   : %s\n"+
 			"Duration: %v\n"+
 			"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+			"Finish  : %s (stopReason=%s)\n"+
 			"Answer  :\n%s\n"+
 			"======================================================",
 			modelID, time.Since(startTime),
 			resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens,
-			answerText,
+			resp.FinishReason(), resp.StopReason,
+			resp.AnswerText(),
 		)
 	}
 
 	_ = json.NewEncoder(w).Encode(resp)
-	h.recordUsageLog(apiKey, modelID, false, false, nil, nil, &resp.Usage, startTime, "success", nil)
+	status := checkEmptyReply(ctx, meta, replyDiagFromResponse("direct", resp))
+	h.recordUsageLog(apiKey, modelID, false, false, nil, nil, &resp.Usage, startTime, status, nil)
 }
+
+// maxRAGToolQueries は Turn 1 で並列に呼ばれた retrieve_knowledge のうち、実際に検索するクエリ数の上限。
+const maxRAGToolQueries = 3
 
 func (h *ChatHandler) handleRAGConverse(
 	ctx context.Context,
@@ -306,19 +310,17 @@ func (h *ChatHandler) handleRAGConverse(
 	sysBlocks, bedrockMsgs, attachments := h.bedrockService.ConvertOpenAIMessagesToBedrockWithAttachments(ctx, rawMessages)
 	meta.Attachments = attachments
 
-	// Add Knowledge Tool System Prompt
-	sysBlocks = append(sysBlocks, &bedrockTypes.SystemContentBlockMemberText{
+	// Turn 1: Knowledge Tool System Prompt + tool definition
+	turn1Sys := append(append([]bedrockTypes.SystemContentBlock{}, sysBlocks...), &bedrockTypes.SystemContentBlockMemberText{
 		Value: prompts.KnowledgeToolSystemPrompt,
 	})
-
 	toolConfig := prompts.GetKnowledgeToolConfig()
 
 	if h.cfg.Debug {
 		log.Printf("[DEBUG] [RAG] Turn 1: Calling Converse with model=%s (checking tool invocation)...", modelID)
 	}
 
-	// Turn 1: Check if tool is invoked
-	turn1Resp, err := h.bedrockService.CallConverse(ctx, modelID, sysBlocks, bedrockMsgs, temperature, topP, maxTokens, toolConfig)
+	turn1Resp, err := h.bedrockService.CallConverse(ctx, modelID, turn1Sys, bedrockMsgs, temperature, topP, maxTokens, toolConfig)
 	if err != nil {
 		log.Printf("[ERROR] Turn 1 Converse error: %v", err)
 		if h.cfg.Debug {
@@ -339,108 +341,77 @@ func (h *ChatHandler) handleRAGConverse(
 		return
 	}
 
-	// Check for tool use calls in Turn 1
-	var toolUseCall *bedrockTypes.ToolUseBlock
-	var assistantTextBlocks []bedrockTypes.ContentBlock
+	searchQueries, toolInvoked := extractToolQueries(turn1Resp)
 
-	if outputMember, ok := turn1Resp.RawOutputMsg.(*bedrockTypes.ConverseOutputMemberMessage); ok {
-		for _, block := range outputMember.Value.Content {
-			assistantTextBlocks = append(assistantTextBlocks, block)
-			if tu, ok := block.(*bedrockTypes.ContentBlockMemberToolUse); ok {
-				toolUseCall = &tu.Value
-			}
-		}
-	}
-
-	if toolUseCall == nil {
+	if !toolInvoked {
 		// Tool not called: Turn 1 text is the final answer
 		if h.cfg.Debug {
 			log.Printf("[DEBUG] [RAG] Tool was NOT invoked in Turn 1. Model provided direct answer.")
+			log.Printf("\n========== [DEBUG: RAG DIRECT RESPONSE SUCCESS] ==========\n"+
+				"Status  : 200 OK (stream=%v)\n"+
+				"Model   : %s\n"+
+				"Duration: %v\n"+
+				"Tokens  : prompt=%d, completion=%d, total=%d\n"+
+				"Finish  : %s (stopReason=%s)\n"+
+				"Answer  :\n%s\n"+
+				"==========================================================",
+				isStream, modelID, time.Since(startTime),
+				turn1Resp.Usage.PromptTokens, turn1Resp.Usage.CompletionTokens, turn1Resp.Usage.TotalTokens,
+				turn1Resp.FinishReason(), turn1Resp.StopReason,
+				turn1Resp.AnswerText(),
+			)
 		}
-		responseText := ""
-		if len(turn1Resp.Choices) > 0 {
-			if content, ok := turn1Resp.Choices[0].Message["content"].(string); ok {
-				responseText = content
-			}
-		}
-
 		if isStream {
-			h.bedrockService.StreamPrebuiltTextAsSSE(w, flusher, modelID, responseText, turn1Resp.StopReason, &turn1Resp.Usage, nil, func(usage services.ChatCompletionUsage) {
-				if h.cfg.Debug {
-					log.Printf("\n========== [DEBUG: RAG DIRECT STREAM SUCCESS] ==========\n"+
-						"Status  : 200 OK (Streamed)\n"+
-						"Model   : %s\n"+
-						"Duration: %v\n"+
-						"Tokens  : prompt=%d, completion=%d, total=%d\n"+
-						"Answer  :\n%s\n"+
-						"========================================================",
-						modelID, time.Since(startTime),
-						usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
-						responseText,
-					)
-				}
-				h.recordUsageLog(apiKey, modelID, true, false, nil, nil, &usage, startTime, "success", nil)
-			})
+			h.bedrockService.StreamPrebuiltTextAsSSE(w, flusher, modelID, turn1Resp, nil, nil)
 		} else {
-			if h.cfg.Debug {
-				log.Printf("\n========== [DEBUG: RAG DIRECT RESPONSE SUCCESS] ==========\n"+
-					"Status  : 200 OK\n"+
-					"Model   : %s\n"+
-					"Duration: %v\n"+
-					"Tokens  : prompt=%d, completion=%d, total=%d\n"+
-					"Answer  :\n%s\n"+
-					"==========================================================\n",
-					modelID, time.Since(startTime),
-					turn1Resp.Usage.PromptTokens, turn1Resp.Usage.CompletionTokens, turn1Resp.Usage.TotalTokens,
-					responseText,
-				)
-			}
 			_ = json.NewEncoder(w).Encode(turn1Resp)
-			h.recordUsageLog(apiKey, modelID, false, false, nil, nil, &turn1Resp.Usage, startTime, "success", nil)
 		}
+		status := checkEmptyReply(ctx, meta, replyDiagFromResponse("rag_turn1_direct", turn1Resp))
+		h.recordUsageLog(apiKey, modelID, isStream, false, nil, nil, &turn1Resp.Usage, startTime, status, nil)
 		return
 	}
 
-	// Tool was called! Extract query from input document
-	searchQuery := ""
-	var inputMap map[string]interface{}
-	if err := toolUseCall.Input.UnmarshalSmithyDocument(&inputMap); err == nil {
-		if q, ok := inputMap["query"].(string); ok {
-			searchQuery = q
+	if len(searchQueries) == 0 {
+		if q := extractLastUserQuery(rawMessages); q != "" {
+			searchQueries = []string{q}
 		}
 	}
-	if searchQuery == "" {
-		searchQuery = extractLastUserQuery(rawMessages)
+	// 主クエリ (ゼロヒット記録・検索結果なしの案内に使う)
+	searchQuery := ""
+	if len(searchQueries) > 0 {
+		searchQuery = searchQueries[0]
 	}
 
-	// Find matched tags or doc IDs in query
-	matchedTags, matchedDocIDs := h.knowledgeService.FindMatchingMetadataFromQuery(searchQuery)
-
-	if h.cfg.Debug {
-		log.Printf("[DEBUG] [RAG] Tool invoked: %s (searchQuery: %q, matchedTags: %v, matchedDocs: %v)", *toolUseCall.Name, searchQuery, matchedTags, matchedDocIDs)
-	}
-
-	// Execute Retrieve API
-	retrievedChunks, err := h.bedrockService.RetrieveKnowledge(
-		ctx,
-		h.cfg.BedrockKBID,
-		searchQuery,
-		allowedGroups,
-		h.cfg.RAGNumberOfResults,
-		nil,
-		matchedTags,
-		matchedDocIDs,
-	)
-	if err != nil {
-		log.Printf("[ERROR] Retrieve knowledge failed: %v", err)
-		logging.Warn(ctx, "retrieve knowledge failed", "error", err.Error(), "model", modelID, "api_key_id", meta.APIKeyID)
+	// Execute Retrieve API for each query and merge
+	var retrievedChunks []services.RetrievalResult
+	for _, q := range searchQueries {
+		matchedTags, matchedDocIDs := h.knowledgeService.FindMatchingMetadataFromQuery(q)
+		if h.cfg.Debug {
+			log.Printf("[DEBUG] [RAG] Tool invoked (searchQuery: %q, matchedTags: %v, matchedDocs: %v)", q, matchedTags, matchedDocIDs)
+		}
+		chunks, err := h.bedrockService.RetrieveKnowledge(
+			ctx,
+			h.cfg.BedrockKBID,
+			q,
+			allowedGroups,
+			h.cfg.RAGNumberOfResults,
+			nil,
+			matchedTags,
+			matchedDocIDs,
+		)
+		if err != nil {
+			log.Printf("[ERROR] Retrieve knowledge failed: %v", err)
+			logging.Warn(ctx, "retrieve knowledge failed", "error", err.Error(), "model", modelID, "api_key_id", meta.APIKeyID)
+			continue
+		}
+		retrievedChunks = services.MergeRetrievalResults(retrievedChunks, chunks, h.cfg.RAGNumberOfResults*len(searchQueries))
 	}
 
 	// Filter by score threshold
 	filteredChunks := services.FilterKnowledgeResultsByScore(retrievedChunks, h.cfg.RAGScoreThreshold)
 
 	if h.cfg.Debug {
-		log.Printf("[DEBUG] [RAG] Retrieved %d chunks from KB (score threshold: %.2f)", len(retrievedChunks), h.cfg.RAGScoreThreshold)
+		log.Printf("[DEBUG] [RAG] Retrieved %d chunks from KB (queries: %d, score threshold: %.2f)", len(retrievedChunks), len(searchQueries), h.cfg.RAGScoreThreshold)
 		for i, c := range retrievedChunks {
 			log.Printf("[DEBUG]   [%d] Score: %.4f | Loc: %v", i+1, c.Score, c.Location)
 		}
@@ -480,62 +451,6 @@ func (h *ChatHandler) handleRAGConverse(
 		chunkIdx++
 	}
 
-	var toolResultText string
-	if len(formattedContext) > 0 {
-		toolResultText = prompts.FormatRAGGroundingToolResult(formattedContext)
-	} else {
-		toolResultText = prompts.FormatRAGEmptyToolResult(searchQuery, h.cfg.RAGScoreThreshold)
-
-		// 未解決クエリ (Zero-Hit) の非同期集約記録
-		maxScore := 0.0
-		for _, c := range retrievedChunks {
-			if c.Score > maxScore {
-				maxScore = c.Score
-			}
-		}
-		reason := "0件ヒット"
-		if len(retrievedChunks) > 0 {
-			reason = "スコア不足"
-		}
-		primaryGroup := "public"
-		for _, g := range allowedGroups {
-			if g != "public" {
-				primaryGroup = g
-				break
-			}
-		}
-		apiKeyName := "unknown"
-		if apiKey != nil {
-			apiKeyName = apiKey.Name
-		}
-		h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
-	}
-
-	// Turn 2 messages: prior messages + assistant message (with toolUse) + user message (toolResult)
-	turn2Messages := append([]bedrockTypes.Message{}, bedrockMsgs...)
-	turn2Messages = append(turn2Messages, bedrockTypes.Message{
-		Role:    bedrockTypes.ConversationRoleAssistant,
-		Content: assistantTextBlocks,
-	})
-	turn2Messages = append(turn2Messages, bedrockTypes.Message{
-		Role: bedrockTypes.ConversationRoleUser,
-		Content: []bedrockTypes.ContentBlock{
-			&bedrockTypes.ContentBlockMemberToolResult{
-				Value: bedrockTypes.ToolResultBlock{
-					ToolUseId: toolUseCall.ToolUseId,
-					Content: []bedrockTypes.ToolResultContentBlock{
-						&bedrockTypes.ToolResultContentBlockMemberText{
-							Value: toolResultText,
-						},
-					},
-					Status: bedrockTypes.ToolResultStatusSuccess,
-				},
-			},
-		},
-	})
-
-	searchQueries := []string{searchQuery}
-
 	primaryGroup := "public"
 	for _, g := range allowedGroups {
 		if g != "public" {
@@ -547,12 +462,40 @@ func (h *ChatHandler) handleRAGConverse(
 	if apiKey != nil {
 		apiKeyName = apiKey.Name
 	}
-
 	maxScore := 0.0
 	for _, c := range retrievedChunks {
 		if c.Score > maxScore {
 			maxScore = c.Score
 		}
+	}
+
+	var toolResultText string
+	if len(formattedContext) > 0 {
+		toolResultText = prompts.FormatRAGGroundingToolResult(formattedContext)
+	} else {
+		toolResultText = prompts.FormatRAGEmptyToolResult(searchQuery, h.cfg.RAGScoreThreshold)
+
+		// 未解決クエリ (Zero-Hit) の非同期集約記録
+		reason := "0件ヒット"
+		if len(retrievedChunks) > 0 {
+			reason = "スコア不足"
+		}
+		h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
+	}
+
+	// Turn 2: 検索結果をテキストの会話として渡し、ツールなしで回答を生成する。
+	// ツールを渡すとモデルが再検索 (tool_use) して本文が空になるため、toolConfig は渡さない。
+	turn2Sys := append(append([]bedrockTypes.SystemContentBlock{}, sysBlocks...), &bedrockTypes.SystemContentBlockMemberText{
+		Value: prompts.KnowledgeAnswerSystemPrompt,
+	})
+	turn2Messages := services.BuildRAGAnswerMessages(bedrockMsgs, turn1Resp.AnswerText(), toolResultText)
+
+	ragDiag := func(d replyDiag) replyDiag {
+		d.ToolInvoked = true
+		d.Queries = len(searchQueries)
+		d.RetrievedChunks = len(retrievedChunks)
+		d.PassedChunks = len(formattedContext)
+		return d
 	}
 
 	if h.cfg.Debug {
@@ -561,15 +504,14 @@ func (h *ChatHandler) handleRAGConverse(
 
 	if isStream {
 		err := h.bedrockService.CallConverseStream(
-			ctx, w, flusher, modelID, sysBlocks, turn2Messages, temperature, topP, maxTokens,
-			toolConfig,
+			ctx, w, flusher, modelID, turn2Sys, turn2Messages, temperature, topP, maxTokens,
+			nil,
 			citations, &turn1Resp.Usage,
-			func(combinedUsage services.ChatCompletionUsage, actualCitations []interface{}, answerText string) {
-				wasCited := len(actualCitations) > 0
+			func(res services.StreamResult) {
+				wasCited := len(res.Citations) > 0
 				if !wasCited && len(formattedContext) > 0 {
 					// チャンクは存在したがLLMが引用しなかった / ナレッジ記載なしの場合も未解決クエリとして集約！
-					reason := "ナレッジ記載なし"
-					h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
+					h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, "ナレッジ記載なし", apiKeyName)
 				}
 				if h.cfg.Debug {
 					log.Printf("\n========== [DEBUG: RAG STREAM RESPONSE SUCCESS] ==========\n"+
@@ -577,16 +519,19 @@ func (h *ChatHandler) handleRAGConverse(
 						"Model    : %s\n"+
 						"Duration : %v\n"+
 						"Tokens   : prompt=%d, completion=%d, total=%d\n"+
+						"Finish   : %s (stopReason=%s)\n"+
 						"Citations: %d items (wasCited=%v)\n"+
 						"Answer   :\n%s\n"+
 						"==========================================================",
 						modelID, time.Since(startTime),
-						combinedUsage.PromptTokens, combinedUsage.CompletionTokens, combinedUsage.TotalTokens,
-						len(actualCitations), wasCited,
-						answerText,
+						res.Usage.PromptTokens, res.Usage.CompletionTokens, res.Usage.TotalTokens,
+						res.FinishReason, res.StopReason,
+						len(res.Citations), wasCited,
+						res.Answer,
 					)
 				}
-				h.recordUsageLog(apiKey, modelID, true, true, searchQueries, actualCitations, &combinedUsage, startTime, "success", nil)
+				status := checkEmptyReply(ctx, meta, ragDiag(replyDiagFromStream("rag_turn2_stream", res)))
+				h.recordUsageLog(apiKey, modelID, true, true, searchQueries, res.Citations, &res.Usage, startTime, status, nil)
 			},
 		)
 		if err != nil {
@@ -605,7 +550,23 @@ func (h *ChatHandler) handleRAGConverse(
 		return
 	}
 
-	turn2Resp, err := h.bedrockService.CallConverse(ctx, modelID, sysBlocks, turn2Messages, temperature, topP, maxTokens, toolConfig)
+	combinedUsage := turn1Resp.Usage
+	var turn2Resp *services.ChatCompletionResponse
+	// 本文が空のまま正常終了 (stop) した場合だけ 1 回再試行する
+	for attempt := 1; attempt <= 2; attempt++ {
+		turn2Resp, err = h.bedrockService.CallConverse(ctx, modelID, turn2Sys, turn2Messages, temperature, topP, maxTokens, nil)
+		if err != nil {
+			break
+		}
+		combinedUsage = addUsage(combinedUsage, turn2Resp.Usage)
+		if attempt == 2 || strings.TrimSpace(turn2Resp.AnswerText()) != "" || turn2Resp.FinishReason() != "stop" {
+			break
+		}
+		logging.Warn(ctx, "chat reply empty, retrying",
+			"stage", "rag_turn2", "model", modelID, "stop_reason", turn2Resp.StopReason,
+			"prompt_tokens", turn2Resp.Usage.PromptTokens, "completion_tokens", turn2Resp.Usage.CompletionTokens,
+			"api_key_id", meta.APIKeyID)
+	}
 	if err != nil {
 		log.Printf("[ERROR] Turn 2 Converse error: %v", err)
 		if h.cfg.Debug {
@@ -618,30 +579,18 @@ func (h *ChatHandler) handleRAGConverse(
 		}
 		logChatError(ctx, "rag_turn2_converse", err, meta)
 		writeBedrockError(w, err)
-		h.recordUsageLog(apiKey, modelID, false, true, searchQueries, citations, &turn1Resp.Usage, startTime, "error", awsStr(err.Error()))
+		h.recordUsageLog(apiKey, modelID, false, true, searchQueries, citations, &combinedUsage, startTime, "error", awsStr(err.Error()))
 		return
 	}
 
-	answerText := ""
-	if len(turn2Resp.Choices) > 0 {
-		if content, ok := turn2Resp.Choices[0].Message["content"].(string); ok {
-			answerText = content
-		}
-	}
+	answerText := turn2Resp.AnswerText()
 
 	actualCitations, wasCited := services.FilterInterfaceCitations(answerText, citations)
 	if !wasCited && len(formattedContext) > 0 {
 		actualCitations = nil
-		reason := "ナレッジ記載なし"
-		h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, reason, apiKeyName)
+		h.zeroHitService.RecordZeroHitAsync(searchQuery, primaryGroup, maxScore, "ナレッジ記載なし", apiKeyName)
 	}
 
-	// Combine Turn 1 and Turn 2 usage
-	combinedUsage := services.ChatCompletionUsage{
-		PromptTokens:     turn1Resp.Usage.PromptTokens + turn2Resp.Usage.PromptTokens,
-		CompletionTokens: turn1Resp.Usage.CompletionTokens + turn2Resp.Usage.CompletionTokens,
-		TotalTokens:      turn1Resp.Usage.TotalTokens + turn2Resp.Usage.TotalTokens,
-	}
 	turn2Resp.Usage = combinedUsage
 	turn2Resp.Citations = actualCitations
 
@@ -651,18 +600,59 @@ func (h *ChatHandler) handleRAGConverse(
 			"Model    : %s\n"+
 			"Duration : %v\n"+
 			"Tokens   : prompt=%d, completion=%d, total=%d\n"+
+			"Finish   : %s (stopReason=%s)\n"+
 			"Citations: %d items (wasCited=%v)\n"+
 			"Answer   :\n%s\n"+
 			"===================================================",
 			modelID, time.Since(startTime),
 			combinedUsage.PromptTokens, combinedUsage.CompletionTokens, combinedUsage.TotalTokens,
+			turn2Resp.FinishReason(), turn2Resp.StopReason,
 			len(actualCitations), wasCited,
 			answerText,
 		)
 	}
 
 	_ = json.NewEncoder(w).Encode(turn2Resp)
-	h.recordUsageLog(apiKey, modelID, false, true, searchQueries, actualCitations, &combinedUsage, startTime, "success", nil)
+	status := checkEmptyReply(ctx, meta, ragDiag(replyDiagFromResponse("rag_turn2", turn2Resp)))
+	h.recordUsageLog(apiKey, modelID, false, true, searchQueries, actualCitations, &combinedUsage, startTime, status, nil)
+}
+
+// extractToolQueries は Turn 1 応答の retrieve_knowledge 呼び出しから検索クエリを集める (重複除去、上限 maxRAGToolQueries)。
+// toolInvoked はツール呼び出しが 1 件以上あったかどうか。query が取れない呼び出しも数える。
+func extractToolQueries(resp *services.ChatCompletionResponse) (queries []string, toolInvoked bool) {
+	outputMember, ok := resp.RawOutputMsg.(*bedrockTypes.ConverseOutputMemberMessage)
+	if !ok {
+		return nil, false
+	}
+	seen := make(map[string]bool)
+	for _, block := range outputMember.Value.Content {
+		tu, ok := block.(*bedrockTypes.ContentBlockMemberToolUse)
+		if !ok {
+			continue
+		}
+		toolInvoked = true
+		var inputMap map[string]interface{}
+		if tu.Value.Input != nil {
+			// document の実装によってはデコードに成功してもエラーを返すため、結果の有無で判定する
+			_ = tu.Value.Input.UnmarshalSmithyDocument(&inputMap)
+		}
+		q, _ := inputMap["query"].(string)
+		q = strings.TrimSpace(q)
+		if q == "" || seen[q] || len(queries) >= maxRAGToolQueries {
+			continue
+		}
+		seen[q] = true
+		queries = append(queries, q)
+	}
+	return queries, toolInvoked
+}
+
+func addUsage(a, b services.ChatCompletionUsage) services.ChatCompletionUsage {
+	return services.ChatCompletionUsage{
+		PromptTokens:     a.PromptTokens + b.PromptTokens,
+		CompletionTokens: a.CompletionTokens + b.CompletionTokens,
+		TotalTokens:      a.TotalTokens + b.TotalTokens,
+	}
 }
 
 func extractLastUserQuery(messages []map[string]interface{}) string {

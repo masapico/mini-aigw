@@ -439,8 +439,9 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrockWithAttachments(
 			}
 		}
 
+		// 空の発言は送らない (空白のみのテキストは Bedrock が ValidationException を返す)
 		if len(contentBlocks) == 0 {
-			contentBlocks = append(contentBlocks, &bedrockTypes.ContentBlockMemberText{Value: " "})
+			continue
 		}
 
 		bedrockMessages = append(bedrockMessages, bedrockTypes.Message{
@@ -449,7 +450,41 @@ func (s *BedrockService) ConvertOpenAIMessagesToBedrockWithAttachments(
 		})
 	}
 
-	return systemPrompts, bedrockMessages, attachments
+	return systemPrompts, normalizeConversation(bedrockMessages), attachments
+}
+
+// normalizeConversation は Bedrock Converse の会話制約に合わせてメッセージ列を整える。
+//   - 同じ role が連続する発言は 1 つのメッセージに結合する (role は交互である必要がある)
+//   - 先頭が assistant の場合は user のプレースホルダーを先頭に入れる
+//   - 会話が空の場合は user のプレースホルダーを 1 件入れる
+func normalizeConversation(msgs []bedrockTypes.Message) []bedrockTypes.Message {
+	var out []bedrockTypes.Message
+	for _, m := range msgs {
+		if len(m.Content) == 0 {
+			continue
+		}
+		if n := len(out); n > 0 && out[n-1].Role == m.Role {
+			out[n-1].Content = append(out[n-1].Content, m.Content...)
+			continue
+		}
+		out = append(out, bedrockTypes.Message{
+			Role:    m.Role,
+			Content: append([]bedrockTypes.ContentBlock{}, m.Content...),
+		})
+	}
+	if len(out) == 0 {
+		return []bedrockTypes.Message{{
+			Role:    bedrockTypes.ConversationRoleUser,
+			Content: []bedrockTypes.ContentBlock{&bedrockTypes.ContentBlockMemberText{Value: "(空のメッセージ)"}},
+		}}
+	}
+	if out[0].Role != bedrockTypes.ConversationRoleUser {
+		out = append([]bedrockTypes.Message{{
+			Role:    bedrockTypes.ConversationRoleUser,
+			Content: []bedrockTypes.ContentBlock{&bedrockTypes.ContentBlockMemberText{Value: "(会話の続き)"}},
+		}}, out...)
+	}
+	return out
 }
 
 // ==============================================================================
@@ -582,6 +617,51 @@ type ChatCompletionResponse struct {
 	RawOutputMsg interface{}            `json:"-"`
 }
 
+// AnswerText は choices[0].message.content を返す。
+func (r *ChatCompletionResponse) AnswerText() string {
+	if r == nil || len(r.Choices) == 0 {
+		return ""
+	}
+	s, _ := r.Choices[0].Message["content"].(string)
+	return s
+}
+
+// ReasoningText は choices[0].message.reasoning_content を返す。
+func (r *ChatCompletionResponse) ReasoningText() string {
+	if r == nil || len(r.Choices) == 0 {
+		return ""
+	}
+	s, _ := r.Choices[0].Message["reasoning_content"].(string)
+	return s
+}
+
+// FinishReason は choices[0].finish_reason を返す。
+func (r *ChatCompletionResponse) FinishReason() string {
+	if r == nil || len(r.Choices) == 0 {
+		return ""
+	}
+	return r.Choices[0].FinishReason
+}
+
+// MapFinishReason は Bedrock の stopReason を OpenAI 互換の finish_reason に変換する。
+func MapFinishReason(stopReason string, hasToolUse bool) string {
+	if hasToolUse {
+		return "tool_calls"
+	}
+	switch stopReason {
+	case "", "end_turn", "stop_sequence":
+		return "stop"
+	case "max_tokens", "model_context_window_exceeded":
+		return "length"
+	case "guardrail_intervened", "content_filtered":
+		return "content_filter"
+	case "tool_use":
+		return "tool_calls"
+	default:
+		return stopReason
+	}
+}
+
 func (s *BedrockService) CallConverse(
 	ctx context.Context,
 	modelID string,
@@ -615,6 +695,7 @@ func (s *BedrockService) CallConverse(
 	}
 
 	var responseText strings.Builder
+	var reasoningText strings.Builder
 	var toolUseCalls []bedrockTypes.ToolUseBlock
 
 	if outputMsg, ok := res.Output.(*bedrockTypes.ConverseOutputMemberMessage); ok {
@@ -624,6 +705,10 @@ func (s *BedrockService) CallConverse(
 				responseText.WriteString(b.Value)
 			case *bedrockTypes.ContentBlockMemberToolUse:
 				toolUseCalls = append(toolUseCalls, b.Value)
+			case *bedrockTypes.ContentBlockMemberReasoningContent:
+				if rt, ok := b.Value.(*bedrockTypes.ReasoningContentBlockMemberReasoningText); ok && rt.Value.Text != nil {
+					reasoningText.WriteString(*rt.Value.Text)
+				}
 			}
 		}
 	}
@@ -639,12 +724,14 @@ func (s *BedrockService) CallConverse(
 	}
 
 	stopReason := string(res.StopReason)
-	finishReason := "stop"
-	if stopReason != "end_turn" && stopReason != "" {
-		finishReason = stopReason
+	finishReason := MapFinishReason(stopReason, len(toolUseCalls) > 0)
+
+	message := map[string]interface{}{
+		"role":    "assistant",
+		"content": responseText.String(),
 	}
-	if len(toolUseCalls) > 0 {
-		finishReason = "tool_calls"
+	if reasoningText.Len() > 0 {
+		message["reasoning_content"] = reasoningText.String()
 	}
 
 	completionID := fmt.Sprintf("chatcmpl-%s", uuid.New().String()[:12])
@@ -657,11 +744,8 @@ func (s *BedrockService) CallConverse(
 		Model:   modelID,
 		Choices: []ChatCompletionChoice{
 			{
-				Index: 0,
-				Message: map[string]interface{}{
-					"role":    "assistant",
-					"content": responseText.String(),
-				},
+				Index:        0,
+				Message:      message,
 				FinishReason: finishReason,
 			},
 		},
@@ -682,8 +766,9 @@ func (s *BedrockService) CallConverse(
 // ==============================================================================
 
 type StreamDelta struct {
-	Role    string `json:"role,omitempty"`
-	Content string `json:"content,omitempty"`
+	Role             string `json:"role,omitempty"`
+	Content          string `json:"content,omitempty"`
+	ReasoningContent string `json:"reasoning_content,omitempty"`
 }
 
 type StreamChoice struct {
@@ -693,13 +778,23 @@ type StreamChoice struct {
 }
 
 type StreamChunk struct {
-	ID        string                 `json:"id"`
-	Object    string                 `json:"object"`
-	Created   int64                  `json:"created"`
-	Model     string                 `json:"model"`
-	Choices   []StreamChoice         `json:"choices"`
-	Usage     *ChatCompletionUsage   `json:"usage,omitempty"`
-	Citations []interface{}          `json:"citations,omitempty"`
+	ID        string               `json:"id"`
+	Object    string               `json:"object"`
+	Created   int64                `json:"created"`
+	Model     string               `json:"model"`
+	Choices   []StreamChoice       `json:"choices"`
+	Usage     *ChatCompletionUsage `json:"usage,omitempty"`
+	Citations []interface{}        `json:"citations,omitempty"`
+}
+
+// StreamResult はストリーミング完了時の集計結果。
+type StreamResult struct {
+	Usage          ChatCompletionUsage
+	Citations      []interface{}
+	Answer         string
+	ReasoningChars int
+	StopReason     string
+	FinishReason   string
 }
 
 func (s *BedrockService) CallConverseStream(
@@ -715,7 +810,7 @@ func (s *BedrockService) CallConverseStream(
 	toolConfig *bedrockTypes.ToolConfiguration,
 	citations []interface{},
 	priorUsage *ChatCompletionUsage,
-	onComplete func(usage ChatCompletionUsage, actualCitations []interface{}, fullAnswer string),
+	onComplete func(result StreamResult),
 ) error {
 	infConfig := s.BuildInferenceConfigForModel(modelID, temperature, topP, maxTokens)
 
@@ -744,44 +839,41 @@ func (s *BedrockService) CallConverseStream(
 
 	completionID := fmt.Sprintf("chatcmpl-%s", uuid.New().String()[:12])
 	nowUnix := time.Now().Unix()
+	newChunk := func(delta StreamDelta) StreamChunk {
+		return StreamChunk{
+			ID:      completionID,
+			Object:  "chat.completion.chunk",
+			Created: nowUnix,
+			Model:   modelID,
+			Choices: []StreamChoice{{Index: 0, Delta: delta}},
+		}
+	}
 
 	// Initial role chunk
-	initialChunk := StreamChunk{
-		ID:      completionID,
-		Object:  "chat.completion.chunk",
-		Created: nowUnix,
-		Model:   modelID,
-		Choices: []StreamChoice{
-			{
-				Index: 0,
-				Delta: StreamDelta{Role: "assistant", Content: ""},
-			},
-		},
-	}
-	sendSSEChunk(w, flusher, initialChunk)
+	sendSSEChunk(w, flusher, newChunk(StreamDelta{Role: "assistant"}))
 
 	var streamInputTokens, streamOutputTokens int
 	finalStopReason := "end_turn"
 	var fullAnswer strings.Builder
+	reasoningChars := 0
+	hasToolUse := false
 
 	for event := range stream.Events() {
 		switch e := event.(type) {
+		case *bedrockTypes.ConverseStreamOutputMemberContentBlockStart:
+			if _, ok := e.Value.Start.(*bedrockTypes.ContentBlockStartMemberToolUse); ok {
+				hasToolUse = true
+			}
 		case *bedrockTypes.ConverseStreamOutputMemberContentBlockDelta:
-			if deltaText, ok := e.Value.Delta.(*bedrockTypes.ContentBlockDeltaMemberText); ok {
-				fullAnswer.WriteString(deltaText.Value)
-				chunk := StreamChunk{
-					ID:      completionID,
-					Object:  "chat.completion.chunk",
-					Created: nowUnix,
-					Model:   modelID,
-					Choices: []StreamChoice{
-						{
-							Index: 0,
-							Delta: StreamDelta{Content: deltaText.Value},
-						},
-					},
+			switch d := e.Value.Delta.(type) {
+			case *bedrockTypes.ContentBlockDeltaMemberText:
+				fullAnswer.WriteString(d.Value)
+				sendSSEChunk(w, flusher, newChunk(StreamDelta{Content: d.Value}))
+			case *bedrockTypes.ContentBlockDeltaMemberReasoningContent:
+				if rt, ok := d.Value.(*bedrockTypes.ReasoningContentBlockDeltaMemberText); ok && rt.Value != "" {
+					reasoningChars += utf8.RuneCountInString(rt.Value)
+					sendSSEChunk(w, flusher, newChunk(StreamDelta{ReasoningContent: rt.Value}))
 				}
-				sendSSEChunk(w, flusher, chunk)
 			}
 		case *bedrockTypes.ConverseStreamOutputMemberMessageStop:
 			finalStopReason = string(e.Value.StopReason)
@@ -820,32 +912,25 @@ func (s *BedrockService) CallConverseStream(
 		TotalTokens:      totalPrompt + totalCompletion,
 	}
 
-	finishReasonStr := "stop"
-	if finalStopReason != "end_turn" && finalStopReason != "" {
-		finishReasonStr = finalStopReason
-	}
+	finishReasonStr := MapFinishReason(finalStopReason, hasToolUse)
 
 	actualCitations, _ := FilterInterfaceCitations(fullAnswer.String(), citations)
 
-	endChunk := StreamChunk{
-		ID:      completionID,
-		Object:  "chat.completion.chunk",
-		Created: nowUnix,
-		Model:   modelID,
-		Choices: []StreamChoice{
-			{
-				Index:        0,
-				Delta:        StreamDelta{},
-				FinishReason: &finishReasonStr,
-			},
-		},
-		Usage:     &combinedUsage,
-		Citations: actualCitations,
-	}
+	endChunk := newChunk(StreamDelta{})
+	endChunk.Choices[0].FinishReason = &finishReasonStr
+	endChunk.Usage = &combinedUsage
+	endChunk.Citations = actualCitations
 	sendSSEChunk(w, flusher, endChunk)
 
 	if onComplete != nil {
-		onComplete(combinedUsage, actualCitations, fullAnswer.String())
+		onComplete(StreamResult{
+			Usage:          combinedUsage,
+			Citations:      actualCitations,
+			Answer:         fullAnswer.String(),
+			ReasoningChars: reasoningChars,
+			StopReason:     finalStopReason,
+			FinishReason:   finishReasonStr,
+		})
 	}
 
 	_, _ = io.WriteString(w, "data: [DONE]\n\n")
@@ -854,56 +939,50 @@ func (s *BedrockService) CallConverseStream(
 	return nil
 }
 
+// StreamPrebuiltTextAsSSE は生成済みの非ストリーム応答を SSE として送信する。
 func (s *BedrockService) StreamPrebuiltTextAsSSE(
 	w http.ResponseWriter,
 	flusher http.Flusher,
 	modelID string,
-	text string,
-	stopReason string,
-	usage *ChatCompletionUsage,
+	resp *ChatCompletionResponse,
 	citations []interface{},
 	onComplete func(usage ChatCompletionUsage),
 ) {
 	completionID := fmt.Sprintf("chatcmpl-%s", uuid.New().String()[:12])
 	nowUnix := time.Now().Unix()
-
-	finishReason := "stop"
-	if stopReason != "end_turn" && stopReason != "" {
-		finishReason = stopReason
-	}
-
-	// Initial role chunk
-	sendSSEChunk(w, flusher, StreamChunk{
-		ID:      completionID,
-		Object:  "chat.completion.chunk",
-		Created: nowUnix,
-		Model:   modelID,
-		Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Role: "assistant"}}},
-	})
-
-	if text != "" {
-		sendSSEChunk(w, flusher, StreamChunk{
+	newChunk := func(delta StreamDelta) StreamChunk {
+		return StreamChunk{
 			ID:      completionID,
 			Object:  "chat.completion.chunk",
 			Created: nowUnix,
 			Model:   modelID,
-			Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{Content: text}}},
-		})
+			Choices: []StreamChoice{{Index: 0, Delta: delta}},
+		}
 	}
 
-	endChunk := StreamChunk{
-		ID:      completionID,
-		Object:  "chat.completion.chunk",
-		Created: nowUnix,
-		Model:   modelID,
-		Choices: []StreamChoice{{Index: 0, Delta: StreamDelta{}, FinishReason: &finishReason}},
-		Usage:   usage,
-		Citations: citations,
+	finishReason := resp.FinishReason()
+	if finishReason == "" {
+		finishReason = "stop"
 	}
+
+	// Initial role chunk
+	sendSSEChunk(w, flusher, newChunk(StreamDelta{Role: "assistant"}))
+
+	if reasoning := resp.ReasoningText(); reasoning != "" {
+		sendSSEChunk(w, flusher, newChunk(StreamDelta{ReasoningContent: reasoning}))
+	}
+	if text := resp.AnswerText(); text != "" {
+		sendSSEChunk(w, flusher, newChunk(StreamDelta{Content: text}))
+	}
+
+	endChunk := newChunk(StreamDelta{})
+	endChunk.Choices[0].FinishReason = &finishReason
+	endChunk.Usage = &resp.Usage
+	endChunk.Citations = citations
 	sendSSEChunk(w, flusher, endChunk)
 
-	if onComplete != nil && usage != nil {
-		onComplete(*usage)
+	if onComplete != nil {
+		onComplete(resp.Usage)
 	}
 
 	_, _ = io.WriteString(w, "data: [DONE]\n\n")
@@ -1172,6 +1251,11 @@ func (s *BedrockService) executeSingleRetrieve(
 	}
 
 	return results, nil
+}
+
+// MergeRetrievalResults は 2 つの検索結果を重複除去 (同一チャンクは高スコア側を採用) してスコア順に結合する。
+func MergeRetrievalResults(primary, secondary []RetrievalResult, limit int) []RetrievalResult {
+	return mergeRetrievalResults(primary, secondary, limit)
 }
 
 func mergeRetrievalResults(primary, secondary []RetrievalResult, limit int) []RetrievalResult {

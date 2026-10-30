@@ -115,6 +115,32 @@ func (p *RAGPipeline) RetrieveAndFormat(
 	}, nil
 }
 
+// RAGSearchPreamble は検索結果を渡す前に assistant 発言として置く既定の文言。
+const RAGSearchPreamble = "ナレッジベースを検索して回答します。"
+
+// BuildRAGAnswerMessages は RAG の回答生成 (Turn 2) 用の会話を組み立てる。
+// toolUse / toolResult ブロックを使わずテキストの会話にするため、toolConfig なしで呼び出せ、
+// モデルがツールを再度呼んで本文が空になることがない。
+//
+// 構成: prior + assistant(preamble) + user(toolResultText)
+func BuildRAGAnswerMessages(prior []bedrockTypes.Message, preamble, toolResultText string) []bedrockTypes.Message {
+	if strings.TrimSpace(preamble) == "" {
+		preamble = RAGSearchPreamble
+	}
+	msgs := append([]bedrockTypes.Message{}, prior...)
+	msgs = append(msgs,
+		bedrockTypes.Message{
+			Role:    bedrockTypes.ConversationRoleAssistant,
+			Content: []bedrockTypes.ContentBlock{&bedrockTypes.ContentBlockMemberText{Value: preamble}},
+		},
+		bedrockTypes.Message{
+			Role:    bedrockTypes.ConversationRoleUser,
+			Content: []bedrockTypes.ContentBlock{&bedrockTypes.ContentBlockMemberText{Value: toolResultText}},
+		},
+	)
+	return normalizeConversation(msgs)
+}
+
 // GenerateAnswer は成形されたコンテキストとユーザーの質問を用いて LLM に推論を実行させます
 func (p *RAGPipeline) GenerateAnswer(
 	ctx context.Context,
@@ -133,36 +159,16 @@ func (p *RAGPipeline) GenerateAnswer(
 
 	sysBlocks := []bedrockTypes.SystemContentBlock{
 		&bedrockTypes.SystemContentBlockMemberText{
-			Value: prompts.KnowledgeToolSystemPrompt,
+			Value: prompts.KnowledgeAnswerSystemPrompt,
 		},
 	}
 
-	messages := []bedrockTypes.Message{
+	messages := BuildRAGAnswerMessages([]bedrockTypes.Message{
 		{
-			Role: bedrockTypes.ConversationRoleUser,
-			Content: []bedrockTypes.ContentBlock{
-				&bedrockTypes.ContentBlockMemberText{
-					Value: query,
-				},
-			},
+			Role:    bedrockTypes.ConversationRoleUser,
+			Content: []bedrockTypes.ContentBlock{&bedrockTypes.ContentBlockMemberText{Value: query}},
 		},
-		{
-			Role: bedrockTypes.ConversationRoleAssistant,
-			Content: []bedrockTypes.ContentBlock{
-				&bedrockTypes.ContentBlockMemberText{
-					Value: "ナレッジベースを検索して回答します。",
-				},
-			},
-		},
-		{
-			Role: bedrockTypes.ConversationRoleUser,
-			Content: []bedrockTypes.ContentBlock{
-				&bedrockTypes.ContentBlockMemberText{
-					Value: toolResultText,
-				},
-			},
-		},
-	}
+	}, "", toolResultText)
 
 	if maxTokens == nil {
 		defaultMax := p.cfg.DefaultMaxTokens

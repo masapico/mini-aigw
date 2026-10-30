@@ -109,6 +109,44 @@ Bedrock Knowledge Base のデータソース設定において、解析戦略（
 
 ---
 
+### 2.5 【仕様⑤】RAG チャットで回答が空になる場合
+
+#### RAG の 2 段階呼び出し
+1. **Turn 1**: `retrieve_knowledge` ツール付きで Converse を呼び、検索が必要かをモデルに判断させます。ツールが呼ばれなければ、Turn 1 の回答をそのまま返します。
+2. **Turn 2**: ツール呼び出しのクエリ（最大 3 件、重複は除去）で Retrieve を実行し、検索結果をテキストの会話として渡して、**ツールなし**で回答を生成します。
+
+Turn 2 にツール定義を渡すと、モデルが再検索（`tool_use`）して本文が空のまま応答が終わります。このため Turn 2 にはツールを渡しません。
+
+#### 応答の `finish_reason`
+Bedrock の `stopReason` は OpenAI 互換の値に変換して返します。変換前の値は、非ストリーム応答の `stop_reason` に残ります。
+
+| Bedrock `stopReason` | `finish_reason` |
+| --- | --- |
+| `end_turn`, `stop_sequence` | `stop` |
+| `max_tokens`, `model_context_window_exceeded` | `length` |
+| `guardrail_intervened`, `content_filtered` | `content_filter` |
+| `tool_use` | `tool_calls` |
+
+推論（thinking）モデルの思考過程は、`message.reasoning_content`（ストリームでは `delta.reasoning_content`）で返します。
+
+#### 空回答のログ
+回答本文が空白のみの場合は、`ERROR_LOG_FILE` に `chat reply empty` を WARN で記録します。利用ログの `status` は `empty` になります。回答本文や思考過程はログに記録しません。
+
+| 項目 | 内容 |
+| --- | --- |
+| `stage` | `direct` / `direct_stream` / `rag_turn1_direct` / `rag_turn2` / `rag_turn2_stream` |
+| `stop_reason`, `finish_reason` | Bedrock の値と変換後の値 |
+| `reasoning_chars` | 思考過程の文字数 |
+| `prompt_tokens`, `completion_tokens` | トークン数（RAG の Turn 2 は Turn 1 との合計） |
+| `tool_invoked`, `search_queries`, `retrieved_chunks`, `passed_chunks` | RAG の検索状況 |
+
+切り分けの目安:
+- `finish_reason=length`：`max_tokens`（クライアント指定、`DEFAULT_MAX_TOKENS` / `MAX_ALLOWED_TOKENS`）が不足しています。推論モデルでは、思考過程の分も含めて足りる値にします。
+- `reasoning_chars` が 0 より大きい：思考過程だけで出力が終わっています。上と同じく `max_tokens` を見直します。
+- `finish_reason=stop` で本文が空：非ストリームの RAG Turn 2 は自動で 1 回再試行します（`chat reply empty, retrying` を記録）。
+
+---
+
 ## 3. 関連ドキュメント
 
 - [README.md - mini-aigw 全体仕様・起動手順](../README.md)

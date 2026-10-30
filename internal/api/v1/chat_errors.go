@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/smithy-go"
@@ -145,4 +146,74 @@ func logChatError(ctx context.Context, stage string, err error, meta *chatLogMet
 		)
 	}
 	logging.Error(ctx, "chat completion failed", attrs...)
+}
+
+// replyDiag は空回答を切り分けるための診断情報。回答本文そのものはログに出さない。
+type replyDiag struct {
+	Stage           string
+	Answer          string
+	StopReason      string
+	FinishReason    string
+	ReasoningChars  int
+	Usage           services.ChatCompletionUsage
+	ToolInvoked     bool
+	Queries         int
+	RetrievedChunks int
+	PassedChunks    int
+}
+
+func replyDiagFromResponse(stage string, resp *services.ChatCompletionResponse) replyDiag {
+	return replyDiag{
+		Stage:          stage,
+		Answer:         resp.AnswerText(),
+		StopReason:     resp.StopReason,
+		FinishReason:   resp.FinishReason(),
+		ReasoningChars: utf8.RuneCountInString(resp.ReasoningText()),
+		Usage:          resp.Usage,
+	}
+}
+
+func replyDiagFromStream(stage string, res services.StreamResult) replyDiag {
+	return replyDiag{
+		Stage:          stage,
+		Answer:         res.Answer,
+		StopReason:     res.StopReason,
+		FinishReason:   res.FinishReason,
+		ReasoningChars: res.ReasoningChars,
+		Usage:          res.Usage,
+	}
+}
+
+// checkEmptyReply は回答本文が空白のみなら error.log に警告を残し、利用ログ用の status ("empty" / "success") を返す。
+func checkEmptyReply(ctx context.Context, meta *chatLogMeta, d replyDiag) string {
+	if strings.TrimSpace(d.Answer) != "" {
+		return "success"
+	}
+	attrs := []any{
+		"stage", d.Stage,
+		"stop_reason", d.StopReason,
+		"finish_reason", d.FinishReason,
+		"reasoning_chars", d.ReasoningChars,
+		"prompt_tokens", d.Usage.PromptTokens,
+		"completion_tokens", d.Usage.CompletionTokens,
+		"tool_invoked", d.ToolInvoked,
+		"search_queries", d.Queries,
+		"retrieved_chunks", d.RetrievedChunks,
+		"passed_chunks", d.PassedChunks,
+	}
+	if meta != nil {
+		attrs = append(attrs,
+			"model", meta.ModelID,
+			"stream", meta.Stream,
+			"rag", meta.RAG,
+			"api_key_id", meta.APIKeyID,
+			"api_key_name", meta.APIKeyName,
+			"body_bytes", meta.BodyBytes,
+			"elapsed_ms", time.Since(meta.StartTime).Milliseconds(),
+			"total_attachment_chars", meta.totalAttachmentChars(),
+			"attachments", meta.Attachments,
+		)
+	}
+	logging.Warn(ctx, "chat reply empty", attrs...)
+	return "empty"
 }

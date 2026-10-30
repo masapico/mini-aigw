@@ -70,6 +70,10 @@ func newTestChatHandler(t *testing.T, cfg *config.Config, rt http.RoundTripper) 
 	if err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
+	// TempDir 削除前に DB を閉じる (Windows では開いたままのファイルを削除できない)
+	if sqlDB, err := database.DB(); err == nil {
+		t.Cleanup(func() { _ = sqlDB.Close() })
+	}
 
 	client := bedrockruntime.New(bedrockruntime.Options{
 		Region:           "ap-northeast-1",
