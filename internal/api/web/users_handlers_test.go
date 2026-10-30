@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -195,6 +196,62 @@ func TestUsersHandler_EditGroup(t *testing.T) {
 	r.ServeHTTP(wUnauth, unauthReq)
 	if wUnauth.Code != http.StatusForbidden {
 		t.Errorf("expected 403 Forbidden, got %d", wUnauth.Code)
+	}
+}
+
+func TestUsersHandler_DeleteUser_WithReferences(t *testing.T) {
+	handler, r, adminUser, normalUser := setupTestUsersEnv(t)
+
+	session := models.Session{SessionID: "session-1", UserID: normalUser.ID, ExpiresAt: time.Now().Add(time.Hour)}
+	if err := handler.db.Create(&session).Error; err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	key := models.ApiKey{UserID: &normalUser.ID, Name: "発行済みキー", KeyHash: "hash-issued", Prefix: "sk-live-abc..."}
+	if err := handler.db.Create(&key).Error; err != nil {
+		t.Fatalf("failed to create api key: %v", err)
+	}
+	doc := models.KnowledgeDocument{ID: "doc-1", S3Key: "groups/dev/a.pdf", S3Bucket: "test-bucket", Filename: "a.pdf", ContentType: "application/pdf", GroupName: "dev", UploaderID: &normalUser.ID, SyncStatus: "SYNCED"}
+	if err := handler.db.Create(&doc).Error; err != nil {
+		t.Fatalf("failed to create document: %v", err)
+	}
+
+	req := httptest.NewRequest("DELETE", "/users/"+normalUser.ID, nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserContextKey, adminUser))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for delete, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var count int64
+	handler.db.Model(&models.User{}).Where("id = ?", normalUser.ID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected user to be deleted, count = %d", count)
+	}
+
+	// セッションは破棄され、削除済みユーザーのログインが残らないこと
+	handler.db.Model(&models.Session{}).Where("user_id = ?", normalUser.ID).Count(&count)
+	if count != 0 {
+		t.Errorf("expected sessions to be deleted, count = %d", count)
+	}
+
+	// 発行済みキーは有効なまま発行者の紐付けだけが外れること
+	var keptKey models.ApiKey
+	if err := handler.db.First(&keptKey, "id = ?", key.ID).Error; err != nil {
+		t.Fatalf("expected api key to be preserved: %v", err)
+	}
+	if keptKey.UserID != nil {
+		t.Errorf("expected api key user_id to be NULL, got %q", *keptKey.UserID)
+	}
+
+	// ナレッジ文書は残りアップローダーの紐付けだけが外れること
+	var keptDoc models.KnowledgeDocument
+	if err := handler.db.First(&keptDoc, "id = ?", doc.ID).Error; err != nil {
+		t.Fatalf("expected document to be preserved: %v", err)
+	}
+	if keptDoc.UploaderID != nil {
+		t.Errorf("expected document uploader_id to be NULL, got %q", *keptDoc.UploaderID)
 	}
 }
 

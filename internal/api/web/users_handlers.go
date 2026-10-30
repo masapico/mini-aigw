@@ -10,6 +10,7 @@ import (
 
 	"mini-aigw/internal/api/middleware"
 	"mini-aigw/internal/auth"
+	"mini-aigw/internal/logging"
 	"mini-aigw/internal/models"
 	"mini-aigw/internal/views"
 )
@@ -215,7 +216,25 @@ func (h *UsersHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.db.Delete(&models.User{}, "id = ?", targetID).Error; err != nil {
+	// セッションは破棄し、発行済みキーとナレッジ文書は FK 制約に抵触しないようユーザーとの紐付けだけを外す
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.Session{}, "user_id = ?", targetID).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.ApiKey{}).
+			Where("user_id = ?", targetID).
+			Update("user_id", nil).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.KnowledgeDocument{}).
+			Where("uploader_id = ?", targetID).
+			Update("uploader_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.User{}, "id = ?", targetID).Error
+	})
+	if err != nil {
+		logging.Error(r.Context(), "failed to delete user", "error", err.Error(), "user_id", targetID)
 		http.Error(w, "Delete failed", http.StatusInternalServerError)
 		return
 	}
