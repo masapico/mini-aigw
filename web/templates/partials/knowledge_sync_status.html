@@ -46,8 +46,19 @@
 
     {{if and .LatestSyncJob .LatestSyncJob.Stats}}
       <div class="text-secondary small d-none d-md-inline">
-        (インデックス済: <span class="fw-bold text-dark">{{index .LatestSyncJob.Stats "newDocumentsIndexed"}}</span> 件 / スキャン: <span class="fw-bold text-dark">{{index .LatestSyncJob.Stats "documentsScanned"}}</span> 件)
+        (インデックス済: <span class="fw-bold text-dark">{{index .LatestSyncJob.Stats "newDocumentsIndexed"}}</span> 件 / 削除: <span class="fw-bold text-dark">{{index .LatestSyncJob.Stats "deletedDocumentsIndexed"}}</span> 件 / スキャン: <span class="fw-bold text-dark">{{index .LatestSyncJob.Stats "documentsScanned"}}</span> 件)
       </div>
+    {{end}}
+
+    {{if .HasPendingChanges}}
+    <div class="small" id="kb-pending-changes">
+      <span class="status-badge status-warning">
+        <i class="bi bi-hourglass-split"></i>未反映: 追加 {{.PendingAdded}} 件 / 削除 {{.PendingDeleted}} 件
+      </span>
+      {{if not .IsAdmin}}
+      <span class="text-secondary ms-1">管理者が KB 同期を実行すると検索結果に反映されます</span>
+      {{end}}
+    </div>
     {{end}}
   </div>
 
@@ -66,7 +77,7 @@
     <button
       type="button"
       id="btn-knowledge-sync"
-      class="btn btn-outline-secondary btn-sm"
+      class="btn {{if and .HasPendingChanges (not .IsSyncing)}}btn-primary{{else}}btn-outline-secondary{{end}} btn-sm"
       {{if .IsSyncing}}
       disabled
       title="同期ジョブ実行中のため再同期できません"
@@ -75,7 +86,7 @@
       hx-target="#kb-sync-status-container"
       hx-swap="innerHTML"
       hx-indicator="#sync-spinner"
-      title="Bedrock Knowledge Base のデータソース同期ジョブを開始します"
+      title="追加・削除をまとめて Bedrock Knowledge Base に反映します"
       {{end}}
     >
       {{if .IsSyncing}}
@@ -84,7 +95,7 @@
       {{else}}
       <span class="spinner-border spinner-border-sm htmx-indicator me-1" id="sync-spinner" role="status"></span>
       <i class="bi bi-arrow-repeat me-1"></i>
-      <span>今すぐKB同期を実行</span>
+      <span>変更を KB に反映</span>
       {{end}}
     </button>
     {{end}}

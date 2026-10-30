@@ -50,7 +50,8 @@ go run ./scripts/release -version v1.0.0        # 配布パッケージ生成
 
 ### Knowledge / S3 Vectors (`internal/services/knowledge_service.go`)
 - アップロード時は本体と同じ場所に `<key>.metadata.json` を必ず置き、`metadataAttributes` に `group` / `filename` / `document_id` を入れる（`UploadDocumentWithMetadata`）。`group` は RAG のグループ別プリフィルタに使われるため欠落させない。
-- 削除は「ステータスを `DELETING` に更新 → S3 本体と `.metadata.json` を削除 → `StartIngestionJob` で KB 同期 → DB レコード削除」の順を守る（`DeleteKnowledgeDocument`）。
+- 削除は「ステータスを `DELETING` に更新 → S3 本体と `.metadata.json` を削除 → (次回の手動同期で) `StartIngestionJob` → ジョブ完了検知後に DB レコード削除」の順を守る。削除時に同期ジョブを起動しない（`DeleteKnowledgeDocument` / `SyncCompletedDocuments`）。`DELETING` の間は `IsChunkFromDeletedDocument` で RAG から除外し、除外マップは起動時に DB から復元する。
+- 同じグループの同名ファイル（同じ S3 キー）は、S3 に書き込む前に拒否する。ただし `DELETING` のレコードは `ReleaseDeletingKey` でキーを退避し、新しいファイルの登録を許可する。
 
 ### 認証 (mini-id / OIDC)
 - 認可コードフロー + PKCE (`S256`)。`state` / `nonce` はリクエストごとに暗号学的乱数で生成し検証する。

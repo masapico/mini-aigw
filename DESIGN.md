@@ -139,15 +139,22 @@ s3://<kb-bucket>/
 [UI/API: ドキュメント削除要求]
        │
        ▼
-[SQLite: 対象ステータスを 'DELETING' に更新]
+[SQLite: 対象ステータスを 'DELETING' に更新 (RAG 検索から即時除外)]
        │
        ├─► [S3: ファイル本体 & .metadata.json を DeleteObject]
        │
-       ├─► [Bedrock KB: StartIngestionJob (同期実行)]
+       ▼
+[一覧に「削除待ち」として表示。続けて追加・削除しても同期待ちは発生しない]
+       │
+       ├─► [管理者の手動同期: Bedrock KB StartIngestionJob (追加・削除をまとめて 1 ジョブで反映)]
        │
        ▼
-[同期完了確認後: SQLite レコードを物理削除]
+[ジョブ COMPLETE 検知後: ジョブ開始前に DELETING になったレコードを物理削除]
 ```
+
+- 削除時には同期ジョブを起動しない。Bedrock KB は 1 つのデータソースで同期ジョブを同時に 1 本しか実行できないため、削除のたびに同期すると後続の同期が待たされるからである。
+- `DELETING` のレコードは起動時に読み込み、RAG の除外対象を復元する。
+- 同じグループに同名ファイル（同じ S3 キー）は登録できない。アップロード前にチェックして拒否する。差し替える場合は既存ファイルを削除してから再アップロードする。このとき古い `DELETING` レコードは S3 キーを退避して残し、次回の同期完了後に削除される。
 
 ### 4.3 S3 Vectors / Managed Store プリフィルタリング (Pre-Filtering) とタグ活用
 RAG 検索時、ユーザーのグループ・権限に基づき、Bedrock の `Retrieve` API (`managedSearchConfiguration`) に `filter` を設定。

@@ -1,0 +1,14 @@
+{{define "knowledge_name_check.html"}}
+{{if .Replacing}}
+<div class="alert alert-info small mb-0" role="status">
+  <i class="bi bi-info-circle me-1"></i>
+  同名の「{{.Existing.Filename}}」は削除待ち（KB 反映待ち）です。アップロードするとこのファイルに置き換わり、次回の KB 同期で反映されます。
+</div>
+{{else}}
+<div class="alert alert-warning small mb-0" role="alert" data-name-conflict="true">
+  <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i>同名のファイルが既に登録されているためアップロードできません</div>
+  <div>「{{.Existing.Filename}}」（グループ: {{.Existing.GroupName}} / 登録者: {{.Existing.GetUploaderDisplayName}} / 登録日時: {{formatTime .Existing.CreatedAt}}）</div>
+  <div class="mt-1">差し替える場合は、一覧から既存のファイルを削除してから再度アップロードしてください。削除後はすぐにアップロードできます。</div>
+</div>
+{{end}}
+{{end}}

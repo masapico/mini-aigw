@@ -235,6 +235,7 @@ func SetupRouter(
 			webRouter.Get("/knowledge", knowledgeHandler.ShowKnowledge)
 			webRouter.Get("/knowledge/table", knowledgeHandler.RenderTable)
 			webRouter.Post("/knowledge/upload", knowledgeHandler.HandleUpload)
+			webRouter.Get("/knowledge/check-name", knowledgeHandler.HandleCheckName)
 			webRouter.Delete("/knowledge/{id}", knowledgeHandler.HandleDelete)
 			webRouter.Get("/knowledge/sync/status", knowledgeHandler.GetSyncStatus)
 			webRouter.Post("/knowledge/sync", knowledgeHandler.HandleSync)

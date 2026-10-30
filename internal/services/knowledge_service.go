@@ -31,14 +31,94 @@ type KnowledgeService struct {
 	deletedS3Keys  map[string]bool
 }
 
+// Sync status values for KnowledgeDocument.
+const (
+	SyncStatusS3Uploaded = "S3_UPLOADED"
+	SyncStatusSynced     = "SYNCED"
+	SyncStatusDeleting   = "DELETING"
+)
+
+// replacedKeyMarker is appended to the S3Key of a DELETING record when a new document
+// is uploaded to the same key before the deletion is synced, freeing the unique index.
+const replacedKeyMarker = "#replaced-"
+
 func NewKnowledgeService(awsBundle *AWSClientBundle, db *gorm.DB, cfg *config.Config) *KnowledgeService {
-	return &KnowledgeService{
+	s := &KnowledgeService{
 		awsBundle:     awsBundle,
 		db:            db,
 		cfg:           cfg,
 		deletedDocIDs: make(map[string]bool),
 		deletedS3Keys: make(map[string]bool),
 	}
+	s.restoreDeletedDocuments()
+	return s
+}
+
+// restoreDeletedDocuments rebuilds the RAG exclusion maps from DELETING records so that
+// documents deleted but not yet synced to the KB stay hidden after a restart.
+func (s *KnowledgeService) restoreDeletedDocuments() {
+	if s.db == nil {
+		return
+	}
+	var docs []models.KnowledgeDocument
+	if err := s.db.Where("sync_status = ?", SyncStatusDeleting).Find(&docs).Error; err != nil {
+		log.Printf("Failed to restore deleting documents: %v", err)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, doc := range docs {
+		s.deletedDocIDs[doc.ID] = true
+		if !strings.Contains(doc.S3Key, replacedKeyMarker) {
+			s.deletedS3Keys[doc.S3Key] = true
+		}
+	}
+}
+
+// BuildObjectKey returns the S3 object key used for a document under the given prefix.
+func BuildObjectKey(prefix, filename string) string {
+	prefixClean := strings.Trim(prefix, "/")
+	if prefixClean == "" {
+		return filename
+	}
+	return fmt.Sprintf("%s/%s", prefixClean, filename)
+}
+
+// FindDocumentByKey returns the document registered at the given S3 key, or nil if none.
+func (s *KnowledgeService) FindDocumentByKey(ctx context.Context, s3Key string) (*models.KnowledgeDocument, error) {
+	var docs []models.KnowledgeDocument
+	if err := s.db.WithContext(ctx).Preload("Uploader").Where("s3_key = ?", s3Key).Limit(1).Find(&docs).Error; err != nil {
+		return nil, err
+	}
+	if len(docs) == 0 {
+		return nil, nil
+	}
+	return &docs[0], nil
+}
+
+// ReleaseDeletingKey moves a DELETING record off its S3 key so a new document can be
+// registered there. The record stays DELETING (and excluded from RAG by document_id)
+// until the next completed sync removes it.
+func (s *KnowledgeService) ReleaseDeletingKey(ctx context.Context, doc *models.KnowledgeDocument) error {
+	if doc == nil || doc.SyncStatus != SyncStatusDeleting {
+		return fmt.Errorf("document is not in DELETING state")
+	}
+	newKey := doc.S3Key + replacedKeyMarker + doc.ID
+	// UpdateColumn keeps updated_at, which records when the deletion happened.
+	if err := s.db.WithContext(ctx).Model(&models.KnowledgeDocument{}).
+		Where("id = ?", doc.ID).
+		UpdateColumn("s3_key", newKey).Error; err != nil {
+		return err
+	}
+	doc.S3Key = newKey
+	return nil
+}
+
+// CountPendingChanges returns the number of uploads and deletions not yet reflected in the KB.
+func (s *KnowledgeService) CountPendingChanges(ctx context.Context) (added, deleted int64) {
+	s.db.WithContext(ctx).Model(&models.KnowledgeDocument{}).Where("sync_status = ?", SyncStatusS3Uploaded).Count(&added)
+	s.db.WithContext(ctx).Model(&models.KnowledgeDocument{}).Where("sync_status = ?", SyncStatusDeleting).Count(&deleted)
+	return added, deleted
 }
 
 type UploadResult struct {
@@ -58,10 +138,7 @@ func (s *KnowledgeService) UploadDocumentWithMetadata(
 	tags []string,
 ) (*UploadResult, error) {
 	prefixClean := strings.Trim(prefix, "/")
-	objKey := filename
-	if prefixClean != "" {
-		objKey = fmt.Sprintf("%s/%s", prefixClean, filename)
-	}
+	objKey := BuildObjectKey(prefix, filename)
 	metaKey := fmt.Sprintf("%s.metadata.json", objKey)
 
 	s.mu.Lock()
@@ -133,6 +210,20 @@ func (s *KnowledgeService) UploadDocumentWithMetadata(
 
 	log.Printf("Uploaded document %s and metadata %s to bucket %s", objKey, metaKey, bucket)
 	return &UploadResult{S3Key: objKey, MetaKey: metaKey}, nil
+}
+
+// RemoveUploadedObjects deletes a document body and its .metadata.json, e.g. to roll back
+// an upload whose DB registration failed.
+func (s *KnowledgeService) RemoveUploadedObjects(ctx context.Context, bucket, objKey string) error {
+	for _, key := range []string{objKey, fmt.Sprintf("%s.metadata.json", objKey)} {
+		if _, err := s.awsBundle.S3.DeleteObject(ctx, &s3.DeleteObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		}); err != nil {
+			return fmt.Errorf("failed to delete s3 object %s: %w", key, err)
+		}
+	}
+	return nil
 }
 
 type DocumentDownload struct {
@@ -229,7 +320,9 @@ func (s *KnowledgeService) GetLatestIngestionJobStatus(ctx context.Context, kbID
 	return res, nil
 }
 
-// SyncCompletedDocuments updates pending documents (S3_UPLOADED) created prior to the completed job to SYNCED.
+// SyncCompletedDocuments finalizes changes reflected by a completed ingestion job:
+// S3_UPLOADED documents created before the job become SYNCED, and DELETING documents
+// deleted before the job are removed from the DB. Returns the number of uploads marked SYNCED.
 func (s *KnowledgeService) SyncCompletedDocuments(ctx context.Context, job *IngestionJobStatus) (int64, error) {
 	if job == nil || job.Status != "COMPLETE" {
 		return 0, nil
@@ -248,8 +341,8 @@ func (s *KnowledgeService) SyncCompletedDocuments(ctx context.Context, job *Inge
 
 	res := s.db.WithContext(ctx).
 		Model(&models.KnowledgeDocument{}).
-		Where("sync_status = ? AND datetime(created_at) <= datetime(?)", "S3_UPLOADED", adjustedTime).
-		Update("sync_status", "SYNCED")
+		Where("sync_status = ? AND datetime(created_at) <= datetime(?)", SyncStatusS3Uploaded, adjustedTime).
+		Update("sync_status", SyncStatusSynced)
 	if res.Error != nil {
 		log.Printf("Failed to sync completed documents: %v", res.Error)
 		return 0, res.Error
@@ -257,42 +350,82 @@ func (s *KnowledgeService) SyncCompletedDocuments(ctx context.Context, job *Inge
 	if res.RowsAffected > 0 {
 		log.Printf("Marked %d documents as SYNCED for completed job %s (jobTime: %s)", res.RowsAffected, job.JobID, adjustedTime)
 	}
+
+	// Deletions get no forward buffer: a document deleted after the job started may not
+	// have been seen as removed, so it stays DELETING until the next completed job.
+	if err := s.finalizeDeletedDocuments(ctx, job.JobID, jobTime.UTC().Format("2006-01-02 15:04:05")); err != nil {
+		return res.RowsAffected, err
+	}
 	return res.RowsAffected, nil
 }
 
+func (s *KnowledgeService) finalizeDeletedDocuments(ctx context.Context, jobID, jobTime string) error {
+	var docs []models.KnowledgeDocument
+	if err := s.db.WithContext(ctx).
+		Where("sync_status = ? AND datetime(updated_at) <= datetime(?)", SyncStatusDeleting, jobTime).
+		Find(&docs).Error; err != nil {
+		log.Printf("Failed to find deleting documents: %v", err)
+		return err
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(docs))
+	for _, doc := range docs {
+		ids = append(ids, doc.ID)
+	}
+	if err := s.db.WithContext(ctx).Where("id IN ?", ids).Delete(&models.KnowledgeDocument{}).Error; err != nil {
+		log.Printf("Failed to remove deleted documents: %v", err)
+		return err
+	}
+
+	s.mu.Lock()
+	for _, doc := range docs {
+		delete(s.deletedDocIDs, doc.ID)
+		// A new upload may already live at the original key; only clear keys still owned by this record.
+		if !strings.Contains(doc.S3Key, replacedKeyMarker) {
+			delete(s.deletedS3Keys, doc.S3Key)
+		}
+	}
+	s.mu.Unlock()
+
+	log.Printf("Removed %d deleted documents for completed job %s (jobTime: %s)", len(docs), jobID, jobTime)
+	return nil
+}
+
+// DeleteKnowledgeDocument removes the document from S3 and marks it DELETING. The KB is
+// not synced here: the next manual sync reflects the deletion, and SyncCompletedDocuments
+// removes the DB record once that job completes. Until then the document is excluded from RAG.
 func (s *KnowledgeService) DeleteKnowledgeDocument(ctx context.Context, docID string) error {
 	var doc models.KnowledgeDocument
 	if err := s.db.First(&doc, "id = ?", docID).Error; err != nil {
 		return err
 	}
+	if doc.SyncStatus == SyncStatusDeleting {
+		return nil
+	}
 
-	doc.SyncStatus = "DELETING"
-	s.db.Save(&doc)
+	prevStatus := doc.SyncStatus
+	if err := s.db.Model(&doc).Update("sync_status", SyncStatusDeleting).Error; err != nil {
+		return err
+	}
 
 	s.mu.Lock()
 	s.deletedDocIDs[doc.ID] = true
 	s.deletedS3Keys[doc.S3Key] = true
 	s.mu.Unlock()
 
-	// Delete from S3
-	_, _ = s.awsBundle.S3.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(doc.S3Bucket),
-		Key:    aws.String(doc.S3Key),
-	})
-	_, _ = s.awsBundle.S3.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(doc.S3Bucket),
-		Key:    aws.String(fmt.Sprintf("%s.metadata.json", doc.S3Key)),
-	})
-
-	// Trigger Ingestion Job
-	dsID := s.cfg.BedrockDataSourceID
-	if doc.DataSourceID != nil && *doc.DataSourceID != "" {
-		dsID = *doc.DataSourceID
+	if err := s.RemoveUploadedObjects(ctx, doc.S3Bucket, doc.S3Key); err != nil {
+		s.db.Model(&doc).Update("sync_status", prevStatus)
+		s.mu.Lock()
+		delete(s.deletedDocIDs, doc.ID)
+		delete(s.deletedS3Keys, doc.S3Key)
+		s.mu.Unlock()
+		return err
 	}
-	_, _, _ = s.StartIngestionJobDetail(ctx, s.cfg.BedrockKBID, dsID)
 
-	// Remove from DB
-	return s.db.Delete(&doc).Error
+	return nil
 }
 
 func (s *KnowledgeService) IsChunkFromDeletedDocument(chunkLocation map[string]interface{}, chunkMetadata map[string]interface{}) bool {
@@ -319,7 +452,7 @@ func (s *KnowledgeService) IsChunkFromDeletedDocument(chunkLocation map[string]i
 func (s *KnowledgeService) FindMatchingMetadataFromQuery(query string) ([]string, []string) {
 	qLower := strings.ToLower(query)
 	var docs []models.KnowledgeDocument
-	s.db.Find(&docs)
+	s.db.Where("sync_status <> ?", SyncStatusDeleting).Find(&docs)
 
 	tagSet := make(map[string]bool)
 	var matchedDocIDs []string

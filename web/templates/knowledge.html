@@ -16,7 +16,7 @@
 </div>
 
 <!-- 最新KB同期ステータス・手動同期バー -->
-<div class="mb-4" id="kb-sync-status-container" hx-get="{{basePath}}/knowledge/sync/status" hx-trigger="load" hx-swap="innerHTML">
+<div class="mb-4" id="kb-sync-status-container" hx-get="{{basePath}}/knowledge/sync/status" hx-trigger="load, refreshKnowledgeSyncStatus from:body" hx-swap="innerHTML">
   <div class="d-flex align-items-center gap-2 p-3 bg-white rounded border text-muted small">
     <span class="spinner-border spinner-border-sm" role="status"></span>
     <span>KB同期ステータスを取得中...</span>
@@ -48,7 +48,6 @@
         hx-swap="innerHTML"
         hx-encoding="multipart/form-data"
         hx-indicator="#upload-spinner"
-        onsubmit="clearUploadForm()"
       >
         <div class="modal-body">
           <div class="row g-3">
@@ -80,13 +79,15 @@
 
             <div class="col-12">
               <label class="form-label" for="file-input">ファイル (PDF, DOCX, XLSX, CSV, TXT など)</label>
-              <input type="file" class="form-control" name="file" id="file-input" required>
+              <input type="file" class="form-control" name="file" id="file-input" required data-check-url="{{basePath}}/knowledge/check-name">
+              <div id="upload-name-check" class="mt-2" aria-live="polite"></div>
             </div>
           </div>
+          <div id="upload-alert" class="mt-3" aria-live="polite"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button>
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-primary" id="upload-submit">
             <span class="spinner-border spinner-border-sm htmx-indicator" id="upload-spinner" role="status"></span>
             <i class="bi bi-cloud-arrow-up"></i>S3へアップロード
           </button>
@@ -133,6 +134,7 @@
         <option value="">全ステータス</option>
         <option value="SYNCED" {{if eq .SelectedStatus "SYNCED"}}selected{{end}}>同期済</option>
         <option value="S3_UPLOADED" {{if eq .SelectedStatus "S3_UPLOADED"}}selected{{end}}>S3保管</option>
+        <option value="DELETING" {{if eq .SelectedStatus "DELETING"}}selected{{end}}>削除待ち</option>
         <option value="PENDING" {{if eq .SelectedStatus "PENDING"}}selected{{end}}>保留</option>
         <option value="ERROR" {{if eq .SelectedStatus "ERROR"}}selected{{end}}>エラー</option>
       </select>
@@ -214,18 +216,68 @@
   }
 
   const uploadModalEl = document.getElementById('uploadModal');
+  const uploadForm = document.getElementById('upload-form');
+  const fileInput = document.getElementById('file-input');
+  const uploadGroup = document.getElementById('upload-group');
+  const uploadSubmit = document.getElementById('upload-submit');
+  const nameCheckBox = document.getElementById('upload-name-check');
+  const uploadAlertBox = document.getElementById('upload-alert');
 
-  function clearUploadForm() {
-    setTimeout(() => {
-      const fileInput = document.getElementById('file-input');
-      if (fileInput) fileInput.value = '';
-      currentTags = [];
-      renderTags();
+  function updateSubmitState() {
+    if (!uploadSubmit || !nameCheckBox) return;
+    uploadSubmit.disabled = !!nameCheckBox.querySelector('[data-name-conflict]');
+  }
+
+  // ファイル選択・グループ変更時に同名ファイルの有無を確認する
+  function checkUploadName() {
+    if (!fileInput || !nameCheckBox) return;
+    if (uploadAlertBox) uploadAlertBox.innerHTML = '';
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) {
+      nameCheckBox.innerHTML = '';
+      updateSubmitState();
+      return;
+    }
+    const params = new URLSearchParams({ group_name: uploadGroup ? uploadGroup.value : '', filename: file.name });
+    htmx.ajax('GET', fileInput.dataset.checkUrl + '?' + params.toString(), { target: '#upload-name-check', swap: 'innerHTML' })
+      .then(updateSubmitState);
+  }
+
+  if (fileInput) fileInput.addEventListener('change', checkUploadName);
+  if (uploadGroup) uploadGroup.addEventListener('change', checkUploadName);
+
+  function resetUploadForm() {
+    if (fileInput) fileInput.value = '';
+    currentTags = [];
+    renderTags();
+    if (nameCheckBox) nameCheckBox.innerHTML = '';
+    if (uploadAlertBox) uploadAlertBox.innerHTML = '';
+    updateSubmitState();
+  }
+
+  if (uploadForm) {
+    uploadForm.addEventListener('htmx:afterRequest', (ev) => {
+      if (ev.detail.elt !== uploadForm) return;
+      const xhr = ev.detail.xhr;
+      if (!ev.detail.successful) {
+        // 失敗時はモーダルを開いたまま、入力内容を残してエラーを表示する
+        if (uploadAlertBox) {
+          const div = document.createElement('div');
+          div.className = 'alert alert-danger small mb-0';
+          div.setAttribute('role', 'alert');
+          div.textContent = 'アップロードに失敗しました: ' + ((xhr && xhr.responseText) || '不明なエラー').trim();
+          uploadAlertBox.replaceChildren(div);
+        }
+        return;
+      }
+      // 同名ファイルで拒否された場合は #upload-alert に再ターゲットされる
+      if (xhr && xhr.getResponseHeader('HX-Retarget')) return;
+      resetUploadForm();
       if (uploadModalEl && typeof bootstrap !== 'undefined') {
         const m = bootstrap.Modal.getInstance(uploadModalEl);
         if (m) m.hide();
       }
-    }, 400);
+    });
   }
 </script>
 {{end}}

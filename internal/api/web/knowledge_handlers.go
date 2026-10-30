@@ -182,8 +182,6 @@ func (h *KnowledgeHandler) HandleUpload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	isAdmin := user.HasRole("admin")
-
 	// Limit upload size (50MB default)
 	maxMB := int64(h.cfg.MaxUploadFileSizeMB)
 	if maxMB <= 0 {
@@ -199,19 +197,9 @@ func (h *KnowledgeHandler) HandleUpload(w http.ResponseWriter, r *http.Request) 
 		groupName = "public"
 	}
 
-	// Permission check on target group
-	if !isAdmin {
-		allowed := false
-		for _, g := range user.GetGroups() {
-			if g == groupName {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			http.Error(w, fmt.Sprintf("Forbidden: You cannot upload to group '%s'", groupName), http.StatusForbidden)
-			return
-		}
+	if !canUploadToGroup(user, groupName) {
+		http.Error(w, fmt.Sprintf("Forbidden: You cannot upload to group '%s'", groupName), http.StatusForbidden)
+		return
 	}
 
 	file, header, err := r.FormFile("file")
@@ -235,9 +223,28 @@ func (h *KnowledgeHandler) HandleUpload(w http.ResponseWriter, r *http.Request) 
 	}
 
 	docID := uuid.New().String()
-	prefix := "public"
-	if groupName != "public" {
-		prefix = fmt.Sprintf("groups/%s", groupName)
+	prefix := uploadPrefix(groupName)
+
+	// Reject a filename that is already registered in the group. A document waiting for its
+	// deletion to be synced does not block: it is moved aside so the new one can take its key.
+	existing, err := h.knowledgeService.FindDocumentByKey(r.Context(), services.BuildObjectKey(prefix, header.Filename))
+	if err != nil {
+		log.Printf("Duplicate check failed: %v", err)
+		http.Error(w, "Failed to check existing documents", http.StatusInternalServerError)
+		return
+	}
+	if existing != nil {
+		if existing.SyncStatus != services.SyncStatusDeleting {
+			w.Header().Set("HX-Retarget", "#upload-alert")
+			w.Header().Set("HX-Reswap", "innerHTML")
+			h.renderNameCheck(w, existing)
+			return
+		}
+		if err := h.knowledgeService.ReleaseDeletingKey(r.Context(), existing); err != nil {
+			log.Printf("Failed to release deleting document key: %v", err)
+			http.Error(w, "Failed to replace document pending deletion", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	contentType := header.Header.Get("Content-Type")
@@ -272,17 +279,84 @@ func (h *KnowledgeHandler) HandleUpload(w http.ResponseWriter, r *http.Request) 
 		ContentType: contentType,
 		GroupName:   groupName,
 		UploaderID:  &user.ID,
-		SyncStatus:  "S3_UPLOADED",
+		SyncStatus:  services.SyncStatusS3Uploaded,
 	}
 	doc.SetTags(tags)
 
 	if err := h.db.Create(&doc).Error; err != nil {
 		log.Printf("Failed to save knowledge document record: %v", err)
+		if rbErr := h.knowledgeService.RemoveUploadedObjects(r.Context(), h.cfg.KnowledgeS3Bucket, uploadRes.S3Key); rbErr != nil {
+			log.Printf("Failed to roll back S3 upload %s: %v", uploadRes.S3Key, rbErr)
+		}
+		http.Error(w, "Failed to register document", http.StatusInternalServerError)
+		return
 	}
 
-	// Trigger table refresh
-	w.Header().Set("HX-Trigger", "refreshKnowledgeTable")
+	// Trigger table and pending-change refresh
+	w.Header().Set("HX-Trigger", "refreshKnowledgeTable, refreshKnowledgeSyncStatus")
 	h.RenderTable(w, r)
+}
+
+// HandleCheckName reports whether the filename is already registered in the target group,
+// so the upload form can warn before the file is sent.
+func (h *KnowledgeHandler) HandleCheckName(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	groupName := strings.TrimSpace(r.URL.Query().Get("group_name"))
+	if groupName == "" {
+		groupName = "public"
+	}
+	filename := strings.TrimSpace(r.URL.Query().Get("filename"))
+	if filename == "" || !canUploadToGroup(user, groupName) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		return
+	}
+
+	existing, err := h.knowledgeService.FindDocumentByKey(r.Context(), services.BuildObjectKey(uploadPrefix(groupName), filename))
+	if err != nil {
+		log.Printf("Duplicate check failed: %v", err)
+		http.Error(w, "Failed to check existing documents", http.StatusInternalServerError)
+		return
+	}
+	if existing == nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		return
+	}
+	h.renderNameCheck(w, existing)
+}
+
+func (h *KnowledgeHandler) renderNameCheck(w http.ResponseWriter, existing *models.KnowledgeDocument) {
+	data := map[string]interface{}{
+		"Existing":  existing,
+		"Replacing": existing.SyncStatus == services.SyncStatusDeleting,
+	}
+	if err := h.renderer.RenderPartial(w, "knowledge_name_check.html", data); err != nil {
+		log.Printf("Failed to render knowledge_name_check.html: %v", err)
+		http.Error(w, "Failed to render name check", http.StatusInternalServerError)
+	}
+}
+
+func uploadPrefix(groupName string) string {
+	if groupName == "public" {
+		return "public"
+	}
+	return fmt.Sprintf("groups/%s", groupName)
+}
+
+func canUploadToGroup(user *models.User, groupName string) bool {
+	if user.HasRole("admin") {
+		return true
+	}
+	for _, g := range user.GetGroups() {
+		if g == groupName {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *KnowledgeHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +386,8 @@ func (h *KnowledgeHandler) HandleDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Return empty response with 200 OK so HTMX removes the row (hx-swap="outerHTML")
+	// The row stays as "削除待ち" until the next sync; refresh the table and pending counts.
+	w.Header().Set("HX-Trigger", "refreshKnowledgeTable, refreshKnowledgeSyncStatus")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -345,6 +420,7 @@ func (h *KnowledgeHandler) GetSyncStatus(w http.ResponseWriter, r *http.Request)
 		"IsSyncing":     isSyncing,
 		"LatestSyncJob": jobStatus,
 	}
+	h.addPendingChanges(r, data)
 	if err := h.renderer.RenderPartial(w, "knowledge_sync_status.html", data); err != nil {
 		log.Printf("Failed to render sync status partial: %v", err)
 		http.Error(w, "Failed to render sync status", http.StatusInternalServerError)
@@ -379,10 +455,18 @@ func (h *KnowledgeHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
 		"JustStartedJobID":  jobID,
 		"LatestSyncJob":     &services.IngestionJobStatus{JobID: jobID, Status: status},
 	}
+	h.addPendingChanges(r, data)
 	if err := h.renderer.RenderPartial(w, "knowledge_sync_status.html", data); err != nil {
 		log.Printf("Failed to render sync status partial: %v", err)
 		http.Error(w, "Failed to render sync status", http.StatusInternalServerError)
 	}
+}
+
+func (h *KnowledgeHandler) addPendingChanges(r *http.Request, data map[string]interface{}) {
+	added, deleted := h.knowledgeService.CountPendingChanges(r.Context())
+	data["PendingAdded"] = added
+	data["PendingDeleted"] = deleted
+	data["HasPendingChanges"] = added+deleted > 0
 }
 
 func (h *KnowledgeHandler) HandleDownload(w http.ResponseWriter, r *http.Request) {
@@ -394,7 +478,8 @@ func (h *KnowledgeHandler) HandleDownload(w http.ResponseWriter, r *http.Request
 
 	docID := chi.URLParam(r, "id")
 	var doc models.KnowledgeDocument
-	if err := h.db.First(&doc, "id = ?", docID).Error; err != nil {
+	// A DELETING document has already been removed from S3.
+	if err := h.db.First(&doc, "id = ?", docID).Error; err != nil || doc.SyncStatus == services.SyncStatusDeleting {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}

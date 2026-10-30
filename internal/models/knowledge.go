@@ -19,7 +19,7 @@ type KnowledgeDocument struct {
 	GroupName    string    `gorm:"size:50;index;not null" json:"group_name"`
 	Tags         *string   `gorm:"type:text" json:"tags"`
 	UploaderID   *string   `gorm:"size:64;index" json:"uploader_id"`
-	SyncStatus   string    `gorm:"size:20;not null;default:'PENDING'" json:"sync_status"` // 'PENDING' | 'SYNCED' | 'DELETING' | 'ERROR'
+	SyncStatus   string    `gorm:"size:20;not null;default:'PENDING'" json:"sync_status"` // 'PENDING' | 'S3_UPLOADED' | 'SYNCED' | 'DELETING' (S3 削除済み・KB 同期待ち) | 'ERROR'
 	DataSourceID *string   `gorm:"size:100" json:"data_source_id"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

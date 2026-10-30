@@ -23,7 +23,8 @@ CGOフリーかつHTML テンプレート・静的UIアセットをバイナリ�
   - ドキュメント（PDF, DOCX, XLSX, CSV, TXT 等）は `xberg CLI` により Markdown テキストに自動抽出・正規化してプロンプトへ注入（xberg 未配置環境では安全な UTF-8 平文フォールバックが稼働）。
 - **S3 Vectors サイドカーメタデータ管理**:
   - ナレッジアップロード時に同一ディレクトリへ `.metadata.json` サイドカーを同時作成。
-  - 削除時は「ステータス更新 (`DELETING`) ➔ S3実体およびメタデータ削除 ➔ Bedrock KB同期実行 ➔ DB物理削除」の整合性保証フロー。
+  - 削除時は「ステータス更新 (`DELETING`、RAG から即時除外) ➔ S3実体およびメタデータ削除 ➔ 次回の手動 KB 同期で反映 ➔ 同期完了後に DB物理削除」の整合性保証フロー。削除しても同期待ちは発生しない。
+  - 同じグループに同名ファイルがある場合はアップロードを拒否する（削除待ちの同名ファイルは置き換え可）。
 - **Bedrock マネージド Knowledge Base 連携 (`managedSearchConfiguration`)**:
   - Amazon Bedrock の**マネージド Knowledge Base（Managed Vector Store）専用**として設計。
   - 検索クエリには `managedSearchConfiguration` を標準使用し、Pre-filtering によるグループ分離（`public` およびユーザーグループ）を実行。
@@ -243,7 +244,7 @@ DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は
 ![ダッシュボード](docs/images/01_dashboard.png)
 
 #### 2. ナレッジ管理 (`/knowledge`)
-グループ（`public`, `sales`, `dev` 等）を指定してドキュメントをドラッグ＆ドロップまたはファイル選択でアップロード。S3 実体および `.metadata.json` サイドカーが自動生成・同期され、Bedrock KB Ingestion ジョブがトリガーされます。不要なドキュメントの安全な整合性連動削除にも対応。
+グループ（`public`, `sales`, `dev` 等）を指定してドキュメントをドラッグ＆ドロップまたはファイル選択でアップロード。S3 実体と `.metadata.json` サイドカーが自動生成されます。追加・削除はまとめて「変更を KB に反映」(管理者) で Bedrock KB Ingestion ジョブに反映され、未反映の件数は同期バーに表示されます。削除したドキュメントは同期を待たずに RAG 検索から除外されるため、削除後すぐに差し替え版をアップロードできます。同名ファイルのアップロードは選択時に警告し、拒否します。
 
 ![ナレッジドキュメント管理](docs/images/02_docs.png)
 
