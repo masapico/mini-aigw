@@ -730,7 +730,11 @@ func (h *ChatHandler) recordUsageLog(
 
 			// Update last_used_at timestamp on the API key
 			now := time.Now()
-			_ = h.db.Model(&models.ApiKey{}).Where("id = ?", apiKey.ID).Update("last_used_at", now)
+			res := h.db.Model(&models.ApiKey{}).Where("id = ?", apiKey.ID).Update("last_used_at", now)
+			// 処理中にキーが失効された場合は FK 違反でログを失わないよう紐付けなしで記録する
+			if res.Error == nil && res.RowsAffected == 0 {
+				apiKeyID = nil
+			}
 		}
 
 		ttftMs := latencyMs

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
@@ -91,6 +92,27 @@ func chatRequest(t *testing.T, body string) *http.Request {
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 	apiKey := &models.ApiKey{ID: "key-1", Name: "test-key"}
 	return req.WithContext(context.WithValue(req.Context(), middleware.APIKeyContextKey, apiKey))
+}
+
+func TestRecordUsageLog_RevokedKeyKeepsLogWithoutKeyID(t *testing.T) {
+	h := newTestChatHandler(t, &config.Config{}, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected bedrock call")
+	}))
+
+	revoked := &models.ApiKey{ID: "revoked-key", Name: "失効済みキー"}
+	h.recordUsageLog(revoked, "test.model", false, false, nil, nil, nil, time.Now(), "success", nil)
+
+	var entry models.ChatUsageLog
+	deadline := time.Now().Add(5 * time.Second)
+	for h.db.First(&entry, "api_key_name = ?", revoked.Name).Error != nil {
+		if time.Now().After(deadline) {
+			t.Fatal("expected usage log to be recorded for revoked key")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if entry.ApiKeyID != nil {
+		t.Errorf("expected api_key_id to be NULL, got %q", *entry.ApiKeyID)
+	}
 }
 
 func TestChatCompletions_BedrockValidationErrorReturns400AndLogs(t *testing.T) {

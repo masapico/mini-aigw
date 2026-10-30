@@ -13,6 +13,7 @@ import (
 	"mini-aigw/internal/api/middleware"
 	"mini-aigw/internal/auth"
 	"mini-aigw/internal/config"
+	"mini-aigw/internal/logging"
 	"mini-aigw/internal/models"
 	"mini-aigw/internal/prompts"
 	"mini-aigw/internal/views"
@@ -258,7 +259,17 @@ func (h *APIKeysHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyID := chi.URLParam(r, "id")
-	if err := h.db.Delete(&models.ApiKey{}, "id = ?", keyID).Error; err != nil {
+	// 利用ログは統計のため残し、FK 制約に抵触しないようキーとの紐付けだけを外す
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.ChatUsageLog{}).
+			Where("api_key_id = ?", keyID).
+			Update("api_key_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&models.ApiKey{}, "id = ?", keyID).Error
+	})
+	if err != nil {
+		logging.Error(r.Context(), "failed to revoke api key", "error", err.Error(), "api_key_id", keyID)
 		http.Error(w, "Delete failed", http.StatusInternalServerError)
 		return
 	}

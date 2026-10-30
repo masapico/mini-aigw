@@ -240,3 +240,41 @@ func TestAPIKeysHandler_CreateAndEditKey(t *testing.T) {
 		t.Errorf("expected key to be deleted from DB")
 	}
 }
+
+func TestAPIKeysHandler_DeleteKeyWithUsageLogs(t *testing.T) {
+	handler, r, adminUser, _ := setupTestAPIKeysEnv(t)
+
+	key := models.ApiKey{Name: "利用済みキー", KeyHash: "hash-used", Prefix: "sk-live-abc..."}
+	if err := handler.db.Create(&key).Error; err != nil {
+		t.Fatalf("failed to create key: %v", err)
+	}
+	usageLog := models.ChatUsageLog{ApiKeyID: &key.ID, ApiKeyName: key.Name, ModelID: "amazon.nova-lite-v1:0", TotalTokens: 42}
+	if err := handler.db.Create(&usageLog).Error; err != nil {
+		t.Fatalf("failed to create usage log: %v", err)
+	}
+
+	req := httptest.NewRequest("DELETE", "/api-keys/"+key.ID, nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserContextKey, adminUser))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for delete, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var deletedKey models.ApiKey
+	if err := handler.db.First(&deletedKey, "id = ?", key.ID).Error; err == nil {
+		t.Errorf("expected key to be deleted from DB")
+	}
+
+	var kept models.ChatUsageLog
+	if err := handler.db.First(&kept, "id = ?", usageLog.ID).Error; err != nil {
+		t.Fatalf("expected usage log to be preserved: %v", err)
+	}
+	if kept.ApiKeyID != nil {
+		t.Errorf("expected api_key_id to be NULL, got %q", *kept.ApiKeyID)
+	}
+	if kept.ApiKeyName != key.Name || kept.TotalTokens != 42 {
+		t.Errorf("expected usage stats to be preserved, got name=%q tokens=%d", kept.ApiKeyName, kept.TotalTokens)
+	}
+}
