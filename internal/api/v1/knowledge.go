@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -48,57 +49,17 @@ func (h *KnowledgeDownloadHandler) DownloadFile(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	isAuthorized := false
-
-	// 1. Web session check
-	u := middleware.GetUserFromContext(r.Context())
-	if u != nil {
-		if u.HasRole("admin") || doc.GroupName == "public" {
-			isAuthorized = true
-		} else {
-			for _, g := range u.GetGroups() {
-				if g == doc.GroupName {
-					isAuthorized = true
-					break
-				}
-			}
-		}
+	if doc.SyncStatus == services.SyncStatusDeleting {
+		http.Error(w, `{"error":{"message":"Document not found","type":"not_found"}}`, http.StatusNotFound)
+		return
 	}
 
-	// 2. API key check (Header or Query parameter)
-	if !isAuthorized {
-		rawKey := ""
-		authHeader := r.Header.Get("Authorization")
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			rawKey = strings.TrimPrefix(authHeader, "Bearer ")
-		} else if qKey := r.URL.Query().Get("api_key"); qKey != "" {
-			rawKey = qKey
-		}
-
-		if rawKey != "" {
-			keyHash := auth.HashAPIKey(strings.TrimSpace(rawKey))
-			var apiKey models.ApiKey
-			if err := h.db.First(&apiKey, "key_hash = ?", keyHash).Error; err == nil {
-				if doc.GroupName == "public" {
-					isAuthorized = true
-				} else {
-					for _, g := range apiKey.GetAllowedGroups() {
-						if g == doc.GroupName {
-							isAuthorized = true
-							break
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// If no auth headers and no session, allow download if public or query has valid token
-	if !isAuthorized && doc.GroupName == "public" {
-		isAuthorized = true
-	}
-
-	if !isAuthorized {
+	switch h.authorizeDownload(r, &doc) {
+	case downloadAllowed:
+	case downloadLinkExpired:
+		http.Error(w, `{"error":{"message":"Download link expired","type":"forbidden"}}`, http.StatusForbidden)
+		return
+	default:
 		http.Error(w, `{"error":{"message":"Unauthorized: Access to document is forbidden","type":"forbidden"}}`, http.StatusForbidden)
 		return
 	}
@@ -121,3 +82,63 @@ func (h *KnowledgeDownloadHandler) DownloadFile(w http.ResponseWriter, r *http.R
 	_, _ = io.Copy(w, stream.Body)
 }
 
+type downloadAuthResult int
+
+const (
+	downloadForbidden downloadAuthResult = iota
+	downloadAllowed
+	downloadLinkExpired
+)
+
+// authorizeDownload は Web セッション・API キー・署名付き URL・public グループの順に
+// 文書のダウンロード可否を判定する。
+func (h *KnowledgeDownloadHandler) authorizeDownload(r *http.Request, doc *models.KnowledgeDocument) downloadAuthResult {
+	if doc.GroupName == "public" {
+		return downloadAllowed
+	}
+
+	// 1. Web session check
+	if u := middleware.GetUserFromContext(r.Context()); u != nil {
+		if u.HasRole("admin") {
+			return downloadAllowed
+		}
+		for _, g := range u.GetGroups() {
+			if g == doc.GroupName {
+				return downloadAllowed
+			}
+		}
+	}
+
+	// 2. API key check (Header or Query parameter)
+	rawKey := ""
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		rawKey = strings.TrimPrefix(authHeader, "Bearer ")
+	} else if qKey := r.URL.Query().Get("api_key"); qKey != "" {
+		rawKey = qKey
+	}
+	if rawKey != "" {
+		keyHash := auth.HashAPIKey(strings.TrimSpace(rawKey))
+		var apiKey models.ApiKey
+		if err := h.db.First(&apiKey, "key_hash = ?", keyHash).Error; err == nil {
+			for _, g := range apiKey.GetAllowedGroups() {
+				if g == doc.GroupName {
+					return downloadAllowed
+				}
+			}
+		}
+	}
+
+	// 3. Signed URL (RAG 回答の根拠資料リンク)
+	q := r.URL.Query()
+	if q.Get("sig") != "" && h.cfg != nil {
+		switch auth.VerifyDownload(h.cfg.SecretKey, doc.ID, q.Get("exp"), q.Get("sig"), time.Now()) {
+		case auth.DownloadTokenValid:
+			return downloadAllowed
+		case auth.DownloadTokenExpired:
+			return downloadLinkExpired
+		}
+	}
+
+	return downloadForbidden
+}

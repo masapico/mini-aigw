@@ -198,6 +198,9 @@ BEDROCK_DATA_SOURCE_ID=your-bedrock-data-source-id
 KNOWLEDGE_S3_BUCKET=your-s3-knowledge-bucket
 DEFAULT_MODEL_ID=jp.amazon.nova-2-lite-v1:0 # 既定モデルID (取得方法は docs/GET_FOUNDATION_MODELS.md 参照)
 
+# RAG 回答の根拠資料ダウンロードリンクの有効期限 (時間。SECRET_KEY で署名し、期限内は未ログインでもダウンロード可。0 以下で署名なし)
+# DOWNLOAD_URL_TTL_HOURS=168
+
 # ドキュメント抽出 CLI パス (任意: 未指定時は PATH 上の "xberg" を探索、見つからない場合は平文フォールバック)
 # XBERG_PATH=/usr/local/bin/xberg
 # xberg の OCR (既定 false。スキャン PDF の文字起こしが必要な場合のみ true。画像抽出は常に無効)

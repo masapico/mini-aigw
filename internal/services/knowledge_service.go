@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"gorm.io/gorm"
 
+	"mini-aigw/internal/auth"
 	"mini-aigw/internal/config"
 	"mini-aigw/internal/models"
 )
@@ -528,6 +529,12 @@ func (s *KnowledgeService) ResolveDocumentAndDownloadURL(
 		group = doc.GroupName
 		cleanBase := strings.TrimRight(baseURL, "/")
 		downloadURL = fmt.Sprintf("%s/v1/knowledge/files/%s/download", cleanBase, doc.ID)
+		if s.cfg != nil && s.cfg.DownloadURLTTLHours > 0 && s.cfg.SecretKey != "" {
+			// 検索は許可グループに絞り込み済みなので、生成時点で認可済みとして署名を付ける。
+			// 未ログインのブラウザからでも有効期限内はダウンロードできる。
+			exp := time.Now().Add(time.Duration(s.cfg.DownloadURLTTLHours) * time.Hour).Unix()
+			downloadURL += fmt.Sprintf("?exp=%d&sig=%s", exp, auth.SignDownload(s.cfg.SecretKey, doc.ID, exp))
+		}
 	}
 
 	return docID, filename, group, downloadURL

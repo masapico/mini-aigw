@@ -47,6 +47,9 @@ type Config struct {
 	RAGScoreThreshold  float64
 	RAGNumberOfResults int
 
+	// Knowledge download links (signed URL lifetime; 0 or less disables signing)
+	DownloadURLTTLHours int
+
 	// Inference Parameters
 	DefaultTemperature *float64
 	DefaultMaxTokens   int
@@ -113,6 +116,8 @@ func LoadConfig() *Config {
 
 		RAGScoreThreshold:  getEnvAsFloat("RAG_SCORE_THRESHOLD", 0.30),
 		RAGNumberOfResults: getEnvAsInt("RAG_NUMBER_OF_RESULTS", 5),
+
+		DownloadURLTTLHours: getEnvAsInt("DOWNLOAD_URL_TTL_HOURS", 24*7),
 
 		DefaultMaxTokens: getEnvAsInt("DEFAULT_MAX_TOKENS", 4096),
 		MaxAllowedTokens: getEnvAsInt("MAX_ALLOWED_TOKENS", 8192),
