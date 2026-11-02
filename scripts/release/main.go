@@ -24,12 +24,20 @@ type Target struct {
 	Arch string
 }
 
+// defaultTargets lists the supported release platforms.
+var defaultTargets = []Target{
+	{"windows", "amd64"},
+	{"darwin", "arm64"},
+	{"linux", "amd64"},
+	{"linux", "arm64"},
+}
+
 func main() {
 	var (
 		versionFlag = flag.String("version", "", "Release version (e.g. v1.0.0). Defaults to git tag or 0.2.0-dev")
 		distDirFlag = flag.String("dist", "dist", "Output directory for release archives")
-		osFlag      = flag.String("os", "windows,darwin,linux", "Comma-separated target operating systems")
-		archFlag    = flag.String("arch", "amd64,arm64", "Comma-separated target architectures")
+		osFlag      = flag.String("os", "", "Comma-separated OS filter (default: all supported targets)")
+		archFlag    = flag.String("arch", "", "Comma-separated architecture filter (default: all supported targets)")
 		dryRunFlag  = flag.Bool("dry-run", false, "Preview build matrix without compiling")
 	)
 	flag.Parse()
@@ -77,7 +85,10 @@ func main() {
 	}
 
 	// Documentation & config files to bundle in release archives
-	docFiles := findBundleFiles()
+	docFiles, err := findBundleFiles()
+	if err != nil {
+		log.Fatalf("Failed to collect bundle files: %v", err)
+	}
 
 	var checksumLines []string
 
@@ -118,14 +129,43 @@ func parseList(s string) []string {
 	return res
 }
 
+// buildTargets filters defaultTargets by the given OS / arch lists (empty means no filter).
 func buildTargets(osList, archList []string) []Target {
 	var targets []Target
-	for _, o := range osList {
-		for _, a := range archList {
-			targets = append(targets, Target{OS: o, Arch: a})
+	for _, t := range defaultTargets {
+		if (len(osList) == 0 || contains(osList, t.OS)) && (len(archList) == 0 || contains(archList, t.Arch)) {
+			targets = append(targets, t)
 		}
 	}
 	return targets
+}
+
+func contains(list []string, value string) bool {
+	for _, item := range list {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+
+// buildEnv replaces build-related variables instead of appending duplicates.
+func buildEnv(target Target) []string {
+	overrides := map[string]string{
+		"GOOS": target.OS, "GOARCH": target.Arch, "CGO_ENABLED": "0",
+		"GOFLAGS": "", "GOAMD64": "v1", "GOARM64": "v8.0",
+	}
+	var env []string
+	for _, entry := range os.Environ() {
+		key, _, _ := strings.Cut(entry, "=")
+		if _, replaced := overrides[strings.ToUpper(key)]; !replaced {
+			env = append(env, entry)
+		}
+	}
+	for key, value := range overrides {
+		env = append(env, key+"="+value)
+	}
+	return env
 }
 
 func formatArchiveName(version, goos, goarch string) string {
@@ -158,19 +198,52 @@ func getGitCommit() string {
 	return "none"
 }
 
-func findBundleFiles() []string {
-	candidates := []string{
+// findBundleFiles returns repository-relative paths bundled into every archive.
+// Paths are kept as-is in the archive so that testdata/eval matches the
+// default EVAL_DATASETS_DIR.
+func findBundleFiles() ([]string, error) {
+	optional := []string{
 		"README.md",
 		".env.sample",
 		"LICENSE",
 	}
+	required := []string{
+		"docs/RAG_EVALUATION_GUIDE.md",
+		"testdata/eval/sample_dataset.jsonl",
+	}
 	var found []string
-	for _, c := range candidates {
+	for _, c := range optional {
 		if _, err := os.Stat(c); err == nil {
 			found = append(found, c)
 		}
 	}
-	return found
+	for _, c := range required {
+		if _, err := os.Stat(c); err != nil {
+			return nil, fmt.Errorf("required bundle file missing: %w", err)
+		}
+		found = append(found, c)
+	}
+	return found, nil
+}
+
+// parentDirs returns the archive directory entries (e.g. "testdata/", "testdata/eval/")
+// needed for the given files, in creation order without duplicates.
+func parentDirs(files []string) []string {
+	seen := map[string]bool{}
+	var dirs []string
+	for _, f := range files {
+		var chain []string
+		for dir := filepath.ToSlash(filepath.Dir(f)); dir != "." && dir != "/"; dir = filepath.ToSlash(filepath.Dir(dir)) {
+			chain = append([]string{dir + "/"}, chain...)
+		}
+		for _, d := range chain {
+			if !seen[d] {
+				seen[d] = true
+				dirs = append(dirs, d)
+			}
+		}
+	}
+	return dirs
 }
 
 func buildAndPackage(
@@ -197,11 +270,7 @@ func buildAndPackage(
 		version, gitCommit, buildTime)
 
 	cmd := exec.Command("go", "build", "-ldflags", ldflags, "-o", binPath, "./cmd/mini-aigw")
-	cmd.Env = append(os.Environ(),
-		"CGO_ENABLED=0",
-		"GOOS="+target.OS,
-		"GOARCH="+target.Arch,
-	)
+	cmd.Env = buildEnv(target)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -257,9 +326,17 @@ func createZip(zipPath, binPath, binName string, docFiles []string) error {
 		return err
 	}
 
-	// 2. Add documentation / config files
+	// 2. Add documentation / config / eval sample files (keeping relative paths)
+	for _, dir := range parentDirs(docFiles) {
+		header := &zip.FileHeader{Name: dir, Method: zip.Store}
+		header.SetMode(os.ModeDir | 0755)
+		header.Modified = time.Now()
+		if _, err := zw.CreateHeader(header); err != nil {
+			return err
+		}
+	}
 	for _, doc := range docFiles {
-		if err := addFileToZip(zw, doc, filepath.Base(doc)); err != nil {
+		if err := addFileToZip(zw, doc, filepath.ToSlash(doc)); err != nil {
 			return err
 		}
 	}
@@ -313,9 +390,20 @@ func createTarGz(tarGzPath, binPath, binName string, docFiles []string) error {
 		return err
 	}
 
-	// 2. Add documentation / config files (mode 0644)
+	// 2. Add documentation / config / eval sample files (mode 0644, keeping relative paths)
+	for _, dir := range parentDirs(docFiles) {
+		header := &tar.Header{
+			Typeflag: tar.TypeDir,
+			Name:     dir,
+			Mode:     0755,
+			ModTime:  time.Now(),
+		}
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+	}
 	for _, doc := range docFiles {
-		if err := addFileToTar(tw, doc, filepath.Base(doc), 0644); err != nil {
+		if err := addFileToTar(tw, doc, filepath.ToSlash(doc), 0644); err != nil {
 			return err
 		}
 	}
@@ -363,4 +451,3 @@ func computeSHA256(filePath string) (string, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
-

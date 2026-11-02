@@ -103,19 +103,17 @@ go run ./cmd/server
 
 ### 3.2 マルチプラットフォーム向けリリースビルド (GitHub Releases 形式)
 
-以下のコマンド一発で全プラットフォーム（Windows, Linux, macOS 各 amd64/arm64）向けの配布パッケージを一括生成できます。
+以下のコマンド一発でサポート対象の 4 プラットフォーム（Windows amd64 / macOS arm64 / Linux amd64・arm64）向けの配布パッケージを一括生成できます。
 
 ```bash
 go run ./scripts/release -version v1.0.0
 ```
 
-各パッケージには実行バイナリのほか、`README.md` および `.env.sample` が自動同梱されます。
+各パッケージには実行バイナリのほか、`README.md`・`.env.sample`、RAG 評価用のサンプル (`testdata/eval/sample_dataset.jsonl`, `docs/RAG_EVALUATION_GUIDE.md`) が自動同梱されます。サンプルデータセットは `EVAL_DATASETS_DIR` の既定値 (`testdata/eval`) に配置されるため、展開後そのまま管理画面の評価や `mini-aigw eval` で利用できます。
 
 **生成される成果物 (`dist/` 配下):**
 - `mini-aigw_v1.0.0_windows_amd64.zip` (Windows 64-bit x64)
-- `mini-aigw_v1.0.0_windows_arm64.zip` (Windows arm64)
 - `mini-aigw_v1.0.0_darwin_arm64.tar.gz` (macOS Apple Silicon Mシリーズ)
-- `mini-aigw_v1.0.0_darwin_amd64.tar.gz` (macOS Intel)
 - `mini-aigw_v1.0.0_linux_amd64.tar.gz` (Linux 64-bit x86_64)
 - `mini-aigw_v1.0.0_linux_arm64.tar.gz` (Linux arm64 / AWS Graviton)
 - `SHA256SUMS.txt` (全アーカイブの SHA-256 チェックサム一覧)

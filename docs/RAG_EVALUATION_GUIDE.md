@@ -24,6 +24,8 @@ mini-aigw の評価システムは、閉域環境（オンプレミス・VPC内�
 
 ### サンプルファイル (`testdata/eval/sample_dataset.jsonl`)
 
+このファイルはリリースアーカイブにも同じパスで同梱されています。`EVAL_DATASETS_DIR` の既定値 (`testdata/eval`) と一致するため、展開して起動するだけで管理画面のデータセット選択に表示されます。
+
 ```jsonl
 {"id":"tc-001","query":"年次有給休暇は何日付与されますか？","group":"public","expected_doc_ids":["doc-rule-leave-01"],"expected_filenames":["就業規則_2025.pdf"],"reference_answer":"入社半年後に10日付与され、その後勤続年数に応じて最大20日まで付与されます。"}
 {"id":"tc-002","query":"営業部の出張旅費における日当の支給基準を教えてください。","group":"sales","expected_doc_ids":["doc-sales-travel-02"],"expected_filenames":["営業部旅費規程.docx"],"reference_answer":"日帰り出張の場合は1日あたり2,000円、宿泊を伴う出張の場合は1泊あたり3,500円が支給されます。"}

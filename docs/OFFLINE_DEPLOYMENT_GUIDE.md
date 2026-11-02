@@ -59,17 +59,19 @@ offline_deploy_bundle/
 インターネットに接続可能な作業端末（Linux / macOS / Windows）で、クロスコンパイルスクリプトを実行して配布パッケージを生成します。
 
 ```bash
-# 全プラットフォーム向けリリースビルド（dist/ に zip / tar.gz が生成されます）
+# 全プラットフォーム向けリリースビルド（windows/amd64, darwin/arm64, linux/amd64, linux/arm64。dist/ に zip / tar.gz が生成されます）
 go run ./scripts/release -version v1.0.0
 
-# 対象 OS を Linux に絞る場合:
+# 対象を絞る場合（-os / -arch は上記 4 ターゲットへのフィルタ）:
 go run ./scripts/release -version v1.0.0 -os linux -arch amd64
 
-# 対象 OS を Windows に絞る場合:
+# Windows のみ:
 go run ./scripts/release -version v1.0.0 -os windows -arch amd64
 ```
 
 生成されたアーカイブ（例: `mini-aigw_v1.0.0_linux_amd64.tar.gz` や `mini-aigw_v1.0.0_windows_amd64.zip`）およびチェックサムファイル（`SHA256SUMS.txt`）を、USB メディアや踏み台経由で閉域環境サーバーへ転送します。
+
+アーカイブには RAG 評価用のサンプル `testdata/eval/sample_dataset.jsonl` と `docs/RAG_EVALUATION_GUIDE.md` も同梱されています。展開先で `./mini-aigw eval -dataset testdata/eval/sample_dataset.jsonl -dry-run` を実行すると、AWS に接続せずに評価機能の動作を確認できます。
 
 ---
 
